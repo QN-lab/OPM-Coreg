@@ -21,3 +21,7 @@ The GUI will output following transforms needed for source localization problem 
 - Head to MRI transform
 
 ![Transforms summary](/docs/resources/transforms_flowchart.png)
+
+## Notes
+
+- Currently developing and testing on Python 3.11.14
