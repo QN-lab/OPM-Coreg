@@ -424,7 +424,6 @@ class AllStepsGUI(QWidget):
         if not p:
             return
         lm = {}
-        A0 = A1 = None
         with open(p, "r", newline="") as f:
             r = csv.reader(f)
             rows = list(r)
