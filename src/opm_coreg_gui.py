@@ -7,7 +7,10 @@
 #  - Step3: sensors & helmet STL -> master_scan (pairwise)  <- integrated from your working script
 #  - Step4: helmet -> MRI (fiducial) ### check this
 
-# TODO : move main GUI class to a separate file, and have a main.py that just launches the GUI (and can be extended to support CLI in the future)
+# TODO : rename members/methods containing step_xx.
+# TODO : separate all the transform calculation functions out of the GUI class into a separate utils module.
+# TODO : add docstring to all the methods in the GUI class.
+# TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
 import csv
 import os
@@ -139,6 +142,12 @@ class OPMCoregGUI(QWidget):
 
     # ---------- UI ----------
     def _build_ui(self):
+        """Build the main UI layout.
+
+        Left pane: 3D view (coil/helmet for step1, head scan for step2, helmet STL + sensors for step3, MRI for step4)
+        Right pane: 3D view (master scan for all steps, with overlays)
+        Bottom pane: controls that change based on step, plus info and toggles for overlays
+        """
         main_layout = QVBoxLayout(self)
         # two render windows
         view_layout = QHBoxLayout()
@@ -217,23 +226,35 @@ class OPMCoregGUI(QWidget):
         main_layout.addWidget(bottom, stretch=1)
 
     def _update_info(self, txt):
+        """Update the info label at the bottom with new text."""
         print(txt)
         self.info_label.setText(txt)
 
     # ---------- observer helpers ----------
     def _add_left_observer(self, evt, func):
+        """Add an observer to the left interactor style and keep track of its ID.
+
+        Args:
+            evt: The event name to observe (e.g., "LeftButtonPressEvent").
+            func: The callback function to call when the event occurs.
+        """
         style = self.left_iren.GetInteractorStyle()
         oid = style.AddObserver(evt, func)
         self._observer_ids.append(("left_style", oid))
-        return oid
 
     def _add_right_observer(self, evt, func):
+        """Add an observer to the right interactor style and keep track of its ID.
+
+        Args:
+            evt: The event name to observe (e.g., "LeftButtonPressEvent").
+            func: The callback function to call when the event occurs.
+        """
         style = self.right_iren.GetInteractorStyle()
         oid = style.AddObserver(evt, func)
         self._observer_ids.append(("right_style", oid))
-        return oid
 
     def _remove_all_observers(self):
+        """Remove all observers that have been added to the interactor styles."""
         for side, oid in list(self._observer_ids):
             try:
                 if side == "left_style":
@@ -245,11 +266,13 @@ class OPMCoregGUI(QWidget):
             self._observer_ids.remove((side, oid))
 
     def _clear_left_renderer(self):
+        """Clear all actors from the left renderer and reset the camera."""
         self.ren_left.RemoveAllViewProps()
         self.ren_left.ResetCamera()
         self.vtk_left.GetRenderWindow().Render()
 
     def _clear_right_renderer_keep_scan(self):
+        """Clear all actors from the right renderer except the helmet (master scan) and reset the camera."""
         self.ren_right.RemoveAllViewProps()
         if self.helmet_actor is not None:
             self.ren_right.AddActor(self.helmet_actor)
