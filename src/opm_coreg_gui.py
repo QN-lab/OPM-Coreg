@@ -368,17 +368,17 @@ class OPMCoregGUI(QWidget):
         try:
             if self.coil_actor_left is not None:
                 self.ren_left.RemoveActor(self.coil_actor_left)
-        except:
+        except Exception:
             pass
         for a in getattr(self, "coil_landmark_actors_left", []):
             try:
                 self.ren_left.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         try:
             if self.coil_actor_transformed is not None:
                 self.ren_right.RemoveActor(self.coil_actor_transformed)
-        except:
+        except Exception:
             pass
         self.coil_polydata = None
         self.coil_actor_left = None
@@ -407,7 +407,7 @@ class OPMCoregGUI(QWidget):
         if self.helmet_actor is not None:
             try:
                 self.ren_right.RemoveActor(self.helmet_actor)
-            except:
+            except Exception:
                 pass
         self.helmet_actor = actor_from_polydata(
             self.helmet_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
@@ -427,7 +427,7 @@ class OPMCoregGUI(QWidget):
         if self.coil_actor_left is not None:
             try:
                 self.ren_left.RemoveActor(self.coil_actor_left)
-            except:
+            except Exception:
                 pass
         self.coil_actor_left = actor_from_polydata(
             self.coil_polydata, color=(0.7, 1, 0.2), opacity=1.0
@@ -453,7 +453,7 @@ class OPMCoregGUI(QWidget):
                 lab = row[0].strip()
                 try:
                     x, y, z = float(row[1]), float(row[2]), float(row[3])
-                except:
+                except Exception:
                     continue
                 lm[lab] = np.array([x, y, z], float)
         self.coil_landmarks = lm
@@ -461,7 +461,7 @@ class OPMCoregGUI(QWidget):
         for a in getattr(self, "coil_landmark_actors_left", []):
             try:
                 self.ren_left.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.coil_landmark_actors_left = []
         for i, (lab, p3) in enumerate(self.coil_landmarks.items()):
@@ -537,7 +537,7 @@ class OPMCoregGUI(QWidget):
             if self.coil_pick_index >= len(self.coil_expected_labels):
                 try:
                     self.right_iren.RemoveObserver(obs_id)
-                except:
+                except Exception:
                     pass
 
                 self._update_info("All coil pairs picked. Click 'Compute coil→helmet'.")
@@ -613,7 +613,7 @@ class OPMCoregGUI(QWidget):
         if self.coil_actor_transformed is not None:
             try:
                 self.ren_right.RemoveActor(self.coil_actor_transformed)
-            except:
+            except Exception:
                 pass
         self.coil_actor_transformed = actor_from_polydata(
             tfilter.GetOutput(), color=(0.7, 1.0, 0.2), opacity=0.45
@@ -672,7 +672,7 @@ class OPMCoregGUI(QWidget):
         if self.head_actor is not None:
             try:
                 self.ren_left.RemoveActor(self.head_actor)
-            except:
+            except Exception:
                 pass
         self.head_actor = actor_from_polydata(
             self.head_polydata, color=(0.8, 0.8, 0.95), opacity=1.0
@@ -702,7 +702,7 @@ class OPMCoregGUI(QWidget):
                 if actor is not None:
                     try:
                         self.ren_left.RemoveActor(actor)
-                    except:
+                    except Exception:
                         pass
                 del self.head_fiducials[lbl]
                 if lbl in self.head_fiducial_actors:
@@ -869,12 +869,12 @@ class OPMCoregGUI(QWidget):
         for a in self.step2_pair_actors_left:
             try:
                 self.ren_left.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         for a in self.step2_pair_actors_right:
             try:
                 self.ren_right.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.step2_pair_actors_left = []
         self.step2_pair_actors_right = []
@@ -906,7 +906,7 @@ class OPMCoregGUI(QWidget):
                 and self.head_actor_transformed is not None
             ):
                 self.ren_right.RemoveActor(self.head_actor_transformed)
-        except:
+        except Exception:
             pass
         if self.head_polydata is None:
             return
@@ -936,7 +936,7 @@ class OPMCoregGUI(QWidget):
                     and lbl in self.head_fiducial_actors_right
                 ):
                     self.ren_right.RemoveActor(self.head_fiducial_actors_right[lbl])
-            except:
+            except Exception:
                 pass
             ac = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
             if not hasattr(self, "head_fiducial_actors_right"):
@@ -954,7 +954,7 @@ class OPMCoregGUI(QWidget):
                 and self.head_actor_transformed is not None
             ):
                 self.ren_right.RemoveActor(self.head_actor_transformed)
-        except:
+        except Exception:
             pass
         # remove right fiducials
         try:
@@ -962,16 +962,16 @@ class OPMCoregGUI(QWidget):
                 for a in self.head_fiducial_actors_right.values():
                     try:
                         self.ren_right.RemoveActor(a)
-                    except:
+                    except Exception:
                         pass
                 self.head_fiducial_actors_right = {}
-        except:
+        except Exception:
             pass
         # remove left fiducials
         for a in self.head_fiducial_actors.values():
             try:
                 self.ren_left.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.head_fiducials = {}
         self.head_fiducial_actors = {}
@@ -1022,12 +1022,12 @@ class OPMCoregGUI(QWidget):
         try:
             if self.helmet_stl_actor_left is not None:
                 self.ren_left.RemoveActor(self.helmet_stl_actor_left)
-        except:
+        except Exception:
             pass
         try:
             if self.helmet_stl_actor_overlay is not None:
                 self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
-        except:
+        except Exception:
             pass
         self.helmet_stl_raw = None
         self.helmet_stl_actor_left = None
@@ -1041,7 +1041,7 @@ class OPMCoregGUI(QWidget):
             try:
                 self.ren_left.RemoveActor(a)
                 self.ren_right.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.sensor_positions = None
         self.sensor_axes = None
@@ -1070,7 +1070,7 @@ class OPMCoregGUI(QWidget):
         if self.helmet_stl_actor_left is not None:
             try:
                 self.ren_left.RemoveActor(self.helmet_stl_actor_left)
-            except:
+            except Exception:
                 pass
         self.helmet_stl_actor_left = actor_from_polydata(
             self.helmet_stl_raw, color=(0.7, 0.9, 1.0), opacity=0.8
@@ -1116,7 +1116,7 @@ class OPMCoregGUI(QWidget):
         for a in self.sensor_actors_left:
             try:
                 self.ren_left.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.sensor_actors_left = []
         for pnt in self.sensor_positions:
@@ -1254,14 +1254,14 @@ class OPMCoregGUI(QWidget):
             for a in self.pair_actors_left:
                 try:
                     self.ren_left.RemoveActor(a)
-                except:
+                except Exception:
                     pass
 
         if hasattr(self, "pair_actors_right"):
             for a in self.pair_actors_right:
                 try:
                     self.ren_right.RemoveActor(a)
-                except:
+                except Exception:
                     pass
 
         self.pair_actors_left = []
@@ -1324,7 +1324,7 @@ class OPMCoregGUI(QWidget):
         try:
             if self.helmet_stl_actor_overlay is not None:
                 self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
-        except:
+        except Exception:
             pass
         if self.helmet_stl_raw is not None:
             tf = vtk.vtkTransform()
@@ -1342,12 +1342,12 @@ class OPMCoregGUI(QWidget):
         for a in self.transformed_sensor_actors:
             try:
                 self.ren_right.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         for a in self.transformed_vector_actors:
             try:
                 self.ren_right.RemoveActor(a)
-            except:
+            except Exception:
                 pass
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
@@ -1444,7 +1444,7 @@ class OPMCoregGUI(QWidget):
         else:
             try:
                 self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
-            except:
+            except Exception:
                 pass
         self.vtk_right.GetRenderWindow().Render()
 
@@ -1574,7 +1574,7 @@ class OPMCoregGUI(QWidget):
             for a in self.mri_fiducial_actors.values():
                 try:
                     self.ren_left.RemoveActor(a)
-                except:
+                except Exception:
                     pass
 
         self.mri_fiducial_actors = {}
@@ -1844,7 +1844,7 @@ class OPMCoregGUI(QWidget):
         if hasattr(self, "_roi_actor") and self._roi_actor is not None:
             try:
                 self.ren_left.RemoveActor(self._roi_actor)
-            except:
+            except Exception:
                 pass
 
         self._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
@@ -1920,7 +1920,7 @@ class OPMCoregGUI(QWidget):
         if hasattr(self, "_preview_actor"):
             try:
                 self.ren_right.RemoveActor(self._preview_actor)
-            except:
+            except Exception:
                 pass
 
         actor = actor_from_polydata(self._roi_head_mri, color=(1, 0, 0), opacity=0.7)
