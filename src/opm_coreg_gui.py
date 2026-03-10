@@ -11,7 +11,6 @@
 
 import csv
 import os
-import sys
 
 import mne
 import numpy as np
@@ -21,7 +20,6 @@ from mne.io import read_fiducials
 from mne.io.constants import FIFF
 from mne.transforms import Transform
 from PyQt5.QtWidgets import (
-    QApplication,
     QCheckBox,
     QFileDialog,
     QFrame,
@@ -47,8 +45,7 @@ from src.utils import (
 )
 
 
-# ---------------- Main GUI ----------------
-class AllStepsGUI(QWidget):
+class OPMCoregGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("TMS-OPM Multi-step Registration (fixed)")
@@ -2099,15 +2096,3 @@ class AllStepsGUI(QWidget):
             save_transform(self.T_head_to_mri, base + "_head_to_mri_mm")
 
         self._update_info("Auto-saved available transforms (mm).")
-
-
-# ---------- run ----------
-def main():
-    app = QApplication(sys.argv)
-    w = AllStepsGUI()
-    w.show()
-    sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
