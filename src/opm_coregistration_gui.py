@@ -35,8 +35,8 @@ from PyQt5.QtWidgets import (
 )
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
-from const import FIDUCIAL_COLORS, PAIR_COLORS
-from utils import (
+from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.utils import (
     actor_from_polydata,
     arrow_actor,
     compute_rigid_transform,
