@@ -6,8 +6,8 @@
 #  - Step2: scan of the head "outside" -> master scan (fiducials + pairwise)
 #  - Step3: sensors & helmet STL -> master_scan (pairwise)  <- integrated from your working script
 #  - Step4: helmet -> MRI (fiducial) ### check this
-#
-# Requirements: PyQt5, vtk, numpy, pandas
+
+# TODO : move main GUI class to a separate file, and have a main.py that just launches the GUI (and can be extended to support CLI in the future)
 
 import csv
 import os
@@ -35,135 +35,16 @@ from PyQt5.QtWidgets import (
 )
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
-# ---------------- Helpers / colors ----------------
-PAIR_COLORS = [
-    (1.0, 0.0, 0.0),  # Red
-    (0.0, 0.0, 1.0),  # Blue
-    (0.0, 1.0, 0.0),  # Green
-    (1.0, 1.0, 0.0),  # Yellow
-    (1.0, 0.0, 1.0),  # Magenta
-    (0.0, 1.0, 1.0),  # Cyan
-    (0.0, 1.0, 0.0),  # Lime
-    (0.580, 0.0, 0.827),  # DarkViolet
-    (1.0, 0.647, 0.0),  # Orange
-    (1.0, 0.753, 0.796),  # Pink
-]
-
-FIDUCIAL_COLORS = {
-    "NAS": (0.6, 0.0, 0.0),
-    "LPA": (0.0, 0.0, 0.6),
-    "RPA": (0.0, 0.4, 0.0),
-    "NOSE": (1.0, 0.5, 0.0),  # orange
-    "CHIN": (0.8, 0.8, 0.0),  # yellowish
-}
-
-DEEPPINK = (1.0, 0.08, 0.58)
-
-
-def compute_rigid_transform(src_pts, dst_pts):
-    src = np.asarray(src_pts, dtype=float)
-    dst = np.asarray(dst_pts, dtype=float)
-    assert src.shape == dst.shape and src.shape[0] >= 3
-    src_mean = src.mean(axis=0)
-    dst_mean = dst.mean(axis=0)
-    src_c = src - src_mean
-    dst_c = dst - dst_mean
-    H = src_c.T @ dst_c
-    U, S, Vt = np.linalg.svd(H)
-    R = Vt.T @ U.T
-    if np.linalg.det(R) < 0:
-        Vt[-1, :] *= -1
-        R = Vt.T @ U.T
-    t = dst_mean - R @ src_mean
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = t
-    errs = np.linalg.norm(((R @ src.T).T + t) - dst, axis=1)
-    rms = np.sqrt(np.mean(errs**2))
-    return T, rms, errs
-
-
-def vtk_matrix_from_numpy(T):
-    M = vtk.vtkMatrix4x4()
-    for i in range(4):
-        for j in range(4):
-            M.SetElement(i, j, float(T[i, j]))
-    return M
-
-
-def load_mesh_to_polydata(path):
-    if path.lower().endswith(".ply"):
-        r = vtk.vtkPLYReader()
-    else:
-        r = vtk.vtkSTLReader()
-    r.SetFileName(path)
-    r.Update()
-    return r.GetOutput()
-
-
-def actor_from_polydata(pd, color=(0.85, 0.85, 0.85), opacity=1.0):
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputData(pd)
-    a = vtk.vtkActor()
-    a.SetMapper(mapper)
-    a.GetProperty().SetColor(*color)
-    a.GetProperty().SetOpacity(opacity)
-    return a
-
-
-def sphere_actor(pos, color=(1, 0, 0), radius=2.5):
-    s = vtk.vtkSphereSource()
-    s.SetCenter(pos)
-    s.SetRadius(radius)
-    s.SetPhiResolution(16)
-    s.SetThetaResolution(16)
-    m = vtk.vtkPolyDataMapper()
-    m.SetInputConnection(s.GetOutputPort())
-    a = vtk.vtkActor()
-    a.SetMapper(m)
-    a.GetProperty().SetColor(*color)
-    a.GetProperty().SetAmbient(0.3)
-    a.GetProperty().SetDiffuse(0.7)
-    return a
-
-
-def arrow_actor(start, vec, scale=1.0, color=(1, 0, 0)):
-    length = np.linalg.norm(vec)
-    if length < 1e-9:
-        return None
-    direction = vec / length
-    arrow = vtk.vtkArrowSource()
-    x_axis = np.array([1.0, 0.0, 0.0])
-    v = np.cross(x_axis, direction)
-    s = np.linalg.norm(v)
-    c = np.dot(x_axis, direction)
-    R = np.eye(3)
-    if s != 0:
-        vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-        R = np.eye(3) + vx + vx @ vx * ((1 - c) / (s**2))
-    mat = vtk.vtkMatrix4x4()
-    for i in range(3):
-        for j in range(3):
-            mat.SetElement(i, j, float(R[i, j] * length * scale))
-        mat.SetElement(i, 3, float(start[i]))
-    mat.SetElement(3, 0, 0)
-    mat.SetElement(3, 1, 0)
-    mat.SetElement(3, 2, 0)
-    mat.SetElement(3, 3, 1)
-    t = vtk.vtkTransform()
-    t.SetMatrix(mat)
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(arrow.GetOutputPort())
-    a = vtk.vtkActor()
-    a.SetMapper(mapper)
-    a.SetUserTransform(t)
-    a.GetProperty().SetColor(*color)
-    return a
-
-
-def save_transform(T, out_base):
-    np.save(out_base + ".npy", T)
-    np.savetxt(out_base + ".txt", T, fmt="%.8f")
+from const import FIDUCIAL_COLORS, PAIR_COLORS
+from utils import (
+    actor_from_polydata,
+    arrow_actor,
+    compute_rigid_transform,
+    load_mesh_to_polydata,
+    save_transform,
+    sphere_actor,
+    vtk_matrix_from_numpy,
+)
 
 
 # ---------------- Main GUI ----------------
