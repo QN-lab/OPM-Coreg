@@ -516,8 +516,8 @@ class OPMCoregGUI(QWidget):
             x, y = self.right_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            ok = picker.Pick(x, y, 0, self.ren_right)
-            if not ok:
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            if not pick_success:
                 self._update_info("No pick on right.")
                 obj.OnLeftButtonDown()
                 return
@@ -737,9 +737,9 @@ class OPMCoregGUI(QWidget):
         if ps.get("mode") == "fiducials":
             x, y = self.left_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            ok = picker.Pick(x, y, 0, self.ren_left)
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
 
-            if not ok:
+            if not pick_success:
                 self._update_info("No pick on left (fiducial).")
                 obj.OnLeftButtonDown()
                 return
@@ -774,9 +774,9 @@ class OPMCoregGUI(QWidget):
         elif ps.get("mode") == "pairs" and ps.get("await") == "left":
             x, y = self.left_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            ok = picker.Pick(x, y, 0, self.ren_left)
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
 
-            if not ok:
+            if not pick_success:
                 self._update_info("No pick on left (pair).")
                 obj.OnLeftButtonDown()
                 return
@@ -807,9 +807,9 @@ class OPMCoregGUI(QWidget):
         if ps.get("mode") == "pairs" and ps.get("await") == "right":
             x, y = self.right_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            ok = picker.Pick(x, y, 0, self.ren_right)
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
 
-            if not ok:
+            if not pick_success:
                 self._update_info("No pick on right (pair).")
                 obj.OnLeftButtonDown()
                 return
@@ -1159,8 +1159,8 @@ class OPMCoregGUI(QWidget):
             x, y = self.left_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            ok = picker.Pick(x, y, 0, self.ren_left)
-            if not ok:
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
+            if not pick_success:
                 self._update_info("No pick on left (STL).")
                 obj.OnLeftButtonDown()
                 return
@@ -1191,8 +1191,8 @@ class OPMCoregGUI(QWidget):
             x, y = self.right_iren.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            ok = picker.Pick(x, y, 0, self.ren_right)
-            if not ok:
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            if not pick_success:
                 self._update_info("No pick on right (scan).")
                 obj.OnLeftButtonDown()
                 return
@@ -2020,8 +2020,8 @@ class OPMCoregGUI(QWidget):
         x, y = self.left_iren.GetEventPosition()
         picker = vtk.vtkPropPicker()
 
-        ok = picker.Pick(x, y, 0, self.ren_left)
-        if not ok:
+        pick_success = picker.Pick(x, y, 0, self.ren_left)
+        if not pick_success:
             self._update_info("No pick on left (MRI).")
             obj.OnLeftButtonDown()  # allow normal interaction
             return
