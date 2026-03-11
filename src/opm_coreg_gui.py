@@ -37,6 +37,13 @@ from PyQt5.QtWidgets import (
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.observer_helpers import (
+    add_left_observer,
+    add_right_observer,
+    clear_left_renderer,
+    clear_right_renderer_keep_scan,
+    remove_all_observers,
+)
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
@@ -232,60 +239,11 @@ class OPMCoregGUI(QWidget):
         print(txt)
         self.info_label.setText(txt)
 
-    # ---------- observer helpers ----------
-    def _add_left_observer(self, evt, func):
-        """Add an observer to the left interactor style and keep track of its ID.
-
-        Args:
-            evt: The event name to observe (e.g., "LeftButtonPressEvent").
-            func: The callback function to call when the event occurs.
-        """
-        style = self.left_iren.GetInteractorStyle()
-        oid = style.AddObserver(evt, func)
-        self._observer_ids.append(("left_style", oid))
-
-    def _add_right_observer(self, evt, func):
-        """Add an observer to the right interactor style and keep track of its ID.
-
-        Args:
-            evt: The event name to observe (e.g., "LeftButtonPressEvent").
-            func: The callback function to call when the event occurs.
-        """
-        style = self.right_iren.GetInteractorStyle()
-        oid = style.AddObserver(evt, func)
-        self._observer_ids.append(("right_style", oid))
-
-    def _remove_all_observers(self):
-        """Remove all observers that have been added to the interactor styles."""
-        for side, oid in list(self._observer_ids):
-            try:
-                if side == "left_style":
-                    self.left_iren.GetInteractorStyle().RemoveObserver(oid)
-                elif side == "right_style":
-                    self.right_iren.GetInteractorStyle().RemoveObserver(oid)
-            except Exception:
-                pass
-            self._observer_ids.remove((side, oid))
-
-    def _clear_left_renderer(self):
-        """Clear all actors from the left renderer and reset the camera."""
-        self.ren_left.RemoveAllViewProps()
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-
-    def _clear_right_renderer_keep_scan(self):
-        """Clear all actors from the right renderer except the helmet (master scan) and reset the camera."""
-        self.ren_right.RemoveAllViewProps()
-        if self.helmet_actor is not None:
-            self.ren_right.AddActor(self.helmet_actor)
-        self.ren_right.ResetCameraClippingRange()
-        self.vtk_right.GetRenderWindow().Render()
-
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
 
         # 1. Remove old observers
-        self._remove_all_observers()
+        remove_all_observers(self)
 
         # 2. Create fresh styles WITH motion factor
         style_l = vtk.vtkInteractorStyleTrackballCamera()
@@ -301,8 +259,8 @@ class OPMCoregGUI(QWidget):
         self.picking_state = {}
 
         # 3. Reset renderers
-        self._clear_left_renderer()
-        self._clear_right_renderer_keep_scan()
+        clear_left_renderer(self)
+        clear_right_renderer_keep_scan(self)
 
         # 4. Step setup
         if selected_mode == "step1":
@@ -310,17 +268,17 @@ class OPMCoregGUI(QWidget):
 
         elif selected_mode == "step2":
             self._populate_step2_controls()
-            self._add_left_observer("LeftButtonPressEvent", self._left_click_step2)
-            self._add_right_observer("LeftButtonPressEvent", self._right_click_step2)
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step2)
+            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step2)
 
         elif selected_mode == "step3":
             self._populate_step3_controls()
-            self._add_left_observer("LeftButtonPressEvent", self._left_click_step3)
-            self._add_right_observer("LeftButtonPressEvent", self._right_click_step3)
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step3)
+            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step3)
 
         elif selected_mode == "step4":
             self._populate_step4_controls()
-            self._add_left_observer("LeftButtonPressEvent", self._left_click_step4)
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step4)
 
         self._update_info(f"Mode: {selected_mode}")
 
@@ -553,7 +511,7 @@ class OPMCoregGUI(QWidget):
             # still forward event so camera doesn't freeze
             obj.OnLeftButtonDown()
 
-        obs_id = self._add_right_observer("LeftButtonPressEvent", handler)
+        obs_id = add_right_observer(self, "LeftButtonPressEvent", handler)
 
     def undo_last_aux_dev_pair(self):
         if not getattr(self, "coil_pairs_src", []):
