@@ -160,15 +160,17 @@ class OPMCoregGUI(QWidget):
         # steps list
         steps_box = QGroupBox("Steps")
         steps_v = QVBoxLayout()
-        for lbl, m in [
+        for button_label, mode in [
             ("Step 1: Coil to scan", "step1"),
             ("Step 2: Head to scan", "step2"),
             ("Step 3: Sensors to scan", "step3"),
             ("Step 4: Head to MRI", "step4"),
         ]:
-            b = QPushButton(lbl)
-            b.clicked.connect(lambda _, mm=m: self.set_mode(mm))
-            steps_v.addWidget(b)
+            button = QPushButton(button_label)
+            button.clicked.connect(
+                lambda _, selected_mode=mode: self.set_mode(selected_mode)
+            )
+            steps_v.addWidget(button)
         steps_box.setLayout(steps_v)
         ctrl_layout.addWidget(steps_box)
 
@@ -280,7 +282,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_right.GetRenderWindow().Render()
 
     # ---------- mode switching ----------
-    def set_mode(self, m):
+    def set_mode(self, selected_mode):
 
         # 1. Remove old observers
         self._remove_all_observers()
@@ -295,7 +297,7 @@ class OPMCoregGUI(QWidget):
         self.left_iren.SetInteractorStyle(style_l)
         self.right_iren.SetInteractorStyle(style_r)
 
-        self.mode = m
+        self.mode = selected_mode
         self.picking_state = {}
 
         # 3. Reset renderers
@@ -303,24 +305,24 @@ class OPMCoregGUI(QWidget):
         self._clear_right_renderer_keep_scan()
 
         # 4. Step setup
-        if m == "step1":
+        if selected_mode == "step1":
             self._populate_step1_controls()
 
-        elif m == "step2":
+        elif selected_mode == "step2":
             self._populate_step2_controls()
             self._add_left_observer("LeftButtonPressEvent", self._left_click_step2)
             self._add_right_observer("LeftButtonPressEvent", self._right_click_step2)
 
-        elif m == "step3":
+        elif selected_mode == "step3":
             self._populate_step3_controls()
             self._add_left_observer("LeftButtonPressEvent", self._left_click_step3)
             self._add_right_observer("LeftButtonPressEvent", self._right_click_step3)
 
-        elif m == "step4":
+        elif selected_mode == "step4":
             self._populate_step4_controls()
             self._add_left_observer("LeftButtonPressEvent", self._left_click_step4)
 
-        self._update_info(f"Mode: {m}")
+        self._update_info(f"Mode: {selected_mode}")
 
     def _clear_step_controls(self):
         for i in reversed(range(self.step_ctrl_layout.count())):
@@ -370,9 +372,9 @@ class OPMCoregGUI(QWidget):
                 self.ren_left.RemoveActor(self.coil_actor_left)
         except Exception:
             pass
-        for a in getattr(self, "coil_landmark_actors_left", []):
+        for actor in getattr(self, "coil_landmark_actors_left", []):
             try:
-                self.ren_left.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
             except Exception:
                 pass
         try:
@@ -394,16 +396,16 @@ class OPMCoregGUI(QWidget):
         self._update_info("Step1 restarted.")
 
     def load_master_scan(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self,
             "Select master scan (with participant in the helmet)",
             "",
             "PLY/STL Files (*.ply *.stl)",
         )
-        if not p:
+        if not filepath:
             return
-        self.helmet_polydata = load_mesh_to_polydata(p)
-        self.helmet_filename = os.path.basename(p)
+        self.helmet_polydata = load_mesh_to_polydata(filepath)
+        self.helmet_filename = os.path.basename(filepath)
         if self.helmet_actor is not None:
             try:
                 self.ren_right.RemoveActor(self.helmet_actor)
@@ -418,12 +420,12 @@ class OPMCoregGUI(QWidget):
         self._update_info(f"Loaded master scan: {self.helmet_filename}")
 
     def load_aux_dev_stl(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Select coil STL", "", "STL Files (*.stl)"
         )
-        if not p:
+        if not filepath:
             return
-        self.coil_polydata = load_mesh_to_polydata(p)
+        self.coil_polydata = load_mesh_to_polydata(filepath)
         if self.coil_actor_left is not None:
             try:
                 self.ren_left.RemoveActor(self.coil_actor_left)
@@ -438,13 +440,13 @@ class OPMCoregGUI(QWidget):
         self._update_info("Loaded coil STL (left).")
 
     def load_aux_dev_landmarks(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Select coil landmarks CSV", "", "CSV Files (*.csv)"
         )
-        if not p:
+        if not filepath:
             return
         lm = {}
-        with open(p, "r", newline="") as f:
+        with open(filepath, "r", newline="") as f:
             r = csv.reader(f)
             rows = list(r)
             for row in rows[1:]:
@@ -458,17 +460,17 @@ class OPMCoregGUI(QWidget):
                 lm[lab] = np.array([x, y, z], float)
         self.coil_landmarks = lm
         # draw landmarks on left
-        for a in getattr(self, "coil_landmark_actors_left", []):
+        for actor in getattr(self, "coil_landmark_actors_left", []):
             try:
-                self.ren_left.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
             except Exception:
                 pass
         self.coil_landmark_actors_left = []
-        for i, (lab, p3) in enumerate(self.coil_landmarks.items()):
-            c = PAIR_COLORS[i % len(PAIR_COLORS)]
-            ac = sphere_actor(p3, color=c, radius=3.5)
-            self.ren_left.AddActor(ac)
-            self.coil_landmark_actors_left.append(ac)
+        for i, (lab, point_coords) in enumerate(self.coil_landmarks.items()):
+            selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
+            actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
+            self.ren_left.AddActor(actor)
+            self.coil_landmark_actors_left.append(actor)
         self.vtk_left.GetRenderWindow().Render()
         self._update_info(f"Loaded {len(self.coil_landmarks)} coil landmarks.")
 
@@ -526,9 +528,9 @@ class OPMCoregGUI(QWidget):
             self.coil_pairs_src.append(self.coil_landmarks[lab])
             self.coil_pairs_dst.append(pos)
 
-            c = PAIR_COLORS[self.coil_pick_index % len(PAIR_COLORS)]
+            selected_color = PAIR_COLORS[self.coil_pick_index % len(PAIR_COLORS)]
 
-            self.ren_right.AddActor(sphere_actor(pos, color=c, radius=3.5))
+            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
 
             self.vtk_right.GetRenderWindow().Render()
 
@@ -565,8 +567,8 @@ class OPMCoregGUI(QWidget):
         if self.helmet_actor is not None:
             self.ren_right.AddActor(self.helmet_actor)
         for i, pos in enumerate(self.coil_pairs_dst):
-            c = PAIR_COLORS[i % len(PAIR_COLORS)]
-            self.ren_right.AddActor(sphere_actor(pos, color=c, radius=3.5))
+            selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
+            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
         if self.coil_actor_transformed is not None:
             self.ren_right.AddActor(self.coil_actor_transformed)
         self.vtk_right.GetRenderWindow().Render()
@@ -663,12 +665,12 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b8, r, 0)
 
     def load_head_scan(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Select OUTSIDE head scan (LEFT)", "", "PLY/STL Files (*.ply *.stl)"
         )
-        if not p:
+        if not filepath:
             return
-        self.head_polydata = load_mesh_to_polydata(p)
+        self.head_polydata = load_mesh_to_polydata(filepath)
         if self.head_actor is not None:
             try:
                 self.ren_left.RemoveActor(self.head_actor)
@@ -680,7 +682,7 @@ class OPMCoregGUI(QWidget):
         self.ren_left.AddActor(self.head_actor)
         self.ren_left.ResetCamera()
         self.vtk_left.GetRenderWindow().Render()
-        self._update_info(f"Loaded outside head scan: {os.path.basename(p)}")
+        self._update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
 
     def start_fiducial_mode_step2(self):
         # enable picking fiducials on left: pick NAS,LPA,RPA in order (SHIFT+click)
@@ -821,13 +823,13 @@ class OPMCoregGUI(QWidget):
                 return
 
             idx = len(self.step2_pairs_head)
-            c = PAIR_COLORS[idx % len(PAIR_COLORS)]
+            selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
             self.step2_pairs_head.append(pos_left)
             self.step2_pairs_scan.append(pos_scan)
 
-            a_l = sphere_actor(pos_left, color=c, radius=3.0)
-            a_r = sphere_actor(pos_scan, color=c, radius=3.0)
+            a_l = sphere_actor(pos_left, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
 
             self.ren_left.AddActor(a_l)
             self.ren_right.AddActor(a_r)
@@ -854,11 +856,11 @@ class OPMCoregGUI(QWidget):
         self.step2_pairs_head.pop()
         self.step2_pairs_scan.pop()
         if self.step2_pair_actors_left:
-            a = self.step2_pair_actors_left.pop()
-            self.ren_left.RemoveActor(a)
+            actor = self.step2_pair_actors_left.pop()
+            self.ren_left.RemoveActor(actor)
         if self.step2_pair_actors_right:
-            b = self.step2_pair_actors_right.pop()
-            self.ren_right.RemoveActor(b)
+            actor = self.step2_pair_actors_right.pop()
+            self.ren_right.RemoveActor(actor)
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
         self._update_info(
@@ -866,14 +868,14 @@ class OPMCoregGUI(QWidget):
         )
 
     def _clear_step2_pair_markers(self):
-        for a in self.step2_pair_actors_left:
+        for actor in self.step2_pair_actors_left:
             try:
-                self.ren_left.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
             except Exception:
                 pass
-        for a in self.step2_pair_actors_right:
+        for actor in self.step2_pair_actors_right:
             try:
-                self.ren_right.RemoveActor(a)
+                self.ren_right.RemoveActor(actor)
             except Exception:
                 pass
         self.step2_pair_actors_left = []
@@ -925,10 +927,10 @@ class OPMCoregGUI(QWidget):
         self.head_actor_transformed = actor
         self.ren_right.AddActor(actor)
         # transform fiducials too and plot on right
-        R = T[:3, :3]
-        t = T[:3, 3]
+        rotation = T[:3, :3]
+        translation = T[:3, 3]
         for lbl, p in self.head_fiducials.items():
-            p_hel = R @ p + t
+            p_hel = rotation @ p + translation
             try:
                 # if existing fid actor on right, remove it first
                 if (
@@ -938,11 +940,11 @@ class OPMCoregGUI(QWidget):
                     self.ren_right.RemoveActor(self.head_fiducial_actors_right[lbl])
             except Exception:
                 pass
-            ac = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
+            actor = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
             if not hasattr(self, "head_fiducial_actors_right"):
                 self.head_fiducial_actors_right = {}
-            self.ren_right.AddActor(ac)
-            self.head_fiducial_actors_right[lbl] = ac
+            self.ren_right.AddActor(actor)
+            self.head_fiducial_actors_right[lbl] = actor
         self.ren_right.ResetCameraClippingRange()
         self.vtk_right.GetRenderWindow().Render()
 
@@ -959,18 +961,18 @@ class OPMCoregGUI(QWidget):
         # remove right fiducials
         try:
             if hasattr(self, "head_fiducial_actors_right"):
-                for a in self.head_fiducial_actors_right.values():
+                for actor in self.head_fiducial_actors_right.values():
                     try:
-                        self.ren_right.RemoveActor(a)
+                        self.ren_right.RemoveActor(actor)
                     except Exception:
                         pass
                 self.head_fiducial_actors_right = {}
         except Exception:
             pass
         # remove left fiducials
-        for a in self.head_fiducial_actors.values():
+        for actor in self.head_fiducial_actors.values():
             try:
-                self.ren_left.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
             except Exception:
                 pass
         self.head_fiducials = {}
@@ -1033,14 +1035,14 @@ class OPMCoregGUI(QWidget):
         self.helmet_stl_actor_left = None
         self.helmet_stl_actor_overlay = None
         # sensors
-        for a in (
+        for actor in (
             self.sensor_actors_left
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
         ):
             try:
-                self.ren_left.RemoveActor(a)
-                self.ren_right.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
+                self.ren_right.RemoveActor(actor)
             except Exception:
                 pass
         self.sensor_positions = None
@@ -1061,12 +1063,12 @@ class OPMCoregGUI(QWidget):
         self._update_info("Restarted Step3.")
 
     def load_helmet_cad(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Load helmet STL", "", "STL/PLY Files (*.stl *.ply)"
         )
-        if not p:
+        if not filepath:
             return
-        self.helmet_stl_raw = load_mesh_to_polydata(p)
+        self.helmet_stl_raw = load_mesh_to_polydata(filepath)
         if self.helmet_stl_actor_left is not None:
             try:
                 self.ren_left.RemoveActor(self.helmet_stl_actor_left)
@@ -1078,15 +1080,15 @@ class OPMCoregGUI(QWidget):
         self.ren_left.AddActor(self.helmet_stl_actor_left)
         self.ren_left.ResetCamera()
         self.vtk_left.GetRenderWindow().Render()
-        self._update_info(f"Loaded helmet STL: {os.path.basename(p)}")
+        self._update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
 
     def load_sensor_csv(self):
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Load sensor CSV", "", "CSV Files (*.csv)"
         )
-        if not p:
+        if not filepath:
             return
-        df = pd.read_csv(p)
+        df = pd.read_csv(filepath)
         cols = [
             "X",
             "Y",
@@ -1101,34 +1103,34 @@ class OPMCoregGUI(QWidget):
             "z_j",
             "z_k",
         ]
-        for c in cols:
-            if c not in df.columns:
-                self._update_info(f"CSV missing column: {c}")
+        for column in cols:
+            if column not in df.columns:
+                self._update_info(f"CSV missing column: {column}")
                 return
         self.sensor_df = df.copy()
-        self.sensor_csv_path = p
+        self.sensor_csv_path = filepath
         self.sensor_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
         x = df[["x_i", "x_j", "x_k"]].to_numpy(dtype=float)
         y = df[["y_i", "y_j", "y_k"]].to_numpy(dtype=float)
         z = df[["z_i", "z_j", "z_k"]].to_numpy(dtype=float)
         self.sensor_axes = np.stack([x, y, z], axis=1)
         # display original sensors on LEFT (on top of STL)
-        for a in self.sensor_actors_left:
+        for actor in self.sensor_actors_left:
             try:
-                self.ren_left.RemoveActor(a)
+                self.ren_left.RemoveActor(actor)
             except Exception:
                 pass
         self.sensor_actors_left = []
         for pnt in self.sensor_positions:
-            ac = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-            self.ren_left.AddActor(ac)
-            self.sensor_actors_left.append(ac)
+            actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+            self.ren_left.AddActor(actor)
+            self.sensor_actors_left.append(actor)
         # show vectors on left if toggled
         self._draw_sensor_vectors_left()
         self.ren_left.ResetCamera()
         self.vtk_left.GetRenderWindow().Render()
         self._update_info(
-            f"Loaded sensor CSV: {os.path.basename(p)} ({len(self.sensor_positions)} sensors)."
+            f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(self.sensor_positions)} sensors)."
         )
 
     def start_pairs_step3(self):
@@ -1207,10 +1209,10 @@ class OPMCoregGUI(QWidget):
             self.ref_point_pairs_scan.append(pos_scan)
 
             idx = len(self.ref_point_pairs_helmet_stl) - 1
-            c = PAIR_COLORS[idx % len(PAIR_COLORS)]
+            selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
-            a_l = sphere_actor(pos_stl, color=c, radius=3.0)
-            a_r = sphere_actor(pos_scan, color=c, radius=3.0)
+            a_l = sphere_actor(pos_stl, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
 
             self.ren_left.AddActor(a_l)
             self.ren_right.AddActor(a_r)
@@ -1237,11 +1239,11 @@ class OPMCoregGUI(QWidget):
         self.ref_point_pairs_helmet_stl.pop()
         self.ref_point_pairs_scan.pop()
         if self.pair_actors_left:
-            a = self.pair_actors_left.pop()
-            self.ren_left.RemoveActor(a)
+            actor = self.pair_actors_left.pop()
+            self.ren_left.RemoveActor(actor)
         if self.pair_actors_right:
-            b = self.pair_actors_right.pop()
-            self.ren_right.RemoveActor(b)
+            actor = self.pair_actors_right.pop()
+            self.ren_right.RemoveActor(actor)
         # re-render and re-add transformed if present
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
@@ -1251,16 +1253,16 @@ class OPMCoregGUI(QWidget):
 
     def _clear_step3_pair_markers(self):
         if hasattr(self, "pair_actors_left"):
-            for a in self.pair_actors_left:
+            for actor in self.pair_actors_left:
                 try:
-                    self.ren_left.RemoveActor(a)
+                    self.ren_left.RemoveActor(actor)
                 except Exception:
                     pass
 
         if hasattr(self, "pair_actors_right"):
-            for a in self.pair_actors_right:
+            for actor in self.pair_actors_right:
                 try:
-                    self.ren_right.RemoveActor(a)
+                    self.ren_right.RemoveActor(actor)
                 except Exception:
                     pass
 
@@ -1319,8 +1321,8 @@ class OPMCoregGUI(QWidget):
 
     def _overlay_step3_transformed(self, T):
         # transformed STL preview on RIGHT
-        R = T[:3, :3]
-        t = T[:3, 3]
+        rotation = T[:3, :3]
+        translation = T[:3, 3]
         try:
             if self.helmet_stl_actor_overlay is not None:
                 self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
@@ -1339,28 +1341,28 @@ class OPMCoregGUI(QWidget):
             if self.cb_stl.isChecked():
                 self.ren_right.AddActor(self.helmet_stl_actor_overlay)
         # transformed sensors on right
-        for a in self.transformed_sensor_actors:
+        for actor in self.transformed_sensor_actors:
             try:
-                self.ren_right.RemoveActor(a)
+                self.ren_right.RemoveActor(actor)
             except Exception:
                 pass
-        for a in self.transformed_vector_actors:
+        for actor in self.transformed_vector_actors:
             try:
-                self.ren_right.RemoveActor(a)
+                self.ren_right.RemoveActor(actor)
             except Exception:
                 pass
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         if self.sensor_positions is not None:
-            pts_t = (R @ self.sensor_positions.T).T + t
+            pts_t = (rotation @ self.sensor_positions.T).T + translation
             for p in pts_t:
-                a = sphere_actor(p, color=(0.6, 0.0, 0.6), radius=3.2)
-                self.ren_right.AddActor(a)
-                self.transformed_sensor_actors.append(a)
+                actor = sphere_actor(p, color=(0.6, 0.0, 0.6), radius=3.2)
+                self.ren_right.AddActor(actor)
+                self.transformed_sensor_actors.append(actor)
             if self.cb_vec.isChecked() and (self.sensor_axes is not None):
                 axes_t = np.empty_like(self.sensor_axes)
                 for i in range(3):
-                    axes_t[:, i, :] = (R @ self.sensor_axes[:, i, :].T).T
+                    axes_t[:, i, :] = (rotation @ self.sensor_axes[:, i, :].T).T
                 for p, vecs in zip(pts_t, axes_t):
                     for vec, color in [
                         (vecs[0], (1, 0, 0)),
@@ -1377,15 +1379,15 @@ class OPMCoregGUI(QWidget):
     def _save_transformed_sensors_csv(self, T, base):
         if self.sensor_positions is None:
             return
-        R = T[:3, :3]
-        t = T[:3, 3]
-        pts_t = (R @ self.sensor_positions.T).T + t
+        rotation = T[:3, :3]
+        translation = T[:3, 3]
+        pts_t = (rotation @ self.sensor_positions.T).T + translation
         df_out = self.sensor_df.copy()
         df_out[["X", "Y", "Z"]] = pts_t
         if self.sensor_axes is not None:
             axes_t = np.empty_like(self.sensor_axes)
             for i in range(3):
-                axes_t[:, i, :] = (R @ self.sensor_axes[:, i, :].T).T
+                axes_t[:, i, :] = (rotation @ self.sensor_axes[:, i, :].T).T
             df_out["x_i"] = axes_t[:, 0, 0]
             df_out["x_j"] = axes_t[:, 0, 1]
             df_out["x_k"] = axes_t[:, 0, 2]
@@ -1412,9 +1414,9 @@ class OPMCoregGUI(QWidget):
         self.sensor_actors_left = []
         if self.sensor_positions is not None:
             for pnt in self.sensor_positions:
-                a = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-                self.ren_left.AddActor(a)
-                self.sensor_actors_left.append(a)
+                actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+                self.ren_left.AddActor(actor)
+                self.sensor_actors_left.append(actor)
         if self.cb_vec.isChecked() and (self.sensor_axes is not None):
             for p, vecs in zip(self.sensor_positions, self.sensor_axes):
                 for vec, color in [
@@ -1516,13 +1518,13 @@ class OPMCoregGUI(QWidget):
 
     def load_mri_mesh(self):
 
-        p, _ = QFileDialog.getOpenFileName(
+        filepath, _ = QFileDialog.getOpenFileName(
             self, "Load MRI mesh", "", "PLY/STL Files (*.ply *.stl)"
         )
-        if not p:
+        if not filepath:
             return
 
-        self.mri_polydata = load_mesh_to_polydata(p)
+        self.mri_polydata = load_mesh_to_polydata(filepath)
 
         # -------------------------------------------------
         # AUTO-DETECT UNIT SCALE
@@ -1571,9 +1573,9 @@ class OPMCoregGUI(QWidget):
 
         # Remove old actors
         if hasattr(self, "mri_fiducial_actors"):
-            for a in self.mri_fiducial_actors.values():
+            for actor in self.mri_fiducial_actors.values():
                 try:
-                    self.ren_left.RemoveActor(a)
+                    self.ren_left.RemoveActor(actor)
                 except Exception:
                     pass
 
@@ -1628,11 +1630,11 @@ class OPMCoregGUI(QWidget):
 
         required = ["NAS", "LPA", "RPA"]
 
-        if not all(k in self.head_fiducials for k in required):
+        if not all(fid in self.head_fiducials for fid in required):
             self._update_info("Head fiducials missing (Step2).")
             return
 
-        if not all(k in self.mri_fiducials for k in required):
+        if not all(fid in self.mri_fiducials for fid in required):
             self._update_info("MRI fiducials missing.")
             return
 
@@ -1697,7 +1699,7 @@ class OPMCoregGUI(QWidget):
     def extract_face_roi(self, polydata, fid_dict, plane_offset_mm=15.0):
 
         required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-        if not all(k in fid_dict for k in required):
+        if not all(fid in fid_dict for fid in required):
             print("ROI extraction: missing fiducials")
             return None
 
@@ -1710,10 +1712,10 @@ class OPMCoregGUI(QWidget):
         # --------------------------------------------------
         # 1) ROI center (face region)
         # --------------------------------------------------
-        pts = np.vstack([nas, lpa, rpa, nose, chin])
-        roi_center = np.mean(pts, axis=0)
+        fiducial_points = np.vstack([nas, lpa, rpa, nose, chin])
+        roi_center = np.mean(fiducial_points, axis=0)
 
-        max_dist = np.max(np.linalg.norm(pts - roi_center, axis=1))
+        max_dist = np.max(np.linalg.norm(fiducial_points - roi_center, axis=1))
         roi_radius = 2.2 * max_dist  # larger radius to include LPA/RPA fully
 
         # --------------------------------------------------
@@ -1786,19 +1788,21 @@ class OPMCoregGUI(QWidget):
         locator.SetDataSet(dst_poly)
         locator.BuildLocator()
 
-        pts = src_poly.GetPoints()
-        n = pts.GetNumberOfPoints()
+        src_points = src_poly.GetPoints()
+        num_points = src_points.GetNumberOfPoints()
 
-        d2 = []
+        squared_distances = []
 
-        for i in range(n):
-            p = pts.GetPoint(i)
-            idx = locator.FindClosestPoint(p)
-            q = dst_poly.GetPoint(idx)
-            d2.append(np.sum((np.array(p) - np.array(q)) ** 2))
+        for i in range(num_points):
+            src_point = src_points.GetPoint(i)
+            closest_idx = locator.FindClosestPoint(src_point)
+            closest_dst_point = dst_poly.GetPoint(closest_idx)
+            squared_distances.append(
+                np.sum((np.array(src_point) - np.array(closest_dst_point)) ** 2)
+            )
 
-        d2 = np.array(d2)
-        return np.sqrt(np.mean(d2))
+        squared_distances = np.array(squared_distances)
+        return np.sqrt(np.mean(squared_distances))
 
     def run_icp_head_to_mri(self):
 
@@ -1811,7 +1815,7 @@ class OPMCoregGUI(QWidget):
             return
 
         if not all(
-            k in self.head_fiducials for k in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+            fid in self.head_fiducials for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
         ):
             self._update_info("Need 5 head fiducials.")
             return
@@ -1871,10 +1875,10 @@ class OPMCoregGUI(QWidget):
 
         # Extract matrix
         T_icp = np.eye(4)
-        m = icp.GetMatrix()
-        for i in range(4):
-            for j in range(4):
-                T_icp[i, j] = m.GetElement(i, j)
+        icp_matrix = icp.GetMatrix()
+        for row in range(4):
+            for col in range(4):
+                T_icp[row, col] = icp_matrix.GetElement(row, col)
 
         # Compose
         self.T_head_to_mri = T_icp @ self.T_head_to_mri
@@ -2028,10 +2032,10 @@ class OPMCoregGUI(QWidget):
             if lbl not in self.mri_fiducials:
                 self.mri_fiducials[lbl] = pos
 
-                a = sphere_actor(pos, color=FIDUCIAL_COLORS[lbl], radius=3.5)
+                actor = sphere_actor(pos, color=FIDUCIAL_COLORS[lbl], radius=3.5)
 
-                self.ren_left.AddActor(a)
-                self.mri_fiducial_actors[lbl] = a
+                self.ren_left.AddActor(actor)
+                self.mri_fiducial_actors[lbl] = actor
 
                 self.vtk_left.GetRenderWindow().Render()
 
@@ -2061,8 +2065,8 @@ class OPMCoregGUI(QWidget):
         for lbl, p in self.head_fiducials.items():
             helmet_fids[lbl] = R_oh @ p + t_oh
         # order NAS,LPA,RPA
-        src = np.vstack([helmet_fids[l] for l in ["NAS", "LPA", "RPA"]])
-        dst = np.vstack([self.mri_fiducials[l] for l in ["NAS", "LPA", "RPA"]])
+        src = np.vstack([helmet_fids[fid] for fid in ["NAS", "LPA", "RPA"]])
+        dst = np.vstack([self.mri_fiducials[fid] for fid in ["NAS", "LPA", "RPA"]])
         T, rms, errs = compute_rigid_transform(src, dst)
         self.T_scan_to_mri = T
         self._update_info(
