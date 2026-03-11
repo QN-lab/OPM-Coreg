@@ -44,6 +44,13 @@ from src.observer_helpers import (
     clear_right_renderer_keep_scan,
     remove_all_observers,
 )
+from src.toggle_helpers import (
+    toggle_aux_dev_overlay,
+    toggle_head_overlay,
+    toggle_helmet_overlay,
+    toggle_mri_overlay,
+    toggle_vectors,
+)
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
@@ -196,24 +203,32 @@ class OPMCoregGUI(QWidget):
 
         self.cb_show_aux_dev = QCheckBox("TMS coil (Step 1)")
         self.cb_show_aux_dev.setChecked(True)
-        self.cb_show_aux_dev.stateChanged.connect(self._toggle_aux_dev_overlay)
+        self.cb_show_aux_dev.stateChanged.connect(
+            lambda state: toggle_aux_dev_overlay(self, state)
+        )
         info_v.addWidget(self.cb_show_aux_dev)
 
         self.cb_show_head = QCheckBox("Head scan (Step 2)")
         self.cb_show_head.setChecked(True)
-        self.cb_show_head.stateChanged.connect(self._toggle_head_overlay)
+        self.cb_show_head.stateChanged.connect(
+            lambda state: toggle_head_overlay(self, state)
+        )
         info_v.addWidget(self.cb_show_head)
         self.cb_stl = QCheckBox("Sensors (Step 3)")
         self.cb_stl.setChecked(True)
-        self.cb_stl.stateChanged.connect(self._toggle_helmet_overlay)
+        self.cb_stl.stateChanged.connect(
+            lambda state: toggle_helmet_overlay(self, state)
+        )
         info_v.addWidget(self.cb_stl)
         self.cb_vec = QCheckBox("Unit vectors (Step 3)")
-        self.cb_vec.stateChanged.connect(self._toggle_vectors)
+        self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
         info_v.addWidget(self.cb_vec)
 
         self.cb_show_mri = QCheckBox("MRI (Step 4)")
         self.cb_show_mri.setChecked(True)
-        self.cb_show_mri.stateChanged.connect(self._toggle_mri_overlay)
+        self.cb_show_mri.stateChanged.connect(
+            lambda state: toggle_mri_overlay(self, state)
+        )
         info_v.addWidget(self.cb_show_mri)
 
         self.btn_save_all = QPushButton("Auto-save available transforms")
@@ -241,11 +256,11 @@ class OPMCoregGUI(QWidget):
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
-
+        """Switch to a different step/mode, resetting state and UI as needed."""
         # 1. Remove old observers
         remove_all_observers(self)
 
-        # 2. Create fresh styles WITH motion factor
+        # 2. Create fresh styles with motion factor
         style_l = vtk.vtkInteractorStyleTrackballCamera()
         style_l.SetMotionFactor(4.0)
 
@@ -283,6 +298,7 @@ class OPMCoregGUI(QWidget):
         self._update_info(f"Mode: {selected_mode}")
 
     def _clear_step_controls(self):
+        """Remove all widgets from the step controls layout."""
         for i in reversed(range(self.step_ctrl_layout.count())):
             w = self.step_ctrl_layout.itemAt(i).widget()
             if w:
@@ -1387,56 +1403,6 @@ class OPMCoregGUI(QWidget):
                         self.ren_left.AddActor(ar)
         self.ren_left.ResetCamera()
         self.vtk_left.GetRenderWindow().Render()
-
-    # toggles
-    def _toggle_vectors(self, state):
-        self.show_vectors = bool(state)
-        # redraw left vectors and transformed vectors if transform exists
-        self._draw_sensor_vectors_left()
-        if self.T_dev_to_scan is not None:
-            self._overlay_step3_transformed(self.T_dev_to_scan)
-
-    def _toggle_helmet_overlay(self, state):
-        if self.helmet_stl_actor_overlay is None:
-            return
-        if self.cb_stl.isChecked():
-            self.ren_right.AddActor(self.helmet_stl_actor_overlay)
-        else:
-            try:
-                self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
-            except Exception:
-                pass
-        self.vtk_right.GetRenderWindow().Render()
-
-    def _toggle_aux_dev_overlay(self, state):
-        if self.coil_actor_transformed is None:
-            return
-        if state:
-            self.ren_right.AddActor(self.coil_actor_transformed)
-        else:
-            self.ren_right.RemoveActor(self.coil_actor_transformed)
-        self.vtk_right.GetRenderWindow().Render()
-
-    def _toggle_head_overlay(self, state):
-        if (
-            not hasattr(self, "head_actor_transformed")
-            or self.head_actor_transformed is None
-        ):
-            return
-        if state:
-            self.ren_right.AddActor(self.head_actor_transformed)
-        else:
-            self.ren_right.RemoveActor(self.head_actor_transformed)
-        self.vtk_right.GetRenderWindow().Render()
-
-    def _toggle_mri_overlay(self, state):
-        if not hasattr(self, "mri_actor_right") or self.mri_actor_right is None:
-            return
-        if state:
-            self.ren_right.AddActor(self.mri_actor_right)
-        else:
-            self.ren_right.RemoveActor(self.mri_actor_right)
-        self.vtk_right.GetRenderWindow().Render()
 
     # ---------------------------------------------------------
     # ----------------- STEP 4 (head -> MRI) -----------------
