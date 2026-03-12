@@ -1,3 +1,5 @@
+"""Helper functions to load files based on GUI actions, and update the GUI state accordingly."""
+
 import csv
 import os
 

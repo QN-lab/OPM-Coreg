@@ -31,6 +31,12 @@ from PyQt5.QtWidgets import (
 )
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from src.compute_helpers import (
+    compute_aux_dev_to_scan,
+    compute_head_to_scan,
+    compute_sensors_transform,
+    compute_head_to_mri_initial,
+)
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.file_loading_helpers import (
     load_aux_dev_landmarks,
@@ -59,7 +65,6 @@ from src.toggle_helpers import (
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
-    compute_rigid_transform,
     save_transform,
     sphere_actor,
     vtk_matrix_from_numpy,
@@ -333,7 +338,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b5, r, 0)
         r += 1
         b6 = QPushButton("Compute coil to master scan transform")
-        b6.clicked.connect(self.compute_aux_dev_to_scan)
+        b6.clicked.connect(lambda: compute_aux_dev_to_scan(self))
         self.step_ctrl_layout.addWidget(b6, r, 0)
         r += 1
         b7 = QPushButton("Preview coil on master scan")
@@ -473,34 +478,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_right.GetRenderWindow().Render()
         self._update_info("Undid last coil pair.")
 
-    def compute_aux_dev_to_scan(self):
-        if not getattr(self, "coil_pairs_src", None) or len(self.coil_pairs_src) < 3:
-            self._update_info("Need ≥3 coil pairs.")
-            return
-        src = np.vstack(self.coil_pairs_src)
-        dst = np.vstack(self.coil_pairs_dst)
-        T, rms, errs = compute_rigid_transform(src, dst)
-        self.aux_dev_to_scan = T
-        self._update_info(
-            f"Computed coil to master scan transform RMS={rms:.3f} mm. Saved transform."
-        )
-        # auto save
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-        save_transform(T, base + "_aux_dev_to_scan")
-
-    def compute_aux_to_device(self):
-        if self.aux_dev_to_scan is None or self.T_dev_to_scan is None:
-            self._update_info("Need Step1 and Step3 transforms.")
-            return
-
-        T_scan_to_dev = np.linalg.inv(self.T_dev_to_scan)
-        T_aux_to_device = T_scan_to_dev @ self.aux_dev_to_scan
-
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-        save_transform(T_aux_to_device, base + "_aux_to_device")
-
-        self._update_info("Saved aux→device transform.")
-
     def merge_aux_dev_into_helmet(self):
         if self.coil_polydata is None or self.aux_dev_to_scan is None:
             self._update_info("Need coil STL and T_aux_dev_to_scan first.")
@@ -556,7 +533,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b6, r, 0)
         r += 1
         b7 = QPushButton("Compute outside->helmet")
-        b7.clicked.connect(self.compute_head_to_scan)
+        b7.clicked.connect(lambda: compute_head_to_scan(self))
         self.step_ctrl_layout.addWidget(b7, r, 0)
         r += 1
         b8 = QPushButton("Restart Step 2")
@@ -762,23 +739,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
 
-    def compute_head_to_scan(self):
-        if len(self.step2_pairs_head) < 3:
-            self._update_info("Need at least 3 Step2 pairs to compute transform.")
-            return
-        src = np.vstack(self.step2_pairs_head)
-        dst = np.vstack(self.step2_pairs_scan)
-        T, rms, errs = compute_rigid_transform(src, dst)
-        self.T_head_to_scan = T
-        self._update_info(
-            f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto RIGHT."
-        )
-        # overlay transformed head scan on right (light orange)
-        self._overlay_head_transformed(T)
-        # save transform
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-        save_transform(T, base + "_head_to_scan")
-
     def _overlay_head_transformed(self, T):
         # remove old transformed head scan if any
         try:
@@ -891,7 +851,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b5, r, 0)
         r += 1
         b6 = QPushButton("Compute transform & save sensors")
-        b6.clicked.connect(self.compute_sensors_transform)
+        b6.clicked.connect(lambda: compute_sensors_transform(self))
         self.step_ctrl_layout.addWidget(b6, r, 0)
         r += 1
         b7 = QPushButton("Restart Step3")
@@ -1080,53 +1040,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
 
-    def compute_sensors_transform(self):
-        if len(self.ref_point_pairs_helmet_stl) < 3:
-            self._update_info("Need ≥3 Step3 pairs.")
-            return
-        src = np.vstack(self.ref_point_pairs_helmet_stl)
-        dst = np.vstack(self.ref_point_pairs_scan)
-        T, rms, errs = compute_rigid_transform(src, dst)
-        self.T_dev_to_scan = T
-        # -------------------------------------------------
-        # Compute aux -> device if aux transform exists
-        # -------------------------------------------------
-        if self.aux_dev_to_scan is not None:
-            T_scan_to_dev = np.linalg.inv(self.T_dev_to_scan)
-            T_aux_to_device = T_scan_to_dev @ self.aux_dev_to_scan
-
-            base = os.path.splitext(self.helmet_filename or "helmet")[0]
-            save_transform(T_aux_to_device, base + "_aux_to_device")
-
-            self._update_info("Saved aux→device transform.")
-        # ---------------------------------------------------
-        # Compute device -> head if Step2 is available
-        # ---------------------------------------------------
-        if self.T_head_to_scan is not None:
-            T_scan_to_head = np.linalg.inv(self.T_head_to_scan)
-            T_dev_to_head = T_scan_to_head @ self.T_dev_to_scan
-            self.T_dev_to_head = T_dev_to_head
-
-            base = os.path.splitext(self.helmet_filename or "helmet")[0]
-            save_transform(T_dev_to_head, base + "_dev_to_head")
-
-            self._update_info("Computed device→head and saved dev_head_t.")
-        else:
-            self._update_info(
-                "Computed dev_to_scan, but head_to_scan not available — cannot compute dev_to_head yet."
-            )
-
-        self._update_info(
-            f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on RIGHT."
-        )
-        # overlay transformed STL + transformed sensors
-        self._overlay_step3_transformed(T)
-        # save transform automatically
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-        save_transform(T, base + "_T_dev_to_scan")
-        # save transformed sensors csv
-        self._save_transformed_sensors_csv(T, base)
-
     def _overlay_step3_transformed(self, T):
         # transformed STL preview on RIGHT
         rotation = T[:3, :3]
@@ -1256,7 +1169,7 @@ class OPMCoregGUI(QWidget):
         r += 1
 
         b3 = QPushButton("Compute initial Head→MRI (base on step 2 fiducials)")
-        b3.clicked.connect(self.compute_head_to_mri_initial)
+        b3.clicked.connect(lambda: compute_head_to_mri_initial(self))
         self.step_ctrl_layout.addWidget(b3, r, 0)
         r += 1
 
@@ -1295,52 +1208,6 @@ class OPMCoregGUI(QWidget):
             self.mri_fiducial_actors[lbl] = actor
 
         self.vtk_left.GetRenderWindow().Render()
-
-    def compute_head_to_mri_initial(self):
-
-        required = ["NAS", "LPA", "RPA"]
-
-        if not all(fid in self.head_fiducials for fid in required):
-            self._update_info("Head fiducials missing (Step2).")
-            return
-
-        if not all(fid in self.mri_fiducials for fid in required):
-            self._update_info("MRI fiducials missing.")
-            return
-
-        src = np.array(
-            [
-                self.head_fiducials["NAS"],
-                self.head_fiducials["LPA"],
-                self.head_fiducials["RPA"],
-            ]
-        )
-
-        dst = np.array(
-            [
-                self.mri_fiducials["NAS"],
-                self.mri_fiducials["LPA"],
-                self.mri_fiducials["RPA"],
-            ]
-        )
-
-        T, rms, errs = compute_rigid_transform(src, dst)
-
-        self.T_head_to_mri = T
-        self.head_to_mri_rms = rms
-        self.head_to_mri_errors = errs
-
-        print("Head→MRI RMS:", rms)
-        print("Errors per fiducial:", errs)
-
-        self._update_info(
-            f"Head→MRI RMS = {rms:.2f} mm | "
-            f"NAS={errs[0]:.2f}, "
-            f"LPA={errs[1]:.2f}, "
-            f"RPA={errs[2]:.2f}"
-        )
-
-        self._preview_head_on_mri(T)
 
     def _preview_head_on_mri(self, T):
         if self.head_polydata is None:
@@ -1685,34 +1552,6 @@ class OPMCoregGUI(QWidget):
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
-
-    def compute_helmet_to_mri(self):
-        # requires mri_fiducials and head scan fiducials transformed to master scan (from step2)
-        if (
-            not self.mri_fiducials
-            or not self.head_fiducials
-            or self.T_head_to_scan is None
-        ):
-            self._update_info(
-                "Need MRI fiducials (step4) and head_to_scan transform (step2)."
-            )
-            return
-        # map head scan fiducials to helmet using T_head_to_scan
-        R_oh = self.T_head_to_scan[:3, :3]
-        t_oh = self.T_head_to_scan[:3, 3]
-        helmet_fids = {}
-        for lbl, p in self.head_fiducials.items():
-            helmet_fids[lbl] = R_oh @ p + t_oh
-        # order NAS,LPA,RPA
-        src = np.vstack([helmet_fids[fid] for fid in ["NAS", "LPA", "RPA"]])
-        dst = np.vstack([self.mri_fiducials[fid] for fid in ["NAS", "LPA", "RPA"]])
-        T, rms, errs = compute_rigid_transform(src, dst)
-        self.T_scan_to_mri = T
-        self._update_info(
-            f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to coil/device/head."
-        )
-        # apply final transforms and save
-        self._apply_final_transforms(T)
 
     def _apply_final_transforms(self, T_head_to_mri):
 
