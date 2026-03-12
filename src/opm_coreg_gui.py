@@ -12,19 +12,14 @@
 # TODO : add docstring to all the methods in the GUI class.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
-import csv
 import os
 
 import mne
 import numpy as np
-import pandas as pd
 import vtk
-from mne.io import read_fiducials
-from mne.io.constants import FIFF
 from mne.transforms import Transform
 from PyQt5.QtWidgets import (
     QCheckBox,
-    QFileDialog,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -37,6 +32,16 @@ from PyQt5.QtWidgets import (
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.file_loading_helpers import (
+    load_aux_dev_landmarks,
+    load_aux_dev_stl,
+    load_head_scan,
+    load_helmet_cad,
+    load_master_scan,
+    load_sensor_csv,
+    load_mri_mesh,
+    load_mri_fiducials,
+)
 from src.observer_helpers import (
     add_left_observer,
     add_right_observer,
@@ -55,7 +60,6 @@ from src.utils import (
     actor_from_polydata,
     arrow_actor,
     compute_rigid_transform,
-    load_mesh_to_polydata,
     save_transform,
     sphere_actor,
     vtk_matrix_from_numpy,
@@ -309,15 +313,15 @@ class OPMCoregGUI(QWidget):
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load 3D master scan (RIGHT)")
-        b1.clicked.connect(self.load_master_scan)
+        b1.clicked.connect(lambda: load_master_scan(self))
         self.step_ctrl_layout.addWidget(b1, r, 0)
         r += 1
         b2 = QPushButton("Load coil STL (LEFT)")
-        b2.clicked.connect(self.load_aux_dev_stl)
+        b2.clicked.connect(lambda: load_aux_dev_stl(self))
         self.step_ctrl_layout.addWidget(b2, r, 0)
         r += 1
         b3 = QPushButton("Load coil landmarks CSV")
-        b3.clicked.connect(self.load_aux_dev_landmarks)
+        b3.clicked.connect(lambda: load_aux_dev_landmarks(self))
         self.step_ctrl_layout.addWidget(b3, r, 0)
         r += 1
         b4 = QPushButton("Start picking coil landmarks in master scan")
@@ -368,85 +372,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
         self._update_info("Step1 restarted.")
-
-    def load_master_scan(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select master scan (with participant in the helmet)",
-            "",
-            "PLY/STL Files (*.ply *.stl)",
-        )
-        if not filepath:
-            return
-        self.helmet_polydata = load_mesh_to_polydata(filepath)
-        self.helmet_filename = os.path.basename(filepath)
-        if self.helmet_actor is not None:
-            try:
-                self.ren_right.RemoveActor(self.helmet_actor)
-            except Exception:
-                pass
-        self.helmet_actor = actor_from_polydata(
-            self.helmet_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
-        )
-        self.ren_right.AddActor(self.helmet_actor)
-        self.ren_right.ResetCamera()
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info(f"Loaded master scan: {self.helmet_filename}")
-
-    def load_aux_dev_stl(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Select coil STL", "", "STL Files (*.stl)"
-        )
-        if not filepath:
-            return
-        self.coil_polydata = load_mesh_to_polydata(filepath)
-        if self.coil_actor_left is not None:
-            try:
-                self.ren_left.RemoveActor(self.coil_actor_left)
-            except Exception:
-                pass
-        self.coil_actor_left = actor_from_polydata(
-            self.coil_polydata, color=(0.7, 1, 0.2), opacity=1.0
-        )
-        self.ren_left.AddActor(self.coil_actor_left)
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-        self._update_info("Loaded coil STL (left).")
-
-    def load_aux_dev_landmarks(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Select coil landmarks CSV", "", "CSV Files (*.csv)"
-        )
-        if not filepath:
-            return
-        lm = {}
-        with open(filepath, "r", newline="") as f:
-            r = csv.reader(f)
-            rows = list(r)
-            for row in rows[1:]:
-                if len(row) < 4:
-                    continue
-                lab = row[0].strip()
-                try:
-                    x, y, z = float(row[1]), float(row[2]), float(row[3])
-                except Exception:
-                    continue
-                lm[lab] = np.array([x, y, z], float)
-        self.coil_landmarks = lm
-        # draw landmarks on left
-        for actor in getattr(self, "coil_landmark_actors_left", []):
-            try:
-                self.ren_left.RemoveActor(actor)
-            except Exception:
-                pass
-        self.coil_landmark_actors_left = []
-        for i, (lab, point_coords) in enumerate(self.coil_landmarks.items()):
-            selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
-            actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
-            self.ren_left.AddActor(actor)
-            self.coil_landmark_actors_left.append(actor)
-        self.vtk_left.GetRenderWindow().Render()
-        self._update_info(f"Loaded {len(self.coil_landmarks)} coil landmarks.")
 
     def start_aux_dev_landmark_pairs(self):
 
@@ -607,11 +532,11 @@ class OPMCoregGUI(QWidget):
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load OUTSIDE head (LEFT)")
-        b1.clicked.connect(self.load_head_scan)
+        b1.clicked.connect(lambda: load_head_scan(self))
         self.step_ctrl_layout.addWidget(b1, r, 0)
         r += 1
         b2 = QPushButton("Load HELMET scan (RIGHT)")
-        b2.clicked.connect(self.load_master_scan)
+        b2.clicked.connect(lambda: load_master_scan(self))
         self.step_ctrl_layout.addWidget(b2, r, 0)
         r += 1
         b3 = QPushButton("Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)")
@@ -637,26 +562,6 @@ class OPMCoregGUI(QWidget):
         b8 = QPushButton("Restart Step 2")
         b8.clicked.connect(self.restart_step2)
         self.step_ctrl_layout.addWidget(b8, r, 0)
-
-    def load_head_scan(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Select OUTSIDE head scan (LEFT)", "", "PLY/STL Files (*.ply *.stl)"
-        )
-        if not filepath:
-            return
-        self.head_polydata = load_mesh_to_polydata(filepath)
-        if self.head_actor is not None:
-            try:
-                self.ren_left.RemoveActor(self.head_actor)
-            except Exception:
-                pass
-        self.head_actor = actor_from_polydata(
-            self.head_polydata, color=(0.8, 0.8, 0.95), opacity=1.0
-        )
-        self.ren_left.AddActor(self.head_actor)
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-        self._update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
 
     def start_fiducial_mode_step2(self):
         # enable picking fiducials on left: pick NAS,LPA,RPA in order (SHIFT+click)
@@ -966,15 +871,15 @@ class OPMCoregGUI(QWidget):
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load helmet STL (LEFT)")
-        b1.clicked.connect(self.load_helmet_cad)
+        b1.clicked.connect(lambda: load_helmet_cad(self))
         self.step_ctrl_layout.addWidget(b1, r, 0)
         r += 1
         b2 = QPushButton("Load master scan (RIGHT)")
-        b2.clicked.connect(self.load_master_scan)
+        b2.clicked.connect(lambda: load_master_scan(self))
         self.step_ctrl_layout.addWidget(b2, r, 0)
         r += 1
         b3 = QPushButton("Load sensor locations CSV (plot LEFT)")
-        b3.clicked.connect(self.load_sensor_csv)
+        b3.clicked.connect(lambda: load_sensor_csv(self))
         self.step_ctrl_layout.addWidget(b3, r, 0)
         r += 1
         b4 = QPushButton("Start helmet to master scan pair mode (LEFT->RIGHT)")
@@ -1035,77 +940,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
         self._update_info("Restarted Step3.")
-
-    def load_helmet_cad(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Load helmet STL", "", "STL/PLY Files (*.stl *.ply)"
-        )
-        if not filepath:
-            return
-        self.helmet_stl_raw = load_mesh_to_polydata(filepath)
-        if self.helmet_stl_actor_left is not None:
-            try:
-                self.ren_left.RemoveActor(self.helmet_stl_actor_left)
-            except Exception:
-                pass
-        self.helmet_stl_actor_left = actor_from_polydata(
-            self.helmet_stl_raw, color=(0.7, 0.9, 1.0), opacity=0.8
-        )
-        self.ren_left.AddActor(self.helmet_stl_actor_left)
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-        self._update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
-
-    def load_sensor_csv(self):
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Load sensor CSV", "", "CSV Files (*.csv)"
-        )
-        if not filepath:
-            return
-        df = pd.read_csv(filepath)
-        cols = [
-            "X",
-            "Y",
-            "Z",
-            "x_i",
-            "x_j",
-            "x_k",
-            "y_i",
-            "y_j",
-            "y_k",
-            "z_i",
-            "z_j",
-            "z_k",
-        ]
-        for column in cols:
-            if column not in df.columns:
-                self._update_info(f"CSV missing column: {column}")
-                return
-        self.sensor_df = df.copy()
-        self.sensor_csv_path = filepath
-        self.sensor_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
-        x = df[["x_i", "x_j", "x_k"]].to_numpy(dtype=float)
-        y = df[["y_i", "y_j", "y_k"]].to_numpy(dtype=float)
-        z = df[["z_i", "z_j", "z_k"]].to_numpy(dtype=float)
-        self.sensor_axes = np.stack([x, y, z], axis=1)
-        # display original sensors on LEFT (on top of STL)
-        for actor in self.sensor_actors_left:
-            try:
-                self.ren_left.RemoveActor(actor)
-            except Exception:
-                pass
-        self.sensor_actors_left = []
-        for pnt in self.sensor_positions:
-            actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-            self.ren_left.AddActor(actor)
-            self.sensor_actors_left.append(actor)
-        # show vectors on left if toggled
-        self._draw_sensor_vectors_left()
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-        self._update_info(
-            f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(self.sensor_positions)} sensors)."
-        )
 
     def start_pairs_step3(self):
         if self.helmet_stl_raw is None or self.helmet_polydata is None:
@@ -1412,12 +1246,12 @@ class OPMCoregGUI(QWidget):
         r = 0
 
         b1 = QPushButton("Load MRI mesh (LEFT)")
-        b1.clicked.connect(self.load_mri_mesh)
+        b1.clicked.connect(lambda: load_mri_mesh(self))
         self.step_ctrl_layout.addWidget(b1, r, 0)
         r += 1
 
         b2 = QPushButton("Load MRI fiducials (.fif)")
-        b2.clicked.connect(self.load_mri_fiducials)
+        b2.clicked.connect(lambda: load_mri_fiducials(self))
         self.step_ctrl_layout.addWidget(b2, r, 0)
         r += 1
 
@@ -1440,59 +1274,6 @@ class OPMCoregGUI(QWidget):
         b5.clicked.connect(self.save_head_to_mri)
         self.step_ctrl_layout.addWidget(b5, r, 0)
 
-    def load_mri_mesh(self):
-
-        filepath, _ = QFileDialog.getOpenFileName(
-            self, "Load MRI mesh", "", "PLY/STL Files (*.ply *.stl)"
-        )
-        if not filepath:
-            return
-
-        self.mri_polydata = load_mesh_to_polydata(filepath)
-
-        # -------------------------------------------------
-        # AUTO-DETECT UNIT SCALE
-        # -------------------------------------------------
-        bounds = self.mri_polydata.GetBounds()
-        max_abs = max(abs(b) for b in bounds)
-
-        print("MRI bounds before scaling:", bounds)
-
-        # If values look like meters (~0.1), scale to mm
-        if max_abs < 1.0:
-            print("MRI appears to be in meters → scaling to mm")
-
-            scale_tf = vtk.vtkTransform()
-            scale_tf.Scale(1000.0, 1000.0, 1000.0)
-
-            tf_filter = vtk.vtkTransformPolyDataFilter()
-            tf_filter.SetTransform(scale_tf)
-            tf_filter.SetInputData(self.mri_polydata)
-            tf_filter.Update()
-
-            self.mri_polydata = tf_filter.GetOutput()
-
-            bounds_after = self.mri_polydata.GetBounds()
-            print("MRI bounds after scaling:", bounds_after)
-
-        else:
-            print("MRI appears already in mm")
-
-        # -------------------------------------------------
-        # Display on left
-        # -------------------------------------------------
-        actor = actor_from_polydata(
-            self.mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
-        )
-
-        self.ren_left.RemoveAllViewProps()
-        self.ren_left.AddActor(actor)
-
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-
-        self._update_info("Loaded MRI mesh (left).")
-
     def _draw_mri_fiducials(self):
 
         # Remove old actors
@@ -1514,41 +1295,6 @@ class OPMCoregGUI(QWidget):
             self.mri_fiducial_actors[lbl] = actor
 
         self.vtk_left.GetRenderWindow().Render()
-
-    def load_mri_fiducials(self):
-
-        path = QFileDialog.getOpenFileName(
-            self, "Load MRI Fiducials (.fif)", "", "FIF files (*.fif)"
-        )[0]
-
-        if not path:
-            return
-
-        fid, coord_frame = read_fiducials(path)
-
-        self.mri_fiducials = {}
-
-        for f in fid:
-            ident = f["ident"]
-            coord_mm = f["r"] * 1000.0  # meters → mm
-
-            if ident == FIFF.FIFFV_POINT_NASION:
-                self.mri_fiducials["NAS"] = coord_mm
-            elif ident == FIFF.FIFFV_POINT_LPA:
-                self.mri_fiducials["LPA"] = coord_mm
-            elif ident == FIFF.FIFFV_POINT_RPA:
-                self.mri_fiducials["RPA"] = coord_mm
-
-        print("Loaded MRI fiducials:", self.mri_fiducials)
-
-        if len(self.mri_fiducials) != 3:
-            self._update_info(
-                f"Incomplete MRI fiducials: {list(self.mri_fiducials.keys())}"
-            )
-            return
-        self._draw_mri_fiducials()
-
-        self._update_info("Loaded MRI fiducials from FIF.")
 
     def compute_head_to_mri_initial(self):
 
