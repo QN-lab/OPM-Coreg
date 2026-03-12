@@ -1361,11 +1361,6 @@ class OPMCoregGUI(QWidget):
         self.ren_left.AddActor(actor)
         self.vtk_left.GetRenderWindow().Render()
 
-    def start_mri_fiducial_mode(self):
-        self.mri_fiducials = {}
-        self.mri_fiducial_actors = {}
-        self._update_info("MRI fiducial mode: SHIFT+click NAS,LPA,RPA on LEFT (MRI).")
-
     def extract_face_roi(self, polydata, fid_dict, plane_offset_mm=15.0):
 
         required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
@@ -1576,32 +1571,6 @@ class OPMCoregGUI(QWidget):
         # 7) Preview full head
         # --------------------------------------------------
         self._preview_head_on_mri(self.T_head_to_mri)
-
-    def show_full_head_on_mri(self):
-
-        if self.T_head_to_mri is None:
-            return
-
-        self._preview_head_on_mri(self.T_head_to_mri)
-
-    def show_roi_on_mri(self):
-
-        if not hasattr(self, "_roi_head_mri"):
-            self._update_info("Run ICP first.")
-            return
-
-        # remove previous preview
-        if hasattr(self, "_preview_actor"):
-            try:
-                self.ren_right.RemoveActor(self._preview_actor)
-            except Exception:
-                pass
-
-        actor = actor_from_polydata(self._roi_head_mri, color=(1, 0, 0), opacity=0.7)
-
-        self._preview_actor = actor
-        self.ren_right.AddActor(actor)
-        self.vtk_right.GetRenderWindow().Render()
 
     def preview_mri_on_scan(self):
 
