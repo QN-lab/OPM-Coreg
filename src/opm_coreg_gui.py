@@ -40,7 +40,7 @@ from src.display_helpers import (
     overlay_step3_transformed,
     preview_mri_on_scan,
 )
-from src.file_loading_helpers import (
+from src.file_io_helpers import (
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
