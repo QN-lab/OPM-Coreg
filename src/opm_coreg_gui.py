@@ -11,12 +11,9 @@
 # TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
-import os
 
-import mne
 import numpy as np
 import vtk
-from mne.transforms import Transform
 from PyQt5.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -52,6 +49,8 @@ from src.file_loading_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
+    save_head_to_mri,
+    auto_save_transform,
 )
 from src.observer_helpers import (
     add_left_observer,
@@ -68,7 +67,6 @@ from src.toggle_helpers import (
     toggle_vectors,
 )
 from src.utils import (
-    save_transform,
     sphere_actor,
 )
 
@@ -244,7 +242,7 @@ class OPMCoregGUI(QWidget):
         info_v.addWidget(self.cb_show_mri)
 
         self.btn_save_all = QPushButton("Auto-save available transforms")
-        self.btn_save_all.clicked.connect(self.auto_save_transform)
+        self.btn_save_all.clicked.connect(lambda: auto_save_transform(self))
         info_v.addWidget(self.btn_save_all)
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
@@ -988,37 +986,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
 
-    def _save_transformed_sensors_csv(self, T, base):
-        """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
-        if self.sensor_positions is None:
-            return
-        rotation = T[:3, :3]
-        translation = T[:3, 3]
-        pts_t = (rotation @ self.sensor_positions.T).T + translation
-        df_out = self.sensor_df.copy()
-        df_out[["X", "Y", "Z"]] = pts_t
-        if self.sensor_axes is not None:
-            axes_t = np.empty_like(self.sensor_axes)
-            for i in range(3):
-                axes_t[:, i, :] = (rotation @ self.sensor_axes[:, i, :].T).T
-            df_out["x_i"] = axes_t[:, 0, 0]
-            df_out["x_j"] = axes_t[:, 0, 1]
-            df_out["x_k"] = axes_t[:, 0, 2]
-            df_out["y_i"] = axes_t[:, 1, 0]
-            df_out["y_j"] = axes_t[:, 1, 1]
-            df_out["y_k"] = axes_t[:, 1, 2]
-            df_out["z_i"] = axes_t[:, 2, 0]
-            df_out["z_j"] = axes_t[:, 2, 1]
-            df_out["z_k"] = axes_t[:, 2, 2]
-        out_dir = (
-            os.path.dirname(self.sensor_csv_path)
-            if getattr(self, "sensor_csv_path", None)
-            else os.getcwd()
-        )
-        out_path = os.path.join(out_dir, base + "_sensors_to_scan_transformed.csv")
-        df_out.to_csv(out_path, index=False)
-        self._update_info(f"Saved transformed sensors CSV: {out_path}")
-
     # ---------------------------------------------------------
     # ----------------- STEP 4 (head -> MRI) -----------------
     # ---------------------------------------------------------
@@ -1053,29 +1020,8 @@ class OPMCoregGUI(QWidget):
         r += 1
 
         b5 = QPushButton("Save Head→MRI")
-        b5.clicked.connect(self.save_head_to_mri)
+        b5.clicked.connect(lambda: save_head_to_mri(self))
         self.step_ctrl_layout.addWidget(b5, r, 0)
-
-    def save_head_to_mri(self):
-        """Save the computed head to MRI transform to disk.
-
-        Transforms are saved in custom format and MNE's .fif format, converting units as needed for compatibility."""
-        if self.T_head_to_mri is None:
-            return
-
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-
-        # --- Convert mm → meters for MNE ---
-        T_m = self.T_head_to_mri.copy()
-        T_m[:3, 3] /= 1000.0
-
-        save_transform(self.T_head_to_mri, base + "_head_to_mri_mm")
-
-        trans = Transform("head", "mri", T_m)
-
-        mne.write_trans(base + "-trans.fif", trans, overwrite=True)
-
-        self._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
 
     def _left_click_step4(self, obj, event):
         """Handle left clicks in Step 4 mode for picking fiducials on the MRI mesh (left) that correspond to head scan fiducials."""
@@ -1118,22 +1064,3 @@ class OPMCoregGUI(QWidget):
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
-
-    # ---------- utility: auto-save available ----------
-    def auto_save_transform(self):
-        """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-
-        if self.aux_dev_to_scan is not None:
-            save_transform(self.aux_dev_to_scan, base + "_aux_dev_to_scan_mm")
-
-        if self.T_head_to_scan is not None:
-            save_transform(self.T_head_to_scan, base + "_head_to_scan_mm")
-
-        if self.T_dev_to_scan is not None:
-            save_transform(self.T_dev_to_scan, base + "_dev_to_scan_mm")
-
-        if self.T_head_to_mri is not None:
-            save_transform(self.T_head_to_mri, base + "_head_to_mri_mm")
-
-        self._update_info("Auto-saved available transforms (mm).")

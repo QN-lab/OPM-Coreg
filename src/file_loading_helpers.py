@@ -1,6 +1,8 @@
 """Helper functions to load files based on GUI actions, and update the GUI state accordingly."""
 
 import csv
+import mne
+from mne.transforms import Transform
 import os
 
 import numpy as np
@@ -16,6 +18,7 @@ from src.utils import (
     actor_from_polydata,
     load_mesh_to_polydata,
     sphere_actor,
+    save_transform,
 )
 from mne.io import read_fiducials
 import vtk
@@ -288,3 +291,76 @@ def load_mri_fiducials(gui):
     draw_mri_fiducials(gui)
 
     gui._update_info("Loaded MRI fiducials from FIF.")
+
+
+def save_transformed_sensors_csv(gui, T, base):
+    """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
+    if gui.sensor_positions is None:
+        return
+    rotation = T[:3, :3]
+    translation = T[:3, 3]
+    pts_t = (rotation @ gui.sensor_positions.T).T + translation
+    df_out = gui.sensor_df.copy()
+    df_out[["X", "Y", "Z"]] = pts_t
+    if gui.sensor_axes is not None:
+        axes_t = np.empty_like(gui.sensor_axes)
+        for i in range(3):
+            axes_t[:, i, :] = (rotation @ gui.sensor_axes[:, i, :].T).T
+        df_out["x_i"] = axes_t[:, 0, 0]
+        df_out["x_j"] = axes_t[:, 0, 1]
+        df_out["x_k"] = axes_t[:, 0, 2]
+        df_out["y_i"] = axes_t[:, 1, 0]
+        df_out["y_j"] = axes_t[:, 1, 1]
+        df_out["y_k"] = axes_t[:, 1, 2]
+        df_out["z_i"] = axes_t[:, 2, 0]
+        df_out["z_j"] = axes_t[:, 2, 1]
+        df_out["z_k"] = axes_t[:, 2, 2]
+    out_dir = (
+        os.path.dirname(gui.sensor_csv_path)
+        if getattr(gui, "sensor_csv_path", None)
+        else os.getcwd()
+    )
+    out_path = os.path.join(out_dir, base + "_sensors_to_scan_transformed.csv")
+    df_out.to_csv(out_path, index=False)
+    gui._update_info(f"Saved transformed sensors CSV: {out_path}")
+
+
+def save_head_to_mri(gui):
+    """Save the computed head to MRI transform to disk.
+
+    Transforms are saved in custom format and MNE's .fif format, converting units as needed for compatibility."""
+    if gui.T_head_to_mri is None:
+        return
+
+    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+
+    # --- Convert mm → meters for MNE ---
+    T_m = gui.T_head_to_mri.copy()
+    T_m[:3, 3] /= 1000.0
+
+    save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
+
+    trans = Transform("head", "mri", T_m)
+
+    mne.write_trans(base + "-trans.fif", trans, overwrite=True)
+
+    gui._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
+
+
+def auto_save_transform(gui):
+    """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
+    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+
+    if gui.aux_dev_to_scan is not None:
+        save_transform(gui.aux_dev_to_scan, base + "_aux_dev_to_scan_mm")
+
+    if gui.T_head_to_scan is not None:
+        save_transform(gui.T_head_to_scan, base + "_head_to_scan_mm")
+
+    if gui.T_dev_to_scan is not None:
+        save_transform(gui.T_dev_to_scan, base + "_dev_to_scan_mm")
+
+    if gui.T_head_to_mri is not None:
+        save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
+
+    gui._update_info("Auto-saved available transforms (mm).")

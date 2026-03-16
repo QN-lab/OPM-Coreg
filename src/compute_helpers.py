@@ -16,6 +16,7 @@ from src.utils import (
     save_transform,
     vtk_matrix_from_numpy,
 )
+from src.file_loading_helpers import save_transformed_sensors_csv
 
 
 def compute_aux_dev_to_scan(gui):
@@ -117,7 +118,7 @@ def compute_sensors_transform(gui):
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
     save_transform(T, base + "_T_dev_to_scan")
     # save transformed sensors csv
-    gui._save_transformed_sensors_csv(T, base)
+    save_transformed_sensors_csv(gui, T, base)
 
 
 def compute_head_to_mri_initial(gui):
