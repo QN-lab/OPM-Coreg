@@ -9,7 +9,6 @@
 
 # TODO : rename members/methods containing step_xx.
 # TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
-# TODO : add docstring to all the methods in the GUI class.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
 import os
@@ -76,6 +75,7 @@ from src.utils import (
 
 class OPMCoregGUI(QWidget):
     def __init__(self):
+        """Initialize the main GUI window, VTK renderers, and shared state variables for the multi-step registration process."""
         super().__init__()
         self.setWindowTitle("TMS-OPM Multi-step Registration (fixed)")
         self.resize(1800, 1000)
@@ -318,6 +318,7 @@ class OPMCoregGUI(QWidget):
 
     # ----------------- STEP 1 -------------------
     def _populate_step1_controls(self):
+        """Set up the controls for Step 1: coil to master scan registration."""
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load 3D master scan (RIGHT)")
@@ -353,6 +354,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b8, r, 0)
 
     def restart_step1(self):
+        """Reset all Step 1 related state and UI elements."""
         try:
             if self.coil_actor_left is not None:
                 self.ren_left.RemoveActor(self.coil_actor_left)
@@ -382,7 +384,7 @@ class OPMCoregGUI(QWidget):
         self._update_info("Step1 restarted.")
 
     def start_aux_dev_landmark_pairs(self):
-
+        """Start the process of picking coil landmark pairs on the master scan (right) based on loaded coil landmarks CSV."""
         if not self.coil_landmarks or self.helmet_polydata is None:
             self._update_info(
                 "Need coil landmarks and master scan (participant in helmet)."
@@ -463,6 +465,7 @@ class OPMCoregGUI(QWidget):
         obs_id = add_right_observer(self, "LeftButtonPressEvent", handler)
 
     def undo_last_aux_dev_pair(self):
+        """Undo the last picked coil landmark pair, removing the marker from the right renderer and updating state."""
         if not getattr(self, "coil_pairs_src", []):
             self._update_info("No coil pairs to undo.")
             return
@@ -486,6 +489,7 @@ class OPMCoregGUI(QWidget):
     # ---------------------------------------------------------------
 
     def _populate_step2_controls(self):
+        """Set up the controls for Step 2: head scan to master scan registration using fiducials and pairwise points."""
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load OUTSIDE head (LEFT)")
@@ -521,13 +525,14 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b8, r, 0)
 
     def start_fiducial_mode_step2(self):
-        # enable picking fiducials on left: pick NAS,LPA,RPA in order (SHIFT+click)
+        """Enable picking fiducials on the head scan (left) in the order NAS, LPA, RPA, Nose, Chin."""
         self.picking_state = {"mode": "fiducials", "next": 0}
         self._update_info(
             "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (LEFT) (outside scan)."
         )
 
     def undo_last_fiducial_step2(self):
+        """Undo the last picked fiducial on the head scan (left), removing the marker and updating state."""
         if not self.head_fiducials:
             self._update_info("No fiducials to undo.")
             return
@@ -550,6 +555,7 @@ class OPMCoregGUI(QWidget):
                 return
 
     def start_pairs_step2(self):
+        """Enable picking pairwise points between the head scan (left) and master scan (right) for Step 2 registration."""
         if self.head_polydata is None or self.helmet_polydata is None:
             self._update_info("Load head scan (left) and master scan (right) first.")
             return
@@ -562,7 +568,7 @@ class OPMCoregGUI(QWidget):
         )
 
     def _left_click_step2(self, obj, event):
-
+        """Handle left clicks in Step 2 mode for picking fiducials and pairwise points on the head scan (left)."""
         if not self.left_iren.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -633,7 +639,7 @@ class OPMCoregGUI(QWidget):
         obj.OnLeftButtonDown()
 
     def _right_click_step2(self, obj, event):
-
+        """Handle left clicks in Step 2 mode for picking pairwise points on the master scan (right) that correspond to previously picked points on the head scan (left)."""
         if not self.right_iren.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -686,6 +692,7 @@ class OPMCoregGUI(QWidget):
         obj.OnLeftButtonDown()
 
     def undo_last_pair_step2(self):
+        """Undo the last picked pairwise point between the head scan and master scan in Step 2, removing the markers from both renderers and updating state."""
         if not self.step2_pairs_head:
             self._update_info("No Step2 pairs to undo.")
             return
@@ -704,6 +711,7 @@ class OPMCoregGUI(QWidget):
         )
 
     def _clear_step2_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in Step 2."""
         for actor in self.step2_pair_actors_left:
             try:
                 self.ren_left.RemoveActor(actor)
@@ -720,6 +728,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_right.GetRenderWindow().Render()
 
     def restart_step2(self):
+        """Reset all Step 2 related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
         # remove transformed actor and pair markers
         try:
             if (
@@ -760,6 +769,7 @@ class OPMCoregGUI(QWidget):
     # ------------------ STEP 3 (Sensors & STL -> scan) -----------------
     # -------------------------------------------------------------------
     def _populate_step3_controls(self):
+        """Set up the controls for Step 3: helmet STL and sensor positions to master scan registration using pairwise points."""
         self._clear_step_controls()
         r = 0
         b1 = QPushButton("Load helmet STL (LEFT)")
@@ -791,6 +801,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b7, r, 0)
 
     def restart_step3(self):
+        """Reset all Step 3 related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
         # remove actors (left/right)
         try:
             if self.helmet_stl_actor_left is not None:
@@ -834,6 +845,9 @@ class OPMCoregGUI(QWidget):
         self._update_info("Restarted Step3.")
 
     def start_pairs_step3(self):
+        """Enable picking pairwise points between the helmet STL (left) and master scan (right) for Step 3 registration of the device.
+
+        Requires that both the helmet STL and master scan are loaded first."""
         if self.helmet_stl_raw is None or self.helmet_polydata is None:
             self._update_info(
                 "Need helmet STL (left) and participant in the helmet scan (right) loaded."
@@ -848,7 +862,7 @@ class OPMCoregGUI(QWidget):
         )
 
     def _left_click_step3(self, obj, event):
-
+        """Handle left clicks in Step 3 mode for picking points on the helmet STL (left) that correspond to points on the master scan (right) for device registration."""
         if not self.left_iren.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -880,7 +894,7 @@ class OPMCoregGUI(QWidget):
         obj.OnLeftButtonDown()
 
     def _right_click_step3(self, obj, event):
-
+        """Handle left clicks in Step 3 mode for picking points on the master scan (right) that correspond to previously picked points on the helmet STL (left) for device registration."""
         if not self.right_iren.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -933,6 +947,7 @@ class OPMCoregGUI(QWidget):
         obj.OnLeftButtonDown()
 
     def undo_last_pair_step3(self):
+        """Undo the last picked pairwise point between the helmet STL and master scan in Step 3, removing the markers from both renderers and updating state."""
         if not self.ref_point_pairs_helmet_stl:
             self._update_info("No Step3 pairs to undo.")
             return
@@ -952,6 +967,7 @@ class OPMCoregGUI(QWidget):
         self._update_info("Undid last Step3 pair.")
 
     def _clear_step3_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in Step 3."""
         if hasattr(self, "pair_actors_left"):
             for actor in self.pair_actors_left:
                 try:
@@ -973,6 +989,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_right.GetRenderWindow().Render()
 
     def _save_transformed_sensors_csv(self, T, base):
+        """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
         if self.sensor_positions is None:
             return
         rotation = T[:3, :3]
@@ -1006,6 +1023,7 @@ class OPMCoregGUI(QWidget):
     # ----------------- STEP 4 (head -> MRI) -----------------
     # ---------------------------------------------------------
     def _populate_step4_controls(self):
+        """Set up the controls for Step 4: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
         self._clear_step_controls()
         r = 0
 
@@ -1038,95 +1056,10 @@ class OPMCoregGUI(QWidget):
         b5.clicked.connect(self.save_head_to_mri)
         self.step_ctrl_layout.addWidget(b5, r, 0)
 
-    def extract_face_roi(self, polydata, fid_dict, plane_offset_mm=15.0):
-
-        required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-        if not all(fid in fid_dict for fid in required):
-            print("ROI extraction: missing fiducials")
-            return None
-
-        nas = fid_dict["NAS"]
-        lpa = fid_dict["LPA"]
-        rpa = fid_dict["RPA"]
-        nose = fid_dict["NOSE"]
-        chin = fid_dict["CHIN"]
-
-        # --------------------------------------------------
-        # 1) ROI center (face region)
-        # --------------------------------------------------
-        fiducial_points = np.vstack([nas, lpa, rpa, nose, chin])
-        roi_center = np.mean(fiducial_points, axis=0)
-
-        max_dist = np.max(np.linalg.norm(fiducial_points - roi_center, axis=1))
-        roi_radius = 2.2 * max_dist  # larger radius to include LPA/RPA fully
-
-        # --------------------------------------------------
-        # 2) Define fiducial plane (NAS–LPA–RPA)
-        # --------------------------------------------------
-        v1 = lpa - nas
-        v2 = rpa - nas
-        plane_normal = np.cross(v1, v2)
-        plane_normal = plane_normal / np.linalg.norm(plane_normal)
-
-        # Make sure normal points upward (towards top of head)
-        if np.dot(plane_normal, chin - nas) > 0:
-            plane_normal = -plane_normal
-
-        # Shift plane upward
-        plane_point = nas + plane_offset_mm * plane_normal
-
-        # --------------------------------------------------
-        # 3) Select points
-        # --------------------------------------------------
-        points = polydata.GetPoints()
-        n_pts = points.GetNumberOfPoints()
-
-        ids = vtk.vtkIdTypeArray()
-
-        for i in range(n_pts):
-            p = np.array(points.GetPoint(i))
-
-            # radial constraint
-            if np.linalg.norm(p - roi_center) > roi_radius:
-                continue
-
-            # chop-off plane: keep only points BELOW shifted plane
-            if np.dot(p - plane_point, plane_normal) > 0:
-                continue
-
-            ids.InsertNextValue(i)
-
-        if ids.GetNumberOfTuples() < 500:
-            print("ROI too small — returning None")
-            return None
-
-        # --------------------------------------------------
-        # 4) Extract subset
-        # --------------------------------------------------
-        selection_node = vtk.vtkSelectionNode()
-        selection_node.SetFieldType(vtk.vtkSelectionNode.POINT)
-        selection_node.SetContentType(vtk.vtkSelectionNode.INDICES)
-        selection_node.SetSelectionList(ids)
-
-        selection = vtk.vtkSelection()
-        selection.AddNode(selection_node)
-
-        extract = vtk.vtkExtractSelection()
-        extract.SetInputData(0, polydata)
-        extract.SetInputData(1, selection)
-        extract.Update()
-
-        geo = vtk.vtkGeometryFilter()
-        geo.SetInputConnection(extract.GetOutputPort())
-        geo.Update()
-
-        roi_poly = geo.GetOutput()
-
-        print("ROI points:", roi_poly.GetNumberOfPoints())
-        return roi_poly
-
     def save_head_to_mri(self):
+        """Save the computed head to MRI transform to disk.
 
+        Transforms are saved in custom format and MNE's .fif format, converting units as needed for compatibility."""
         if self.T_head_to_mri is None:
             return
 
@@ -1145,7 +1078,7 @@ class OPMCoregGUI(QWidget):
         self._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
 
     def _left_click_step4(self, obj, event):
-
+        """Handle left clicks in Step 4 mode for picking fiducials on the MRI mesh (left) that correspond to head scan fiducials."""
         # If not SHIFT → forward to Trackball (rotate)
         if not self.left_iren.GetShiftKey():
             obj.OnLeftButtonDown()
@@ -1186,39 +1119,9 @@ class OPMCoregGUI(QWidget):
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
 
-    def _apply_final_transforms(self, T_head_to_mri):
-
-        base = os.path.splitext(self.helmet_filename or "helmet")[0]
-
-        if self.T_head_to_scan is None:
-            self._update_info("Need head→scan transform first.")
-            return
-
-        # --- Compute scan → head ---
-        T_scan_to_head = np.linalg.inv(self.T_head_to_scan)
-
-        # --- Save head → mri ---
-        save_transform(T_head_to_mri, base + "_head_to_mri_mm")
-
-        # -----------------------------------------
-        # Coil → MRI
-        # -----------------------------------------
-        if self.aux_dev_to_scan is not None:
-            coil_to_mri = T_head_to_mri @ T_scan_to_head @ self.aux_dev_to_scan
-            save_transform(coil_to_mri, base + "_aux_dev_to_mri_mm")
-
-        # -----------------------------------------
-        # Device → MRI
-        # -----------------------------------------
-        if self.T_dev_to_scan is not None:
-            dev_to_mri = T_head_to_mri @ T_scan_to_head @ self.T_dev_to_scan
-            save_transform(dev_to_mri, base + "_dev_to_mri_mm")
-
-        self._update_info("Saved coil/device/head → MRI transforms (mm).")
-
     # ---------- utility: auto-save available ----------
     def auto_save_transform(self):
-
+        """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
         base = os.path.splitext(self.helmet_filename or "helmet")[0]
 
         if self.aux_dev_to_scan is not None:
