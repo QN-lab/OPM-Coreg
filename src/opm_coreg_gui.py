@@ -8,7 +8,7 @@
 #  - Step4: helmet -> MRI (fiducial) ### check this
 
 # TODO : rename members/methods containing step_xx.
-# TODO : separate all the transform calculation functions out of the GUI class into a separate utils module.
+# TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
 # TODO : add docstring to all the methods in the GUI class.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
@@ -33,20 +33,26 @@ from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.compute_helpers import (
     compute_aux_dev_to_scan,
+    compute_head_to_mri_initial,
     compute_head_to_scan,
     compute_sensors_transform,
-    compute_head_to_mri_initial,
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.display_helpers import (
+    merge_aux_dev_into_helmet,
+    overlay_step3_transformed,
+    preview_head_on_mri,
+    preview_mri_on_scan,
+)
 from src.file_loading_helpers import (
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
     load_helmet_cad,
     load_master_scan,
-    load_sensor_csv,
-    load_mri_mesh,
     load_mri_fiducials,
+    load_mri_mesh,
+    load_sensor_csv,
 )
 from src.observer_helpers import (
     add_left_observer,
@@ -64,7 +70,6 @@ from src.toggle_helpers import (
 )
 from src.utils import (
     actor_from_polydata,
-    arrow_actor,
     save_transform,
     sphere_actor,
     vtk_matrix_from_numpy,
@@ -342,7 +347,7 @@ class OPMCoregGUI(QWidget):
         self.step_ctrl_layout.addWidget(b6, r, 0)
         r += 1
         b7 = QPushButton("Preview coil on master scan")
-        b7.clicked.connect(self.merge_aux_dev_into_helmet)
+        b7.clicked.connect(lambda: merge_aux_dev_into_helmet(self))
         self.step_ctrl_layout.addWidget(b7, r, 0)
         r += 1
         b8 = QPushButton("Restart Step 1")
@@ -477,29 +482,6 @@ class OPMCoregGUI(QWidget):
             self.ren_right.AddActor(self.coil_actor_transformed)
         self.vtk_right.GetRenderWindow().Render()
         self._update_info("Undid last coil pair.")
-
-    def merge_aux_dev_into_helmet(self):
-        if self.coil_polydata is None or self.aux_dev_to_scan is None:
-            self._update_info("Need coil STL and T_aux_dev_to_scan first.")
-            return
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(self.aux_dev_to_scan))
-        tfilter = vtk.vtkTransformPolyDataFilter()
-        tfilter.SetTransform(tf)
-        tfilter.SetInputData(self.coil_polydata)
-        tfilter.Update()
-        if self.coil_actor_transformed is not None:
-            try:
-                self.ren_right.RemoveActor(self.coil_actor_transformed)
-            except Exception:
-                pass
-        self.coil_actor_transformed = actor_from_polydata(
-            tfilter.GetOutput(), color=(0.7, 1.0, 0.2), opacity=0.45
-        )
-        self.ren_right.AddActor(self.coil_actor_transformed)
-        self.ren_right.ResetCameraClippingRange()
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info("Previewed coil on helmet.")
 
     # ---------------------------------------------------------------
     # ----------------- STEP 2 (Outside -> Helmet) -----------------
@@ -739,54 +721,6 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
 
-    def _overlay_head_transformed(self, T):
-        # remove old transformed head scan if any
-        try:
-            if (
-                hasattr(self, "head_actor_transformed")
-                and self.head_actor_transformed is not None
-            ):
-                self.ren_right.RemoveActor(self.head_actor_transformed)
-        except Exception:
-            pass
-        if self.head_polydata is None:
-            return
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(T))
-        tfilter = vtk.vtkTransformPolyDataFilter()
-        tfilter.SetTransform(tf)
-        tfilter.SetInputData(self.head_polydata)
-        tfilter.Update()
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputData(tfilter.GetOutput())
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetColor(1.0, 0.6, 0.3)
-        actor.GetProperty().SetOpacity(0.45)
-        self.head_actor_transformed = actor
-        self.ren_right.AddActor(actor)
-        # transform fiducials too and plot on right
-        rotation = T[:3, :3]
-        translation = T[:3, 3]
-        for lbl, p in self.head_fiducials.items():
-            p_hel = rotation @ p + translation
-            try:
-                # if existing fid actor on right, remove it first
-                if (
-                    hasattr(self, "head_fiducial_actors_right")
-                    and lbl in self.head_fiducial_actors_right
-                ):
-                    self.ren_right.RemoveActor(self.head_fiducial_actors_right[lbl])
-            except Exception:
-                pass
-            actor = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
-            if not hasattr(self, "head_fiducial_actors_right"):
-                self.head_fiducial_actors_right = {}
-            self.ren_right.AddActor(actor)
-            self.head_fiducial_actors_right[lbl] = actor
-        self.ren_right.ResetCameraClippingRange()
-        self.vtk_right.GetRenderWindow().Render()
-
     def restart_step2(self):
         # remove transformed actor and pair markers
         try:
@@ -1016,7 +950,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_left.GetRenderWindow().Render()
         self.vtk_right.GetRenderWindow().Render()
         if self.T_dev_to_scan is not None:
-            self._overlay_step3_transformed(self.T_dev_to_scan)
+            overlay_step3_transformed(self, self.T_dev_to_scan)
         self._update_info("Undid last Step3 pair.")
 
     def _clear_step3_pair_markers(self):
@@ -1038,63 +972,6 @@ class OPMCoregGUI(QWidget):
         self.pair_actors_right = []
 
         self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
-
-    def _overlay_step3_transformed(self, T):
-        # transformed STL preview on RIGHT
-        rotation = T[:3, :3]
-        translation = T[:3, 3]
-        try:
-            if self.helmet_stl_actor_overlay is not None:
-                self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
-        except Exception:
-            pass
-        if self.helmet_stl_raw is not None:
-            tf = vtk.vtkTransform()
-            tf.SetMatrix(vtk_matrix_from_numpy(T))
-            tfilter = vtk.vtkTransformPolyDataFilter()
-            tfilter.SetTransform(tf)
-            tfilter.SetInputData(self.helmet_stl_raw)
-            tfilter.Update()
-            self.helmet_stl_actor_overlay = actor_from_polydata(
-                tfilter.GetOutput(), color=(0.3, 0.8, 1.0), opacity=0.4
-            )
-            if self.cb_stl.isChecked():
-                self.ren_right.AddActor(self.helmet_stl_actor_overlay)
-        # transformed sensors on right
-        for actor in self.transformed_sensor_actors:
-            try:
-                self.ren_right.RemoveActor(actor)
-            except Exception:
-                pass
-        for actor in self.transformed_vector_actors:
-            try:
-                self.ren_right.RemoveActor(actor)
-            except Exception:
-                pass
-        self.transformed_sensor_actors = []
-        self.transformed_vector_actors = []
-        if self.sensor_positions is not None:
-            pts_t = (rotation @ self.sensor_positions.T).T + translation
-            for p in pts_t:
-                actor = sphere_actor(p, color=(0.6, 0.0, 0.6), radius=3.2)
-                self.ren_right.AddActor(actor)
-                self.transformed_sensor_actors.append(actor)
-            if self.cb_vec.isChecked() and (self.sensor_axes is not None):
-                axes_t = np.empty_like(self.sensor_axes)
-                for i in range(3):
-                    axes_t[:, i, :] = (rotation @ self.sensor_axes[:, i, :].T).T
-                for p, vecs in zip(pts_t, axes_t):
-                    for vec, color in [
-                        (vecs[0], (1, 0, 0)),
-                        (vecs[1], (0, 1, 0)),
-                        (vecs[2], (0, 0, 1)),
-                    ]:
-                        ar = arrow_actor(p, vec, scale=10.0, color=color)
-                        if ar is not None:
-                            self.ren_right.AddActor(ar)
-                            self.transformed_vector_actors.append(ar)
-        self.ren_right.ResetCameraClippingRange()
         self.vtk_right.GetRenderWindow().Render()
 
     def _save_transformed_sensors_csv(self, T, base):
@@ -1127,30 +1004,6 @@ class OPMCoregGUI(QWidget):
         df_out.to_csv(out_path, index=False)
         self._update_info(f"Saved transformed sensors CSV: {out_path}")
 
-    def _draw_sensor_vectors_left(self):
-        # rebuild left view: helmet_stl + sensor spheres + optional vectors
-        self.ren_left.RemoveAllViewProps()
-        if self.helmet_stl_actor_left is not None:
-            self.ren_left.AddActor(self.helmet_stl_actor_left)
-        self.sensor_actors_left = []
-        if self.sensor_positions is not None:
-            for pnt in self.sensor_positions:
-                actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-                self.ren_left.AddActor(actor)
-                self.sensor_actors_left.append(actor)
-        if self.cb_vec.isChecked() and (self.sensor_axes is not None):
-            for p, vecs in zip(self.sensor_positions, self.sensor_axes):
-                for vec, color in [
-                    (vecs[0], (1, 0, 0)),
-                    (vecs[1], (0, 1, 0)),
-                    (vecs[2], (0, 0, 1)),
-                ]:
-                    ar = arrow_actor(p, vec, scale=6.0, color=color)
-                    if ar is not None:
-                        self.ren_left.AddActor(ar)
-        self.ren_left.ResetCamera()
-        self.vtk_left.GetRenderWindow().Render()
-
     # ---------------------------------------------------------
     # ----------------- STEP 4 (head -> MRI) -----------------
     # ---------------------------------------------------------
@@ -1179,54 +1032,13 @@ class OPMCoregGUI(QWidget):
         r += 1
 
         b_preview = QPushButton("Preview MRI on master scan (RIGHT)")
-        b_preview.clicked.connect(self.preview_mri_on_scan)
+        b_preview.clicked.connect(lambda: preview_mri_on_scan(self))
         self.step_ctrl_layout.addWidget(b_preview, r, 0)
         r += 1
 
         b5 = QPushButton("Save Head→MRI")
         b5.clicked.connect(self.save_head_to_mri)
         self.step_ctrl_layout.addWidget(b5, r, 0)
-
-    def _draw_mri_fiducials(self):
-
-        # Remove old actors
-        if hasattr(self, "mri_fiducial_actors"):
-            for actor in self.mri_fiducial_actors.values():
-                try:
-                    self.ren_left.RemoveActor(actor)
-                except Exception:
-                    pass
-
-        self.mri_fiducial_actors = {}
-
-        for lbl, pos in self.mri_fiducials.items():
-            actor = sphere_actor(
-                pos, color=FIDUCIAL_COLORS.get(lbl, (1, 1, 0)), radius=3.5
-            )
-
-            self.ren_left.AddActor(actor)
-            self.mri_fiducial_actors[lbl] = actor
-
-        self.vtk_left.GetRenderWindow().Render()
-
-    def _preview_head_on_mri(self, T):
-        if self.head_polydata is None:
-            return
-
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(T))
-
-        filt = vtk.vtkTransformPolyDataFilter()
-        filt.SetTransform(tf)
-        filt.SetInputData(self.head_polydata)
-        filt.Update()
-
-        actor = actor_from_polydata(
-            filt.GetOutput(), color=(0.3, 0.6, 1.0), opacity=0.5
-        )
-
-        self.ren_left.AddActor(actor)
-        self.vtk_left.GetRenderWindow().Render()
 
     def extract_face_roi(self, polydata, fid_dict, plane_offset_mm=15.0):
 
@@ -1437,60 +1249,7 @@ class OPMCoregGUI(QWidget):
         # --------------------------------------------------
         # 7) Preview full head
         # --------------------------------------------------
-        self._preview_head_on_mri(self.T_head_to_mri)
-
-    def preview_mri_on_scan(self):
-
-        if self.T_head_to_mri is None:
-            self._update_info("Compute Head→MRI first.")
-            return
-
-        if self.T_head_to_scan is None:
-            self._update_info("Need Head→Scan (Step2) first.")
-            return
-
-        if self.mri_polydata is None:
-            self._update_info("Load MRI mesh first.")
-            return
-
-        # MRI is in MRI frame
-        # We want MRI in SCAN frame (RIGHT window)
-
-        # head -> mri  = T_head_to_mri
-        # head -> scan = T_head_to_scan
-        # So:
-
-        # mri -> head
-        T_mri_to_head = np.linalg.inv(self.T_head_to_mri)
-
-        # head -> scan
-        T_head_to_scan = self.T_head_to_scan
-
-        # mri -> scan
-        T_mri_to_scan = T_head_to_scan @ T_mri_to_head
-
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(T_mri_to_scan))
-
-        filt = vtk.vtkTransformPolyDataFilter()
-        filt.SetTransform(tf)
-        filt.SetInputData(self.mri_polydata)
-        filt.Update()
-
-        # remove old if exists
-        if self.mri_actor_right is not None:
-            self.ren_right.RemoveActor(self.mri_actor_right)
-
-        self.mri_actor_right = actor_from_polydata(
-            filt.GetOutput(),
-            color=(1.0, 0.6, 0.8),  # pink
-            opacity=0.4,
-        )
-
-        self.ren_right.AddActor(self.mri_actor_right)
-        self.vtk_right.GetRenderWindow().Render()
-
-        self._update_info("Previewed MRI on master scan (RIGHT).")
+        preview_head_on_mri(self, self.T_head_to_mri)
 
     def save_head_to_mri(self):
 

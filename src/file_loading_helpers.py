@@ -8,6 +8,10 @@ import pandas as pd
 from PyQt5.QtWidgets import QFileDialog
 
 from src.const import PAIR_COLORS
+from src.display_helpers import (
+    draw_mri_fiducials,
+    draw_sensor_vectors_left,
+)
 from src.utils import (
     actor_from_polydata,
     load_mesh_to_polydata,
@@ -192,7 +196,7 @@ def load_sensor_csv(gui):
         gui.ren_left.AddActor(actor)
         gui.sensor_actors_left.append(actor)
     # show vectors on left if toggled
-    gui._draw_sensor_vectors_left()
+    draw_sensor_vectors_left(gui)
     gui.ren_left.ResetCamera()
     gui.vtk_left.GetRenderWindow().Render()
     gui._update_info(
@@ -281,6 +285,6 @@ def load_mri_fiducials(gui):
     if len(gui.mri_fiducials) != 3:
         gui._update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
         return
-    gui._draw_mri_fiducials()
+    draw_mri_fiducials(gui)
 
     gui._update_info("Loaded MRI fiducials from FIF.")

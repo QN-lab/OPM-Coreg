@@ -2,6 +2,11 @@
 
 import os
 import numpy as np
+from src.display_helpers import (
+    overlay_head_transformed,
+    overlay_step3_transformed,
+    preview_head_on_mri,
+)
 from src.utils import compute_rigid_transform, save_transform
 
 
@@ -52,7 +57,7 @@ def compute_head_to_scan(gui):
         f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto RIGHT."
     )
     # overlay transformed head scan on right (light orange)
-    gui._overlay_head_transformed(T)
+    overlay_head_transformed(gui, T)
     # save transform
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
     save_transform(T, base + "_head_to_scan")
@@ -99,7 +104,7 @@ def compute_sensors_transform(gui):
         f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on RIGHT."
     )
     # overlay transformed STL + transformed sensors
-    gui._overlay_step3_transformed(T)
+    overlay_step3_transformed(gui, T)
     # save transform automatically
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
     save_transform(T, base + "_T_dev_to_scan")
@@ -151,7 +156,7 @@ def compute_head_to_mri_initial(gui):
         f"RPA={errs[2]:.2f}"
     )
 
-    gui._preview_head_on_mri(T)
+    preview_head_on_mri(gui, T)
 
 
 def compute_helmet_to_mri(gui):

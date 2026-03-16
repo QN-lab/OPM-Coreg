@@ -1,5 +1,10 @@
 """Contains helper functions for toggling the visibility of various elements in the GUI."""
 
+from src.display_helpers import (
+    draw_sensor_vectors_left,
+    overlay_step3_transformed,
+)
+
 
 def toggle_vectors(gui, state):
     """Toggle the visibility of the unit vectors in the left view.
@@ -10,9 +15,9 @@ def toggle_vectors(gui, state):
     """
     gui.show_vectors = bool(state)
     # redraw left vectors and transformed vectors if transform exists
-    gui._draw_sensor_vectors_left()
+    draw_sensor_vectors_left(gui)
     if gui.T_dev_to_scan is not None:
-        gui._overlay_step3_transformed(gui.T_dev_to_scan)
+        overlay_step3_transformed(gui, gui.T_dev_to_scan)
 
 
 def toggle_helmet_overlay(gui, state):
