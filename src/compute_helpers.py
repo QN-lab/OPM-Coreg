@@ -1,13 +1,21 @@
 """Helper functions to compute transforms based on GUI state and user inputs."""
 
 import os
+
 import numpy as np
+import vtk
+
 from src.display_helpers import (
     overlay_head_transformed,
     overlay_step3_transformed,
     preview_head_on_mri,
 )
-from src.utils import compute_rigid_transform, save_transform
+from src.utils import (
+    actor_from_polydata,
+    compute_rigid_transform,
+    save_transform,
+    vtk_matrix_from_numpy,
+)
 
 
 def compute_aux_dev_to_scan(gui):
@@ -183,3 +191,128 @@ def compute_helmet_to_mri(gui):
     )
     # apply final transforms and save
     gui._apply_final_transforms(T)
+
+
+def compute_surface_rms(src_poly, dst_poly):
+    """Compute RMS distance from each point in src_poly to closest point in dst_poly."""
+    locator = vtk.vtkPointLocator()
+    locator.SetDataSet(dst_poly)
+    locator.BuildLocator()
+
+    src_points = src_poly.GetPoints()
+    num_points = src_points.GetNumberOfPoints()
+
+    squared_distances = []
+
+    for i in range(num_points):
+        src_point = src_points.GetPoint(i)
+        closest_idx = locator.FindClosestPoint(src_point)
+        closest_dst_point = dst_poly.GetPoint(closest_idx)
+        squared_distances.append(
+            np.sum((np.array(src_point) - np.array(closest_dst_point)) ** 2)
+        )
+
+    squared_distances = np.array(squared_distances)
+    return np.sqrt(np.mean(squared_distances))
+
+
+def run_icp_head_to_mri(gui):
+    """Run ICP to refine head→MRI alignment using the face ROI."""
+    if gui.T_head_to_mri is None:
+        gui._update_info("Compute initial fiducial alignment first.")
+        return
+
+    if gui.head_polydata is None or gui.mri_polydata is None:
+        gui._update_info("Need head and MRI surfaces loaded.")
+        return
+
+    if not all(
+        fid in gui.head_fiducials for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    ):
+        gui._update_info("Need 5 head fiducials.")
+        return
+
+    # --------------------------------------------------
+    # 1) Extract ROI in HEAD space
+    # --------------------------------------------------
+    roi_head_native = gui.extract_face_roi(gui.head_polydata, gui.head_fiducials)
+
+    if roi_head_native is None:
+        gui._update_info("ROI extraction failed.")
+        return
+
+    # --------------------------------------------------
+    # 2) Transform ROI to MRI space
+    # --------------------------------------------------
+    tf = vtk.vtkTransform()
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
+
+    tf_filter = vtk.vtkTransformPolyDataFilter()
+    tf_filter.SetTransform(tf)
+    tf_filter.SetInputData(roi_head_native)
+    tf_filter.Update()
+
+    roi_head = tf_filter.GetOutput()
+
+    # --------------------------------------------------
+    # 3) Show ROI in LEFT window (red)
+    # --------------------------------------------------
+    if hasattr(gui, "_roi_actor") and gui._roi_actor is not None:
+        try:
+            gui.ren_left.RemoveActor(gui._roi_actor)
+        except Exception:
+            pass
+
+    gui._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
+
+    gui.ren_left.AddActor(gui._roi_actor)
+    gui.vtk_left.GetRenderWindow().Render()
+
+    # --------------------------------------------------
+    # 4) Initial RMS
+    # --------------------------------------------------
+    initial_rms = compute_surface_rms(roi_head, gui.mri_polydata)
+
+    # --------------------------------------------------
+    # 5) ICP
+    # --------------------------------------------------
+    icp = vtk.vtkIterativeClosestPointTransform()
+    icp.SetSource(roi_head)
+    icp.SetTarget(gui.mri_polydata)
+    icp.GetLandmarkTransform().SetModeToRigidBody()
+    icp.SetMaximumNumberOfIterations(50)
+    icp.StartByMatchingCentroidsOff()
+    icp.Modified()
+    icp.Update()
+
+    # Extract matrix
+    T_icp = np.eye(4)
+    icp_matrix = icp.GetMatrix()
+    for row in range(4):
+        for col in range(4):
+            T_icp[row, col] = icp_matrix.GetElement(row, col)
+
+    # Compose
+    gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
+
+    # --------------------------------------------------
+    # 6) Recompute RMS after ICP
+    # --------------------------------------------------
+    tf2 = vtk.vtkTransform()
+    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
+
+    tf_filter2 = vtk.vtkTransformPolyDataFilter()
+    tf_filter2.SetTransform(tf2)
+    tf_filter2.SetInputData(roi_head_native)
+    tf_filter2.Update()
+
+    roi_refined = tf_filter2.GetOutput()
+
+    final_rms = compute_surface_rms(roi_refined, gui.mri_polydata)
+
+    gui._update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+
+    # --------------------------------------------------
+    # 7) Preview full head
+    # --------------------------------------------------
+    preview_head_on_mri(gui, gui.T_head_to_mri)

@@ -36,12 +36,12 @@ from src.compute_helpers import (
     compute_head_to_mri_initial,
     compute_head_to_scan,
     compute_sensors_transform,
+    run_icp_head_to_mri,
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     merge_aux_dev_into_helmet,
     overlay_step3_transformed,
-    preview_head_on_mri,
     preview_mri_on_scan,
 )
 from src.file_loading_helpers import (
@@ -69,10 +69,8 @@ from src.toggle_helpers import (
     toggle_vectors,
 )
 from src.utils import (
-    actor_from_polydata,
     save_transform,
     sphere_actor,
-    vtk_matrix_from_numpy,
 )
 
 
@@ -1027,7 +1025,7 @@ class OPMCoregGUI(QWidget):
         r += 1
 
         b4 = QPushButton("Run ICP refinement")
-        b4.clicked.connect(self.run_icp_head_to_mri)
+        b4.clicked.connect(lambda: run_icp_head_to_mri(self))
         self.step_ctrl_layout.addWidget(b4, r, 0)
         r += 1
 
@@ -1126,130 +1124,6 @@ class OPMCoregGUI(QWidget):
 
         print("ROI points:", roi_poly.GetNumberOfPoints())
         return roi_poly
-
-    def compute_surface_rms(self, src_poly, dst_poly):
-        locator = vtk.vtkPointLocator()
-        locator.SetDataSet(dst_poly)
-        locator.BuildLocator()
-
-        src_points = src_poly.GetPoints()
-        num_points = src_points.GetNumberOfPoints()
-
-        squared_distances = []
-
-        for i in range(num_points):
-            src_point = src_points.GetPoint(i)
-            closest_idx = locator.FindClosestPoint(src_point)
-            closest_dst_point = dst_poly.GetPoint(closest_idx)
-            squared_distances.append(
-                np.sum((np.array(src_point) - np.array(closest_dst_point)) ** 2)
-            )
-
-        squared_distances = np.array(squared_distances)
-        return np.sqrt(np.mean(squared_distances))
-
-    def run_icp_head_to_mri(self):
-
-        if self.T_head_to_mri is None:
-            self._update_info("Compute initial fiducial alignment first.")
-            return
-
-        if self.head_polydata is None or self.mri_polydata is None:
-            self._update_info("Need head and MRI surfaces loaded.")
-            return
-
-        if not all(
-            fid in self.head_fiducials for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-        ):
-            self._update_info("Need 5 head fiducials.")
-            return
-
-        # --------------------------------------------------
-        # 1) Extract ROI in HEAD space
-        # --------------------------------------------------
-        roi_head_native = self.extract_face_roi(self.head_polydata, self.head_fiducials)
-
-        if roi_head_native is None:
-            self._update_info("ROI extraction failed.")
-            return
-
-        # --------------------------------------------------
-        # 2) Transform ROI to MRI space
-        # --------------------------------------------------
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(self.T_head_to_mri))
-
-        tf_filter = vtk.vtkTransformPolyDataFilter()
-        tf_filter.SetTransform(tf)
-        tf_filter.SetInputData(roi_head_native)
-        tf_filter.Update()
-
-        roi_head = tf_filter.GetOutput()
-
-        # --------------------------------------------------
-        # 3) Show ROI in LEFT window (red)
-        # --------------------------------------------------
-        if hasattr(self, "_roi_actor") and self._roi_actor is not None:
-            try:
-                self.ren_left.RemoveActor(self._roi_actor)
-            except Exception:
-                pass
-
-        self._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
-
-        self.ren_left.AddActor(self._roi_actor)
-        self.vtk_left.GetRenderWindow().Render()
-
-        # --------------------------------------------------
-        # 4) Initial RMS
-        # --------------------------------------------------
-        initial_rms = self.compute_surface_rms(roi_head, self.mri_polydata)
-
-        # --------------------------------------------------
-        # 5) ICP
-        # --------------------------------------------------
-        icp = vtk.vtkIterativeClosestPointTransform()
-        icp.SetSource(roi_head)
-        icp.SetTarget(self.mri_polydata)
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(50)
-        icp.StartByMatchingCentroidsOff()
-        icp.Modified()
-        icp.Update()
-
-        # Extract matrix
-        T_icp = np.eye(4)
-        icp_matrix = icp.GetMatrix()
-        for row in range(4):
-            for col in range(4):
-                T_icp[row, col] = icp_matrix.GetElement(row, col)
-
-        # Compose
-        self.T_head_to_mri = T_icp @ self.T_head_to_mri
-
-        # --------------------------------------------------
-        # 6) Recompute RMS after ICP
-        # --------------------------------------------------
-        tf2 = vtk.vtkTransform()
-        tf2.SetMatrix(vtk_matrix_from_numpy(self.T_head_to_mri))
-
-        tf_filter2 = vtk.vtkTransformPolyDataFilter()
-        tf_filter2.SetTransform(tf2)
-        tf_filter2.SetInputData(roi_head_native)
-        tf_filter2.Update()
-
-        roi_refined = tf_filter2.GetOutput()
-
-        final_rms = self.compute_surface_rms(roi_refined, self.mri_polydata)
-
-        self._update_info(
-            f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm"
-        )
-
-        # --------------------------------------------------
-        # 7) Preview full head
-        # --------------------------------------------------
-        preview_head_on_mri(self, self.T_head_to_mri)
 
     def save_head_to_mri(self):
 
