@@ -16,7 +16,7 @@ from src.utils import (
     save_transform,
     vtk_matrix_from_numpy,
 )
-from src.file_loading_helpers import save_transformed_sensors_csv
+from src.file_io_helpers import save_transformed_sensors_csv
 
 
 def compute_aux_dev_to_scan(gui):
