@@ -190,7 +190,7 @@ def compute_helmet_to_mri(gui):
         f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to coil/device/head."
     )
     # apply final transforms and save
-    gui._apply_final_transforms(T)
+    apply_final_transforms(gui, T)
 
 
 def compute_surface_rms(src_poly, dst_poly):
@@ -235,7 +235,7 @@ def run_icp_head_to_mri(gui):
     # --------------------------------------------------
     # 1) Extract ROI in HEAD space
     # --------------------------------------------------
-    roi_head_native = gui.extract_face_roi(gui.head_polydata, gui.head_fiducials)
+    roi_head_native = extract_face_roi(gui.head_polydata, gui.head_fiducials)
 
     if roi_head_native is None:
         gui._update_info("ROI extraction failed.")
@@ -316,3 +316,122 @@ def run_icp_head_to_mri(gui):
     # 7) Preview full head
     # --------------------------------------------------
     preview_head_on_mri(gui, gui.T_head_to_mri)
+
+
+def apply_final_transforms(gui, T_head_to_mri):
+    """Calculate additional transforms for coil/device/head to MRI in mm units."""
+    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+
+    if gui.T_head_to_scan is None:
+        gui._update_info("Need head→scan transform first.")
+        return
+
+    # --- Compute scan → head ---
+    T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
+
+    # --- Save head → mri ---
+    save_transform(T_head_to_mri, base + "_head_to_mri_mm")
+
+    # -----------------------------------------
+    # Coil → MRI
+    # -----------------------------------------
+    if gui.aux_dev_to_scan is not None:
+        coil_to_mri = T_head_to_mri @ T_scan_to_head @ gui.aux_dev_to_scan
+        save_transform(coil_to_mri, base + "_aux_dev_to_mri_mm")
+
+    # -----------------------------------------
+    # Device → MRI
+    # -----------------------------------------
+    if gui.T_dev_to_scan is not None:
+        dev_to_mri = T_head_to_mri @ T_scan_to_head @ gui.T_dev_to_scan
+        save_transform(dev_to_mri, base + "_dev_to_mri_mm")
+
+    gui._update_info("Saved coil/device/head → MRI transforms (mm).")
+
+
+def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
+    """Extract a region of interest (ROI) from the head scan polydata based on fiducials defining the face area, and return the subset polydata for registration to MRI."""
+    required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    if not all(fid in fid_dict for fid in required):
+        print("ROI extraction: missing fiducials")
+        return None
+
+    nas = fid_dict["NAS"]
+    lpa = fid_dict["LPA"]
+    rpa = fid_dict["RPA"]
+    nose = fid_dict["NOSE"]
+    chin = fid_dict["CHIN"]
+
+    # --------------------------------------------------
+    # 1) ROI center (face region)
+    # --------------------------------------------------
+    fiducial_points = np.vstack([nas, lpa, rpa, nose, chin])
+    roi_center = np.mean(fiducial_points, axis=0)
+
+    max_dist = np.max(np.linalg.norm(fiducial_points - roi_center, axis=1))
+    roi_radius = 2.2 * max_dist  # larger radius to include LPA/RPA fully
+
+    # --------------------------------------------------
+    # 2) Define fiducial plane (NAS–LPA–RPA)
+    # --------------------------------------------------
+    v1 = lpa - nas
+    v2 = rpa - nas
+    plane_normal = np.cross(v1, v2)
+    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+
+    # Make sure normal points upward (towards top of head)
+    if np.dot(plane_normal, chin - nas) > 0:
+        plane_normal = -plane_normal
+
+    # Shift plane upward
+    plane_point = nas + plane_offset_mm * plane_normal
+
+    # --------------------------------------------------
+    # 3) Select points
+    # --------------------------------------------------
+    points = polydata.GetPoints()
+    n_pts = points.GetNumberOfPoints()
+
+    ids = vtk.vtkIdTypeArray()
+
+    for i in range(n_pts):
+        p = np.array(points.GetPoint(i))
+
+        # radial constraint
+        if np.linalg.norm(p - roi_center) > roi_radius:
+            continue
+
+        # chop-off plane: keep only points BELOW shifted plane
+        if np.dot(p - plane_point, plane_normal) > 0:
+            continue
+
+        ids.InsertNextValue(i)
+
+    if ids.GetNumberOfTuples() < 500:
+        print("ROI too small — returning None")
+        return None
+
+    # --------------------------------------------------
+    # 4) Extract subset
+    # --------------------------------------------------
+    selection_node = vtk.vtkSelectionNode()
+    selection_node.SetFieldType(vtk.vtkSelectionNode.POINT)
+    selection_node.SetContentType(vtk.vtkSelectionNode.INDICES)
+    selection_node.SetSelectionList(ids)
+
+    selection = vtk.vtkSelection()
+    selection.AddNode(selection_node)
+
+    extract = vtk.vtkExtractSelection()
+    extract.SetInputData(0, polydata)
+    extract.SetInputData(1, selection)
+    extract.Update()
+
+    geo = vtk.vtkGeometryFilter()
+    geo.SetInputConnection(extract.GetOutputPort())
+    geo.Update()
+
+    roi_poly = geo.GetOutput()
+
+    print("ROI points:", roi_poly.GetNumberOfPoints())
+    return roi_poly
