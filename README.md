@@ -22,6 +22,21 @@ The GUI will output following transforms needed for source localization problem 
 
 ![Transforms summary](/docs/resources/transforms_flowchart.png)
 
+## How to use?
+
+The GUI is entirely developed in Python (3.11) and we suggest creating a dedicated environment for installing required packages and running the GUI. All required packages are enlisted in `requirements.txt`.
+
+On Windows, run the `launch_gui.bat` file to create the virtual environment, install dependencies, and run the GUI.
+
+On other systems, after manually creating and activating the environment, follow these steps :
+
+```
+cd OPM-COREGISTRATION-GUI
+python -m src.main
+```
+
+The command to launch the GUI will be updated once the package name is established.
+
 ## Notes
 
 - Currently developing and testing on Python 3.11.14
