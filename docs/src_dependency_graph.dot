@@ -1,0 +1,66 @@
+
+digraph G {
+    concentrate = true;
+
+    rankdir = TB;
+    node [style=filled,fillcolor="#ffffff",fontcolor="#000000",fontname=Helvetica,fontsize=10];
+
+    mne [fillcolor="#b6b653"];
+    mne_io [fillcolor="#b6b653",label="mne.io"];
+    mne_io_constants [fillcolor="#b6b653",label="mne\.\nio\.\nconstants"];
+    mne_transforms [fillcolor="#b3b34c",label="mne.transforms"];
+    numpy [fillcolor="#06f906"];
+    pandas [fillcolor="#40bfc0"];
+    PyQt5 [fillcolor="#ce3b3b",fontcolor="#ffffff"];
+    PyQt5_QtWidgets [fillcolor="#ce3b3b",fontcolor="#ffffff",label="PyQt5\.\nQtWidgets"];
+    src_compute_helpers [fillcolor="#333399",fontcolor="#ffffff",label="src\.\ncompute_helpers"];
+    src_const [fillcolor="#2f2fdb",fontcolor="#ffffff",label="src.const"];
+    src_display_helpers [fillcolor="#1515c1",fontcolor="#ffffff",label="src\.\ndisplay_helpers"];
+    src_file_io_helpers [fillcolor="#1e1e7a",fontcolor="#ffffff",label="src\.\nfile_io_helpers"];
+    src_main [fillcolor="#43439d",fontcolor="#ffffff",label="src.main"];
+    src_observer_helpers [fillcolor="#4747c2",fontcolor="#ffffff",label="src\.\nobserver_helpers"];
+    src_opm_coreg_gui [fillcolor="#262673",fontcolor="#ffffff",label="src\.\nopm_coreg_gui"];
+    src_toggle_helpers [fillcolor="#3d3db8",fontcolor="#ffffff",label="src\.\ntoggle_helpers"];
+    src_utils [fillcolor="#1818dd",fontcolor="#ffffff",label="src.utils"];
+    vtk [fillcolor="#e722e7",fontcolor="#ffffff"];
+    mne -> src_file_io_helpers [fillcolor="#b6b653",minlen="2"];
+    mne_io -> src_file_io_helpers [fillcolor="#b6b653",minlen="2"];
+    mne_io_constants -> src_file_io_helpers [fillcolor="#b6b653",minlen="3"];
+    mne_transforms -> src_file_io_helpers [fillcolor="#b3b34c",minlen="2"];
+    numpy -> mne_transforms [fillcolor="#06f906",minlen="2"];
+    numpy -> src_compute_helpers [fillcolor="#06f906",minlen="2"];
+    numpy -> src_display_helpers [fillcolor="#06f906",minlen="2"];
+    numpy -> src_file_io_helpers [fillcolor="#06f906",minlen="2"];
+    numpy -> src_opm_coreg_gui [fillcolor="#06f906",minlen="2"];
+    numpy -> src_utils [fillcolor="#06f906",minlen="2"];
+    pandas -> src_file_io_helpers [fillcolor="#40bfc0",minlen="2"];
+    PyQt5 -> src_file_io_helpers [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5 -> src_main [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5 -> src_opm_coreg_gui [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> src_file_io_helpers [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> src_main [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> src_opm_coreg_gui [fillcolor="#ce3b3b",minlen="2"];
+    src_compute_helpers -> src_opm_coreg_gui [fillcolor="#333399"];
+    src_const -> src_display_helpers [fillcolor="#2f2fdb"];
+    src_const -> src_file_io_helpers [fillcolor="#2f2fdb"];
+    src_const -> src_opm_coreg_gui [fillcolor="#2f2fdb"];
+    src_display_helpers -> src_compute_helpers [fillcolor="#1515c1"];
+    src_display_helpers -> src_file_io_helpers [fillcolor="#1515c1"];
+    src_display_helpers -> src_opm_coreg_gui [fillcolor="#1515c1"];
+    src_display_helpers -> src_toggle_helpers [fillcolor="#1515c1"];
+    src_file_io_helpers -> src_compute_helpers [fillcolor="#1e1e7a"];
+    src_file_io_helpers -> src_opm_coreg_gui [fillcolor="#1e1e7a"];
+    src_observer_helpers -> src_opm_coreg_gui [fillcolor="#4747c2"];
+    src_opm_coreg_gui -> src_main [fillcolor="#262673"];
+    src_toggle_helpers -> src_opm_coreg_gui [fillcolor="#3d3db8"];
+    src_utils -> src_compute_helpers [fillcolor="#1818dd"];
+    src_utils -> src_display_helpers [fillcolor="#1818dd"];
+    src_utils -> src_file_io_helpers [fillcolor="#1818dd"];
+    src_utils -> src_opm_coreg_gui [fillcolor="#1818dd"];
+    vtk -> src_compute_helpers [fillcolor="#e722e7",minlen="2"];
+    vtk -> src_display_helpers [fillcolor="#e722e7",minlen="2"];
+    vtk -> src_file_io_helpers [fillcolor="#e722e7",minlen="2"];
+    vtk -> src_opm_coreg_gui [fillcolor="#e722e7",minlen="2"];
+    vtk -> src_utils [fillcolor="#e722e7",minlen="2"];
+}
+
