@@ -1,0 +1,5 @@
+tests: 
+stage: test 
+extends: .matlab_defaults 
+tags: - bear-gitlab-runners 
+script: - matlab -batch "results = runtests('IncludeSubfolders',true), assertSuccess(results);"

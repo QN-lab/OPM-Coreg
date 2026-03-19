@@ -1,0 +1,1066 @@
+#!/usr/bin/env python3
+# tms_opm_all_steps_gui_fixed.py
+#
+# All-in-one GUI (fixed):
+#  - Step1: coil -> master scan (select landmarks on master scan based on landmark locations in csv)
+#  - Step2: scan of the head "outside" -> master scan (fiducials + pairwise)
+#  - Step3: sensors & helmet STL -> master_scan (pairwise)  <- integrated from your working script
+#  - Step4: helmet -> MRI (fiducial) ### check this
+
+# TODO : rename members/methods containing step_xx.
+# TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
+# TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
+
+
+import numpy as np
+import vtk
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+
+from src.compute_helpers import (
+    compute_aux_dev_to_scan,
+    compute_head_to_mri_initial,
+    compute_head_to_scan,
+    compute_sensors_transform,
+    run_icp_head_to_mri,
+)
+from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.display_helpers import (
+    merge_aux_dev_into_helmet,
+    overlay_step3_transformed,
+    preview_mri_on_scan,
+)
+from src.file_io_helpers import (
+    load_aux_dev_landmarks,
+    load_aux_dev_stl,
+    load_head_scan,
+    load_helmet_cad,
+    load_master_scan,
+    load_mri_fiducials,
+    load_mri_mesh,
+    load_sensor_csv,
+    save_head_to_mri,
+    auto_save_transform,
+)
+from src.observer_helpers import (
+    add_left_observer,
+    add_right_observer,
+    clear_left_renderer,
+    clear_right_renderer_keep_scan,
+    remove_all_observers,
+)
+from src.toggle_helpers import (
+    toggle_aux_dev_overlay,
+    toggle_head_overlay,
+    toggle_helmet_overlay,
+    toggle_mri_overlay,
+    toggle_vectors,
+)
+from src.utils import (
+    sphere_actor,
+)
+
+
+class OPMCoregGUI(QWidget):
+    def __init__(self):
+        """Initialize the main GUI window, VTK renderers, and shared state variables for the multi-step registration process."""
+        super().__init__()
+        self.setWindowTitle("TMS-OPM Multi-step Registration (fixed)")
+        self.resize(1800, 1000)
+        self.setStyleSheet("background-color: #2b2b2b; color: white;")
+
+        # Renderers / interactors
+        self.vtk_left = QVTKRenderWindowInteractor(self)
+        self.ren_left = vtk.vtkRenderer()
+        self.vtk_left.GetRenderWindow().AddRenderer(self.ren_left)
+        self.left_iren = self.vtk_left.GetRenderWindow().GetInteractor()
+        style_l = vtk.vtkInteractorStyleTrackballCamera()
+        style_l.SetMotionFactor(4.0)
+        self.left_iren.SetInteractorStyle(style_l)
+
+        self.vtk_right = QVTKRenderWindowInteractor(self)
+        self.ren_right = vtk.vtkRenderer()
+        self.vtk_right.GetRenderWindow().AddRenderer(self.ren_right)
+        self.right_iren = self.vtk_right.GetRenderWindow().GetInteractor()
+        style_r = vtk.vtkInteractorStyleTrackballCamera()
+        style_r.SetMotionFactor(4.0)
+        self.right_iren.SetInteractorStyle(style_r)
+
+        # Keep track of added observer IDs so we can remove them safely
+        self._observer_ids = []
+
+        # ===== shared state (per-step) =====
+        self.mode = None
+        self.picking_state = {}
+
+        # Step1 coil to master scan
+        self.helmet_polydata = None
+        self.helmet_actor = None
+        self.helmet_filename = None
+        self.coil_polydata = None
+        self.coil_actor_left = None
+        self.coil_landmarks = {}
+        self.coil_landmark_actors_left = []
+        self.coil_expected_labels = []
+        self.coil_pairs_src = []
+        self.coil_pairs_dst = []
+        self.coil_pick_index = 0
+        self.aux_dev_to_scan = None
+        self.coil_actor_transformed = None
+
+        # Step2 head to master scan
+        self.head_polydata = None
+        self.head_actor = None
+        self.head_fiducials = {}  # NAS,LPA,RPA
+        self.head_fiducial_actors = {}
+        self.step2_pairs_head = []
+        self.step2_pairs_scan = []
+        self.step2_pair_actors_left = []
+        self.step2_pair_actors_right = []
+        self.T_head_to_scan = None
+
+        # Step3 helmet STL/sensor positions  to master scan (to get the device to scan transform)
+        self.helmet_stl_raw = None
+        self.helmet_stl_actor_left = None
+        self.helmet_stl_actor_overlay = None
+        self.sensor_df = None
+        self.sensor_positions = None
+        self.sensor_axes = None
+        self.sensor_actors_left = []
+        self.transformed_sensor_actors = []
+        self.transformed_vector_actors = []
+        self.ref_point_pairs_helmet_stl = []
+        self.ref_point_pairs_scan = []
+        self.T_dev_to_scan = None
+        self.T_dev_to_head = None
+
+        self.show_vectors = False
+        self.show_helmet_stl = True
+        self.sensor_csv_path = None
+        # Step3 pairing actors (MUST exist before use)
+        self.pair_actors_left = []
+        self.pair_actors_right = []
+
+        # Step4 (MRI)
+        self.mri_polydata = None
+        self.mri_fiducials = {}
+        self.mri_fiducial_actors = {}
+        self.T_head_to_mri = None
+        self.mri_actor_right = None
+
+        # Build UI
+        self._build_ui()
+        # initialize
+        self.left_iren.Initialize()
+        self.right_iren.Initialize()
+
+    # ---------- UI ----------
+    def _build_ui(self):
+        """Build the main UI layout.
+
+        Left pane: 3D view (coil/helmet for step1, head scan for step2, helmet STL + sensors for step3, MRI for step4)
+        Right pane: 3D view (master scan for all steps, with overlays)
+        Bottom pane: controls that change based on step, plus info and toggles for overlays
+        """
+        main_layout = QVBoxLayout(self)
+        # two render windows
+        view_layout = QHBoxLayout()
+        view_layout.addWidget(self.vtk_left, 1)
+        view_layout.addWidget(self.vtk_right, 1)
+        main_layout.addLayout(view_layout, stretch=8)
+
+        # bottom controls
+        ctrl_layout = QHBoxLayout()
+        # steps list
+        steps_box = QGroupBox("Steps")
+        steps_v = QVBoxLayout()
+        for button_label, mode in [
+            ("Step 1: Coil to scan", "step1"),
+            ("Step 2: Head to scan", "step2"),
+            ("Step 3: Sensors to scan", "step3"),
+            ("Step 4: Head to MRI", "step4"),
+        ]:
+            button = QPushButton(button_label)
+            button.clicked.connect(
+                lambda _, selected_mode=mode: self.set_mode(selected_mode)
+            )
+            steps_v.addWidget(button)
+        steps_box.setLayout(steps_v)
+        ctrl_layout.addWidget(steps_box)
+
+        # dynamic step controls
+        self.step_ctrl_box = QGroupBox("Step Controls")
+        self.step_ctrl_layout = QGridLayout()
+        self.step_ctrl_box.setLayout(self.step_ctrl_layout)
+        ctrl_layout.addWidget(self.step_ctrl_box, stretch=1)
+
+        # info box
+        info_box = QGroupBox("Info / Save")
+        info_v = QVBoxLayout()
+        self.info_label = QLabel("Select layers to see:")
+        self.info_label.setWordWrap(True)
+        info_v.addWidget(self.info_label)
+
+        self.cb_show_aux_dev = QCheckBox("TMS coil (Step 1)")
+        self.cb_show_aux_dev.setChecked(True)
+        self.cb_show_aux_dev.stateChanged.connect(
+            lambda state: toggle_aux_dev_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_aux_dev)
+
+        self.cb_show_head = QCheckBox("Head scan (Step 2)")
+        self.cb_show_head.setChecked(True)
+        self.cb_show_head.stateChanged.connect(
+            lambda state: toggle_head_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_head)
+        self.cb_stl = QCheckBox("Sensors (Step 3)")
+        self.cb_stl.setChecked(True)
+        self.cb_stl.stateChanged.connect(
+            lambda state: toggle_helmet_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_stl)
+        self.cb_vec = QCheckBox("Unit vectors (Step 3)")
+        self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
+        info_v.addWidget(self.cb_vec)
+
+        self.cb_show_mri = QCheckBox("MRI (Step 4)")
+        self.cb_show_mri.setChecked(True)
+        self.cb_show_mri.stateChanged.connect(
+            lambda state: toggle_mri_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_mri)
+
+        self.btn_save_all = QPushButton("Auto-save available transforms")
+        self.btn_save_all.clicked.connect(lambda: auto_save_transform(self))
+        info_v.addWidget(self.btn_save_all)
+        info_box.setLayout(info_v)
+        ctrl_layout.addWidget(info_box)
+
+        main_layout.addLayout(ctrl_layout, stretch=2)
+
+        bottom = QFrame()
+        bottom.setStyleSheet("background-color:#222;")
+        bottom_layout = QVBoxLayout(bottom)
+        self.bottom_instr = QLabel(
+            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
+        )
+        self.bottom_instr.setWordWrap(True)
+        bottom_layout.addWidget(self.bottom_instr)
+        main_layout.addWidget(bottom, stretch=1)
+
+    def _update_info(self, txt):
+        """Update the info label at the bottom with new text."""
+        print(txt)
+        self.info_label.setText(txt)
+
+    # ---------- mode switching ----------
+    def set_mode(self, selected_mode):
+        """Switch to a different step/mode, resetting state and UI as needed."""
+        # 1. Remove old observers
+        remove_all_observers(self)
+
+        # 2. Create fresh styles with motion factor
+        style_l = vtk.vtkInteractorStyleTrackballCamera()
+        style_l.SetMotionFactor(4.0)
+
+        style_r = vtk.vtkInteractorStyleTrackballCamera()
+        style_r.SetMotionFactor(4.0)
+
+        self.left_iren.SetInteractorStyle(style_l)
+        self.right_iren.SetInteractorStyle(style_r)
+
+        self.mode = selected_mode
+        self.picking_state = {}
+
+        # 3. Reset renderers
+        clear_left_renderer(self)
+        clear_right_renderer_keep_scan(self)
+
+        # 4. Step setup
+        if selected_mode == "step1":
+            self._populate_step1_controls()
+
+        elif selected_mode == "step2":
+            self._populate_step2_controls()
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step2)
+            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step2)
+
+        elif selected_mode == "step3":
+            self._populate_step3_controls()
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step3)
+            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step3)
+
+        elif selected_mode == "step4":
+            self._populate_step4_controls()
+            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step4)
+
+        self._update_info(f"Mode: {selected_mode}")
+
+    def _clear_step_controls(self):
+        """Remove all widgets from the step controls layout."""
+        for i in reversed(range(self.step_ctrl_layout.count())):
+            w = self.step_ctrl_layout.itemAt(i).widget()
+            if w:
+                w.setParent(None)
+
+    # ----------------- STEP 1 -------------------
+    def _populate_step1_controls(self):
+        """Set up the controls for Step 1: coil to master scan registration."""
+        self._clear_step_controls()
+        r = 0
+        b1 = QPushButton("Load 3D master scan (RIGHT)")
+        b1.clicked.connect(lambda: load_master_scan(self))
+        self.step_ctrl_layout.addWidget(b1, r, 0)
+        r += 1
+        b2 = QPushButton("Load coil STL (LEFT)")
+        b2.clicked.connect(lambda: load_aux_dev_stl(self))
+        self.step_ctrl_layout.addWidget(b2, r, 0)
+        r += 1
+        b3 = QPushButton("Load coil landmarks CSV")
+        b3.clicked.connect(lambda: load_aux_dev_landmarks(self))
+        self.step_ctrl_layout.addWidget(b3, r, 0)
+        r += 1
+        b4 = QPushButton("Start picking coil landmarks in master scan")
+        b4.clicked.connect(self.start_aux_dev_landmark_pairs)
+        self.step_ctrl_layout.addWidget(b4, r, 0)
+        r += 1
+        b5 = QPushButton("Undo last coil pair")
+        b5.clicked.connect(self.undo_last_aux_dev_pair)
+        self.step_ctrl_layout.addWidget(b5, r, 0)
+        r += 1
+        b6 = QPushButton("Compute coil to master scan transform")
+        b6.clicked.connect(lambda: compute_aux_dev_to_scan(self))
+        self.step_ctrl_layout.addWidget(b6, r, 0)
+        r += 1
+        b7 = QPushButton("Preview coil on master scan")
+        b7.clicked.connect(lambda: merge_aux_dev_into_helmet(self))
+        self.step_ctrl_layout.addWidget(b7, r, 0)
+        r += 1
+        b8 = QPushButton("Restart Step 1")
+        b8.clicked.connect(self.restart_step1)
+        self.step_ctrl_layout.addWidget(b8, r, 0)
+
+    def restart_step1(self):
+        """Reset all Step 1 related state and UI elements."""
+        try:
+            if self.coil_actor_left is not None:
+                self.ren_left.RemoveActor(self.coil_actor_left)
+        except Exception:
+            pass
+        for actor in getattr(self, "coil_landmark_actors_left", []):
+            try:
+                self.ren_left.RemoveActor(actor)
+            except Exception:
+                pass
+        try:
+            if self.coil_actor_transformed is not None:
+                self.ren_right.RemoveActor(self.coil_actor_transformed)
+        except Exception:
+            pass
+        self.coil_polydata = None
+        self.coil_actor_left = None
+        self.coil_landmarks = {}
+        self.coil_landmark_actors_left = []
+        self.coil_pairs_src = []
+        self.coil_pairs_dst = []
+        self.coil_pick_index = 0
+        self.aux_dev_to_scan = None
+        self.coil_actor_transformed = None
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+        self._update_info("Step1 restarted.")
+
+    def start_aux_dev_landmark_pairs(self):
+        """Start the process of picking coil landmark pairs on the master scan (right) based on loaded coil landmarks CSV."""
+        if not self.coil_landmarks or self.helmet_polydata is None:
+            self._update_info(
+                "Need coil landmarks and master scan (participant in helmet)."
+            )
+            return
+
+        ordered = [
+            lab
+            for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
+            if lab in self.coil_landmarks
+        ]
+
+        if not ordered:
+            ordered = list(self.coil_landmarks.keys())
+
+        self.coil_expected_labels = ordered
+        self.coil_pairs_src = []
+        self.coil_pairs_dst = []
+        self.coil_pick_index = 0
+
+        self._update_info(
+            "Pick coil landmarks in the RIGHT window in order: "
+            + ", ".join(self.coil_expected_labels)
+        )
+
+        def handler(obj, event):
+
+            # 🔹 If not SHIFT → let VTK rotate normally
+            if not self.right_iren.GetShiftKey():
+                obj.OnLeftButtonDown()
+                return
+
+            # 🔹 If done picking → let VTK rotate
+            if self.coil_pick_index >= len(self.coil_expected_labels):
+                obj.OnLeftButtonDown()
+                return
+
+            x, y = self.right_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            if not pick_success:
+                self._update_info("No pick on right.")
+                obj.OnLeftButtonDown()
+                return
+
+            pos = np.array(picker.GetPickPosition(), float)
+            lab = self.coil_expected_labels[self.coil_pick_index]
+
+            self.coil_pairs_src.append(self.coil_landmarks[lab])
+            self.coil_pairs_dst.append(pos)
+
+            selected_color = PAIR_COLORS[self.coil_pick_index % len(PAIR_COLORS)]
+
+            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+
+            self.vtk_right.GetRenderWindow().Render()
+
+            self.coil_pick_index += 1
+
+            if self.coil_pick_index >= len(self.coil_expected_labels):
+                try:
+                    self.right_iren.RemoveObserver(obs_id)
+                except Exception:
+                    pass
+
+                self._update_info("All coil pairs picked. Click 'Compute coil→helmet'.")
+            else:
+                self._update_info(
+                    f"Picked {lab}. Next: "
+                    f"{self.coil_expected_labels[self.coil_pick_index]}"
+                )
+
+            # 🔹 IMPORTANT: After handling SHIFT pick,
+            # still forward event so camera doesn't freeze
+            obj.OnLeftButtonDown()
+
+        obs_id = add_right_observer(self, "LeftButtonPressEvent", handler)
+
+    def undo_last_aux_dev_pair(self):
+        """Undo the last picked coil landmark pair, removing the marker from the right renderer and updating state."""
+        if not getattr(self, "coil_pairs_src", []):
+            self._update_info("No coil pairs to undo.")
+            return
+        self.coil_pairs_src.pop()
+        self.coil_pairs_dst.pop()
+        self.coil_pick_index = max(0, self.coil_pick_index - 1)
+        # redraw right: helmet + placed coil pair spheres + transformed coil if present
+        self.ren_right.RemoveAllViewProps()
+        if self.helmet_actor is not None:
+            self.ren_right.AddActor(self.helmet_actor)
+        for i, pos in enumerate(self.coil_pairs_dst):
+            selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
+            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+        if self.coil_actor_transformed is not None:
+            self.ren_right.AddActor(self.coil_actor_transformed)
+        self.vtk_right.GetRenderWindow().Render()
+        self._update_info("Undid last coil pair.")
+
+    # ---------------------------------------------------------------
+    # ----------------- STEP 2 (Outside -> Helmet) -----------------
+    # ---------------------------------------------------------------
+
+    def _populate_step2_controls(self):
+        """Set up the controls for Step 2: head scan to master scan registration using fiducials and pairwise points."""
+        self._clear_step_controls()
+        r = 0
+        b1 = QPushButton("Load OUTSIDE head (LEFT)")
+        b1.clicked.connect(lambda: load_head_scan(self))
+        self.step_ctrl_layout.addWidget(b1, r, 0)
+        r += 1
+        b2 = QPushButton("Load HELMET scan (RIGHT)")
+        b2.clicked.connect(lambda: load_master_scan(self))
+        self.step_ctrl_layout.addWidget(b2, r, 0)
+        r += 1
+        b3 = QPushButton("Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)")
+        b3.clicked.connect(self.start_fiducial_mode_step2)
+        self.step_ctrl_layout.addWidget(b3, r, 0)
+        r += 1
+        b4 = QPushButton("Undo last fiducial (step2)")
+        b4.clicked.connect(self.undo_last_fiducial_step2)
+        self.step_ctrl_layout.addWidget(b4, r, 0)
+        r += 1
+        b5 = QPushButton("Start pairwise mode (LEFT->RIGHT)")
+        b5.clicked.connect(self.start_pairs_step2)
+        self.step_ctrl_layout.addWidget(b5, r, 0)
+        r += 1
+        b6 = QPushButton("Undo last pair (step2)")
+        b6.clicked.connect(self.undo_last_pair_step2)
+        self.step_ctrl_layout.addWidget(b6, r, 0)
+        r += 1
+        b7 = QPushButton("Compute outside->helmet")
+        b7.clicked.connect(lambda: compute_head_to_scan(self))
+        self.step_ctrl_layout.addWidget(b7, r, 0)
+        r += 1
+        b8 = QPushButton("Restart Step 2")
+        b8.clicked.connect(self.restart_step2)
+        self.step_ctrl_layout.addWidget(b8, r, 0)
+
+    def start_fiducial_mode_step2(self):
+        """Enable picking fiducials on the head scan (left) in the order NAS, LPA, RPA, Nose, Chin."""
+        self.picking_state = {"mode": "fiducials", "next": 0}
+        self._update_info(
+            "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (LEFT) (outside scan)."
+        )
+
+    def undo_last_fiducial_step2(self):
+        """Undo the last picked fiducial on the head scan (left), removing the marker and updating state."""
+        if not self.head_fiducials:
+            self._update_info("No fiducials to undo.")
+            return
+        # remove last inserted fiducial (order NAS,LPA,RPA)
+        order = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+        for lbl in reversed(order):
+            if lbl in self.head_fiducials:
+                # remove actor
+                actor = self.head_fiducial_actors.get(lbl)
+                if actor is not None:
+                    try:
+                        self.ren_left.RemoveActor(actor)
+                    except Exception:
+                        pass
+                del self.head_fiducials[lbl]
+                if lbl in self.head_fiducial_actors:
+                    del self.head_fiducial_actors[lbl]
+                self.vtk_left.GetRenderWindow().Render()
+                self._update_info(f"Removed fiducial {lbl}.")
+                return
+
+    def start_pairs_step2(self):
+        """Enable picking pairwise points between the head scan (left) and master scan (right) for Step 2 registration."""
+        if self.head_polydata is None or self.helmet_polydata is None:
+            self._update_info("Load head scan (left) and master scan (right) first.")
+            return
+        self.step2_pairs_head = []
+        self.step2_pairs_scan = []
+        self._clear_step2_pair_markers()
+        self.picking_state = {"mode": "pairs", "await": "left"}
+        self._update_info(
+            "Pair mode: SHIFT+click LEFT (head scan) then SHIFT+click RIGHT (master scan)."
+        )
+
+    def _left_click_step2(self, obj, event):
+        """Handle left clicks in Step 2 mode for picking fiducials and pairwise points on the head scan (left)."""
+        if not self.left_iren.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        # ---------- Fiducials ----------
+        if ps.get("mode") == "fiducials":
+            x, y = self.left_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
+
+            if not pick_success:
+                self._update_info("No pick on left (fiducial).")
+                obj.OnLeftButtonDown()
+                return
+
+            pos = np.array(picker.GetPickPosition(), dtype=float)
+
+            order = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+
+            for lbl in order:
+                if lbl not in self.head_fiducials:
+                    next_lbl = lbl
+                    break
+            else:
+                self._update_info("All fiducials already set.")
+                obj.OnLeftButtonDown()
+                return
+
+            self.head_fiducials[next_lbl] = pos
+
+            actor = sphere_actor(pos, color=FIDUCIAL_COLORS[next_lbl], radius=3.5)
+
+            self.ren_left.AddActor(actor)
+            self.head_fiducial_actors[next_lbl] = actor
+            self.vtk_left.GetRenderWindow().Render()
+
+            self._update_info(f"Set fiducial {next_lbl} at {np.round(pos, 2)}")
+
+            obj.OnLeftButtonDown()
+            return
+
+        # ---------- Pair picking ----------
+        elif ps.get("mode") == "pairs" and ps.get("await") == "left":
+            x, y = self.left_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
+
+            if not pick_success:
+                self._update_info("No pick on left (pair).")
+                obj.OnLeftButtonDown()
+                return
+
+            pos = np.array(picker.GetPickPosition(), dtype=float)
+
+            ps["left_pt"] = pos
+            ps["await"] = "right"
+            self.picking_state = ps
+
+            self._update_info(
+                "Picked left pair point; now pick matching point on RIGHT."
+            )
+
+            obj.OnLeftButtonDown()
+            return
+
+        obj.OnLeftButtonDown()
+
+    def _right_click_step2(self, obj, event):
+        """Handle left clicks in Step 2 mode for picking pairwise points on the master scan (right) that correspond to previously picked points on the head scan (left)."""
+        if not self.right_iren.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        if ps.get("mode") == "pairs" and ps.get("await") == "right":
+            x, y = self.right_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
+
+            if not pick_success:
+                self._update_info("No pick on right (pair).")
+                obj.OnLeftButtonDown()
+                return
+
+            pos_scan = np.array(picker.GetPickPosition(), dtype=float)
+            pos_left = ps.get("left_pt")
+
+            if pos_left is None:
+                self._update_info("No left point stored.")
+                obj.OnLeftButtonDown()
+                return
+
+            idx = len(self.step2_pairs_head)
+            selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
+
+            self.step2_pairs_head.append(pos_left)
+            self.step2_pairs_scan.append(pos_scan)
+
+            a_l = sphere_actor(pos_left, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
+
+            self.ren_left.AddActor(a_l)
+            self.ren_right.AddActor(a_r)
+
+            self.step2_pair_actors_left.append(a_l)
+            self.step2_pair_actors_right.append(a_r)
+
+            self.vtk_left.GetRenderWindow().Render()
+            self.vtk_right.GetRenderWindow().Render()
+
+            self.picking_state = {"mode": "pairs", "await": "left"}
+
+            self._update_info(f"Added Step2 pair #{idx + 1}.")
+
+            obj.OnLeftButtonDown()
+            return
+
+        obj.OnLeftButtonDown()
+
+    def undo_last_pair_step2(self):
+        """Undo the last picked pairwise point between the head scan and master scan in Step 2, removing the markers from both renderers and updating state."""
+        if not self.step2_pairs_head:
+            self._update_info("No Step2 pairs to undo.")
+            return
+        self.step2_pairs_head.pop()
+        self.step2_pairs_scan.pop()
+        if self.step2_pair_actors_left:
+            actor = self.step2_pair_actors_left.pop()
+            self.ren_left.RemoveActor(actor)
+        if self.step2_pair_actors_right:
+            actor = self.step2_pair_actors_right.pop()
+            self.ren_right.RemoveActor(actor)
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+        self._update_info(
+            f"Undid last Step2 pair. {len(self.step2_pairs_head)} remain."
+        )
+
+    def _clear_step2_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in Step 2."""
+        for actor in self.step2_pair_actors_left:
+            try:
+                self.ren_left.RemoveActor(actor)
+            except Exception:
+                pass
+        for actor in self.step2_pair_actors_right:
+            try:
+                self.ren_right.RemoveActor(actor)
+            except Exception:
+                pass
+        self.step2_pair_actors_left = []
+        self.step2_pair_actors_right = []
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+
+    def restart_step2(self):
+        """Reset all Step 2 related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
+        # remove transformed actor and pair markers
+        try:
+            if (
+                hasattr(self, "head_actor_transformed")
+                and self.head_actor_transformed is not None
+            ):
+                self.ren_right.RemoveActor(self.head_actor_transformed)
+        except Exception:
+            pass
+        # remove right fiducials
+        try:
+            if hasattr(self, "head_fiducial_actors_right"):
+                for actor in self.head_fiducial_actors_right.values():
+                    try:
+                        self.ren_right.RemoveActor(actor)
+                    except Exception:
+                        pass
+                self.head_fiducial_actors_right = {}
+        except Exception:
+            pass
+        # remove left fiducials
+        for actor in self.head_fiducial_actors.values():
+            try:
+                self.ren_left.RemoveActor(actor)
+            except Exception:
+                pass
+        self.head_fiducials = {}
+        self.head_fiducial_actors = {}
+        self._clear_step2_pair_markers()
+        self.step2_pairs_head = []
+        self.step2_pairs_scan = []
+        self.T_head_to_scan = None
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+        self._update_info("Restarted Step2 (fiducials & pairs cleared).")
+
+    # -------------------------------------------------------------------
+    # ------------------ STEP 3 (Sensors & STL -> scan) -----------------
+    # -------------------------------------------------------------------
+    def _populate_step3_controls(self):
+        """Set up the controls for Step 3: helmet STL and sensor positions to master scan registration using pairwise points."""
+        self._clear_step_controls()
+        r = 0
+        b1 = QPushButton("Load helmet STL (LEFT)")
+        b1.clicked.connect(lambda: load_helmet_cad(self))
+        self.step_ctrl_layout.addWidget(b1, r, 0)
+        r += 1
+        b2 = QPushButton("Load master scan (RIGHT)")
+        b2.clicked.connect(lambda: load_master_scan(self))
+        self.step_ctrl_layout.addWidget(b2, r, 0)
+        r += 1
+        b3 = QPushButton("Load sensor locations CSV (plot LEFT)")
+        b3.clicked.connect(lambda: load_sensor_csv(self))
+        self.step_ctrl_layout.addWidget(b3, r, 0)
+        r += 1
+        b4 = QPushButton("Start helmet to master scan pair mode (LEFT->RIGHT)")
+        b4.clicked.connect(self.start_pairs_step3)
+        self.step_ctrl_layout.addWidget(b4, r, 0)
+        r += 1
+        b5 = QPushButton("Undo last pair (Step3)")
+        b5.clicked.connect(self.undo_last_pair_step3)
+        self.step_ctrl_layout.addWidget(b5, r, 0)
+        r += 1
+        b6 = QPushButton("Compute transform & save sensors")
+        b6.clicked.connect(lambda: compute_sensors_transform(self))
+        self.step_ctrl_layout.addWidget(b6, r, 0)
+        r += 1
+        b7 = QPushButton("Restart Step3")
+        b7.clicked.connect(self.restart_step3)
+        self.step_ctrl_layout.addWidget(b7, r, 0)
+
+    def restart_step3(self):
+        """Reset all Step 3 related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
+        # remove actors (left/right)
+        try:
+            if self.helmet_stl_actor_left is not None:
+                self.ren_left.RemoveActor(self.helmet_stl_actor_left)
+        except Exception:
+            pass
+        try:
+            if self.helmet_stl_actor_overlay is not None:
+                self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
+        except Exception:
+            pass
+        self.helmet_stl_raw = None
+        self.helmet_stl_actor_left = None
+        self.helmet_stl_actor_overlay = None
+        # sensors
+        for actor in (
+            self.sensor_actors_left
+            + self.transformed_sensor_actors
+            + self.transformed_vector_actors
+        ):
+            try:
+                self.ren_left.RemoveActor(actor)
+                self.ren_right.RemoveActor(actor)
+            except Exception:
+                pass
+        self.sensor_positions = None
+        self.sensor_axes = None
+        self.sensor_df = None
+        self.sensor_csv_path = None
+        self.sensor_actors_left = []
+        self.transformed_sensor_actors = []
+        self.transformed_vector_actors = []
+        # pairs
+        self.ref_point_pairs_helmet_stl = []
+        self.ref_point_pairs_scan = []
+        self.pair_actors_left = []
+        self.pair_actors_right = []
+        self.T_dev_to_scan = None
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+        self._update_info("Restarted Step3.")
+
+    def start_pairs_step3(self):
+        """Enable picking pairwise points between the helmet STL (left) and master scan (right) for Step 3 registration of the device.
+
+        Requires that both the helmet STL and master scan are loaded first."""
+        if self.helmet_stl_raw is None or self.helmet_polydata is None:
+            self._update_info(
+                "Need helmet STL (left) and participant in the helmet scan (right) loaded."
+            )
+            return
+        self.ref_point_pairs_helmet_stl = []
+        self.ref_point_pairs_scan = []
+        self._clear_step3_pair_markers()
+        self.picking_state = {"mode": "step3_pairs", "await": "left"}
+        self._update_info(
+            "Step3: SHIFT+click helmet STL on LEFT then matching point on RIGHT (scan)."
+        )
+
+    def _left_click_step3(self, obj, event):
+        """Handle left clicks in Step 3 mode for picking points on the helmet STL (left) that correspond to points on the master scan (right) for device registration."""
+        if not self.left_iren.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        if ps.get("mode") == "step3_pairs" and ps.get("await") == "left":
+            x, y = self.left_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+
+            pick_success = picker.Pick(x, y, 0, self.ren_left)
+            if not pick_success:
+                self._update_info("No pick on left (STL).")
+                obj.OnLeftButtonDown()
+                return
+
+            pos = np.array(picker.GetPickPosition(), dtype=float)
+
+            self.picking_state["left_pt"] = pos
+            self.picking_state["await"] = "right"
+
+            self._update_info(
+                "Selected STL point; now SHIFT+click matching point on RIGHT."
+            )
+
+            obj.OnLeftButtonDown()
+            return
+
+        obj.OnLeftButtonDown()
+
+    def _right_click_step3(self, obj, event):
+        """Handle left clicks in Step 3 mode for picking points on the master scan (right) that correspond to previously picked points on the helmet STL (left) for device registration."""
+        if not self.right_iren.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        if ps.get("mode") == "step3_pairs" and ps.get("await") == "right":
+            x, y = self.right_iren.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+
+            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            if not pick_success:
+                self._update_info("No pick on right (scan).")
+                obj.OnLeftButtonDown()
+                return
+
+            pos_scan = np.array(picker.GetPickPosition(), dtype=float)
+            pos_stl = ps.get("left_pt")
+
+            if pos_stl is None:
+                self._update_info("No left point stored.")
+                obj.OnLeftButtonDown()
+                return
+
+            self.ref_point_pairs_helmet_stl.append(pos_stl)
+            self.ref_point_pairs_scan.append(pos_scan)
+
+            idx = len(self.ref_point_pairs_helmet_stl) - 1
+            selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
+
+            a_l = sphere_actor(pos_stl, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
+
+            self.ren_left.AddActor(a_l)
+            self.ren_right.AddActor(a_r)
+
+            self.pair_actors_left.append(a_l)
+            self.pair_actors_right.append(a_r)
+
+            self.vtk_left.GetRenderWindow().Render()
+            self.vtk_right.GetRenderWindow().Render()
+
+            self.picking_state = {"mode": "step3_pairs", "await": "left"}
+
+            self._update_info(f"Added Step3 pair #{idx + 1}.")
+
+            obj.OnLeftButtonDown()
+            return
+
+        obj.OnLeftButtonDown()
+
+    def undo_last_pair_step3(self):
+        """Undo the last picked pairwise point between the helmet STL and master scan in Step 3, removing the markers from both renderers and updating state."""
+        if not self.ref_point_pairs_helmet_stl:
+            self._update_info("No Step3 pairs to undo.")
+            return
+        self.ref_point_pairs_helmet_stl.pop()
+        self.ref_point_pairs_scan.pop()
+        if self.pair_actors_left:
+            actor = self.pair_actors_left.pop()
+            self.ren_left.RemoveActor(actor)
+        if self.pair_actors_right:
+            actor = self.pair_actors_right.pop()
+            self.ren_right.RemoveActor(actor)
+        # re-render and re-add transformed if present
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+        if self.T_dev_to_scan is not None:
+            overlay_step3_transformed(self, self.T_dev_to_scan)
+        self._update_info("Undid last Step3 pair.")
+
+    def _clear_step3_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in Step 3."""
+        if hasattr(self, "pair_actors_left"):
+            for actor in self.pair_actors_left:
+                try:
+                    self.ren_left.RemoveActor(actor)
+                except Exception:
+                    pass
+
+        if hasattr(self, "pair_actors_right"):
+            for actor in self.pair_actors_right:
+                try:
+                    self.ren_right.RemoveActor(actor)
+                except Exception:
+                    pass
+
+        self.pair_actors_left = []
+        self.pair_actors_right = []
+
+        self.vtk_left.GetRenderWindow().Render()
+        self.vtk_right.GetRenderWindow().Render()
+
+    # ---------------------------------------------------------
+    # ----------------- STEP 4 (head -> MRI) -----------------
+    # ---------------------------------------------------------
+    def _populate_step4_controls(self):
+        """Set up the controls for Step 4: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
+        self._clear_step_controls()
+        r = 0
+
+        b1 = QPushButton("Load MRI mesh (LEFT)")
+        b1.clicked.connect(lambda: load_mri_mesh(self))
+        self.step_ctrl_layout.addWidget(b1, r, 0)
+        r += 1
+
+        b2 = QPushButton("Load MRI fiducials (.fif)")
+        b2.clicked.connect(lambda: load_mri_fiducials(self))
+        self.step_ctrl_layout.addWidget(b2, r, 0)
+        r += 1
+
+        b3 = QPushButton("Compute initial Head→MRI (base on step 2 fiducials)")
+        b3.clicked.connect(lambda: compute_head_to_mri_initial(self))
+        self.step_ctrl_layout.addWidget(b3, r, 0)
+        r += 1
+
+        b4 = QPushButton("Run ICP refinement")
+        b4.clicked.connect(lambda: run_icp_head_to_mri(self))
+        self.step_ctrl_layout.addWidget(b4, r, 0)
+        r += 1
+
+        b_preview = QPushButton("Preview MRI on master scan (RIGHT)")
+        b_preview.clicked.connect(lambda: preview_mri_on_scan(self))
+        self.step_ctrl_layout.addWidget(b_preview, r, 0)
+        r += 1
+
+        b5 = QPushButton("Save Head→MRI")
+        b5.clicked.connect(lambda: save_head_to_mri(self))
+        self.step_ctrl_layout.addWidget(b5, r, 0)
+
+    def _left_click_step4(self, obj, event):
+        """Handle left clicks in Step 4 mode for picking fiducials on the MRI mesh (left) that correspond to head scan fiducials."""
+        # If not SHIFT → forward to Trackball (rotate)
+        if not self.left_iren.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        # Safety: wrong mode → still forward
+        if self.mode != "step4":
+            obj.OnLeftButtonDown()
+            return
+
+        x, y = self.left_iren.GetEventPosition()
+        picker = vtk.vtkPropPicker()
+
+        pick_success = picker.Pick(x, y, 0, self.ren_left)
+        if not pick_success:
+            self._update_info("No pick on left (MRI).")
+            obj.OnLeftButtonDown()  # allow normal interaction
+            return
+
+        pos = np.array(picker.GetPickPosition(), dtype=float)
+
+        for lbl in ["NAS", "LPA", "RPA"]:
+            if lbl not in self.mri_fiducials:
+                self.mri_fiducials[lbl] = pos
+
+                actor = sphere_actor(pos, color=FIDUCIAL_COLORS[lbl], radius=3.5)
+
+                self.ren_left.AddActor(actor)
+                self.mri_fiducial_actors[lbl] = actor
+
+                self.vtk_left.GetRenderWindow().Render()
+
+                self._update_info(f"Picked MRI fiducial {lbl} at {np.round(pos, 2)}")
+
+                obj.OnLeftButtonDown()  # allow camera interaction
+                return
+
+        # If all fiducials already picked → still forward
+        obj.OnLeftButtonDown()
