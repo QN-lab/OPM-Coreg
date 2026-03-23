@@ -49,6 +49,7 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
+    load_helmet_landmark_csv,
     save_head_to_mri,
     auto_save_transform,
 )
@@ -137,6 +138,8 @@ class OPMCoregGUI(QWidget):
         self.sensor_positions = None
         self.sensor_axes = None
         self.sensor_actors_left = []
+        self.helmet_landmark_positions = None
+        self.helmet_landmark_actors_left = []
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         self.ref_point_pairs_helmet_stl = []
@@ -147,6 +150,7 @@ class OPMCoregGUI(QWidget):
         self.show_vectors = False
         self.show_helmet_stl = True
         self.sensor_csv_path = None
+        self.helmet_landmark_csv_path = None
         # Step3 pairing actors (MUST exist before use)
         self.pair_actors_left = []
         self.pair_actors_right = []
@@ -805,6 +809,10 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: load_sensor_csv(self)
             },
             {
+                "label": "Load helmet landmark positions CSV (plot LEFT)",
+                "callback": lambda: load_helmet_landmark_csv(self)
+            },
+            {
                 "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
                 "callback": self.start_pairs_step3
             },
@@ -849,6 +857,7 @@ class OPMCoregGUI(QWidget):
             self.sensor_actors_left
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
+            + self.helmet_landmark_actors_left
         ):
             try:
                 self.ren_left.RemoveActor(actor)
@@ -860,6 +869,9 @@ class OPMCoregGUI(QWidget):
         self.sensor_df = None
         self.sensor_csv_path = None
         self.sensor_actors_left = []
+        self.helmet_landmark_positions = None
+        self.helmet_landmark_actors_left = []
+        self.helmet_landmark_csv_path = None
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         # pairs
@@ -873,12 +885,12 @@ class OPMCoregGUI(QWidget):
         self._update_info("Restarted Step3.")
 
     def start_pairs_step3(self):
-        """Enable picking pairwise points between the helmet STL (left) and master scan (right) for Step 3 registration of the device.
+        """Enable picking pairwise points between the helmet STL/helmet landmark list (left) and master scan (right) for Step 3 registration of the device.
 
-        Requires that both the helmet STL and master scan are loaded first."""
-        if self.helmet_stl_raw is None or self.helmet_polydata is None:
+        Requires that both the helmet STL (or helmet landmark CSV) and master scan are loaded first."""
+        if self.helmet_polydata is None or (self.helmet_stl_raw is None and self.helmet_landmark_positions is None):
             self._update_info(
-                "Need helmet STL (left) and participant in the helmet scan (right) loaded."
+                "Need helmet STL/helmet ladmark list (left) and participant in the helmet scan (right) loaded."
             )
             return
         self.ref_point_pairs_helmet_stl = []
