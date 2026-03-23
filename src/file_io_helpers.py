@@ -242,7 +242,7 @@ def load_helmet_landmark_csv(gui):
     gui.ren_left.ResetCamera()
     gui.vtk_left.GetRenderWindow().Render()
     gui._update_info(
-        f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
+        f"Loaded helmet landmark CSV: {os.path.basename(filepath)}."
     )
 
 
