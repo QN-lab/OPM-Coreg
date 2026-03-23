@@ -925,7 +925,7 @@ class OPMCoregGUI(QWidget):
             self.picking_state["await"] = "right"
 
             self._update_info(
-                "Selected STL point; now SHIFT+click matching point on RIGHT."
+                "Selected point on the helmet; now SHIFT+click matching point on RIGHT."
             )
 
             obj.OnLeftButtonDown()
