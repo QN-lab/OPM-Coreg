@@ -801,16 +801,16 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: load_helmet_cad(self)
             },
             {
-                "label": "Load master scan (RIGHT)",
-                "callback": lambda: load_master_scan(self)
-            },
-            {
                 "label": "Load sensor locations CSV (plot LEFT)",
                 "callback": lambda: load_sensor_csv(self)
             },
             {
-                "label": "Load helmet landmark positions CSV (plot LEFT)",
+                "label": "Load helmet landmarks CSV (plot LEFT) (Optional)",
                 "callback": lambda: load_helmet_landmark_csv(self)
+            },
+            {
+                "label": "Load master scan (RIGHT)",
+                "callback": lambda: load_master_scan(self)
             },
             {
                 "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
