@@ -207,6 +207,45 @@ def load_sensor_csv(gui):
     )
 
 
+def load_helmet_landmark_csv(gui):
+    """Load helmet landmark points CSV, display on LEFT."""
+    filepath, _ = QFileDialog.getOpenFileName(
+        gui, "Load helmet landmark CSV", "", "CSV Files (*.csv)"
+    )
+    if not filepath:
+        return
+    df = pd.read_csv(filepath)
+    cols = [
+        "X",
+        "Y",
+        "Z",
+    ]
+    for column in cols:
+        if column not in df.columns:
+            gui._update_info(f"CSV missing column: {column}")
+            return
+    gui.helmet_landamrk_csv_path = filepath
+    gui.helmet_landmark_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
+
+    # display helmet landmarks on LEFT (on top of STL if available)
+    for actor in gui.helmet_landmark_actors_left:
+        try:
+            gui.ren_left.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_actors_left = []
+    for pnt in gui.helmet_landmark_positions:
+        actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        gui.ren_left.AddActor(actor)
+        gui.helmet_landmark_actors_left.append(actor)
+
+    gui.ren_left.ResetCamera()
+    gui.vtk_left.GetRenderWindow().Render()
+    gui._update_info(
+        f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
+    )
+
+
 def load_mri_mesh(gui):
     """Load MRI mesh (e.g. scalp) on the LEFT, auto-detect unit scale."""
     filepath, _ = QFileDialog.getOpenFileName(
