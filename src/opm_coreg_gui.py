@@ -49,6 +49,7 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
+    load_helmet_landmark_csv,
     save_head_to_mri,
     auto_save_transform,
 )
@@ -137,6 +138,9 @@ class OPMCoregGUI(QWidget):
         self.sensor_positions = None
         self.sensor_axes = None
         self.sensor_actors_left = []
+        self.helmet_landmark_positions = None
+        self.helmet_landmark_actors_left = []
+        self.helmet_landmark_text_actors_left = []
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         self.ref_point_pairs_helmet_stl = []
@@ -147,6 +151,7 @@ class OPMCoregGUI(QWidget):
         self.show_vectors = False
         self.show_helmet_stl = True
         self.sensor_csv_path = None
+        self.helmet_landmark_csv_path = None
         # Step3 pairing actors (MUST exist before use)
         self.pair_actors_left = []
         self.pair_actors_right = []
@@ -318,38 +323,48 @@ class OPMCoregGUI(QWidget):
     def _populate_step1_controls(self):
         """Set up the controls for Step 1: coil to master scan registration."""
         self._clear_step_controls()
-        r = 0
-        b1 = QPushButton("Load 3D master scan (RIGHT)")
-        b1.clicked.connect(lambda: load_master_scan(self))
-        self.step_ctrl_layout.addWidget(b1, r, 0)
-        r += 1
-        b2 = QPushButton("Load coil STL (LEFT)")
-        b2.clicked.connect(lambda: load_aux_dev_stl(self))
-        self.step_ctrl_layout.addWidget(b2, r, 0)
-        r += 1
-        b3 = QPushButton("Load coil landmarks CSV")
-        b3.clicked.connect(lambda: load_aux_dev_landmarks(self))
-        self.step_ctrl_layout.addWidget(b3, r, 0)
-        r += 1
-        b4 = QPushButton("Start picking coil landmarks in master scan")
-        b4.clicked.connect(self.start_aux_dev_landmark_pairs)
-        self.step_ctrl_layout.addWidget(b4, r, 0)
-        r += 1
-        b5 = QPushButton("Undo last coil pair")
-        b5.clicked.connect(self.undo_last_aux_dev_pair)
-        self.step_ctrl_layout.addWidget(b5, r, 0)
-        r += 1
-        b6 = QPushButton("Compute coil to master scan transform")
-        b6.clicked.connect(lambda: compute_aux_dev_to_scan(self))
-        self.step_ctrl_layout.addWidget(b6, r, 0)
-        r += 1
-        b7 = QPushButton("Preview coil on master scan")
-        b7.clicked.connect(lambda: merge_aux_dev_into_helmet(self))
-        self.step_ctrl_layout.addWidget(b7, r, 0)
-        r += 1
-        b8 = QPushButton("Restart Step 1")
-        b8.clicked.connect(self.restart_step1)
-        self.step_ctrl_layout.addWidget(b8, r, 0)
+
+        # Define data structure for buttons required in the current step
+        buttons = [
+            {
+                "label": "Load 3D master scan (RIGHT)",
+                "callback": lambda: load_master_scan(self)
+            },
+            {
+                "label": "Load coil STL (LEFT)",
+                "callback": lambda: load_aux_dev_stl(self)
+            },
+            {
+                "label": "Load coil landmarks CSV",
+                "callback": lambda: load_aux_dev_landmarks(self)
+            },
+            {
+                "label": "Start picking coil landmarks in master scan",
+                "callback": self.start_aux_dev_landmark_pairs
+            },
+            {
+                "label": "Undo last coil pair",
+                "callback": self.undo_last_aux_dev_pair
+            },
+            {
+                "label": "Compute coil to master scan transform",
+                "callback": lambda: compute_aux_dev_to_scan(self)
+            },
+            {
+                "label": "Preview coil on master scan",
+                "callback": lambda: merge_aux_dev_into_helmet(self)
+            },
+            {
+                "label": "Restart Step 1",
+                "callback": self.restart_step1
+            },
+        ]
+
+        # Place all the buttons in step controls window
+        for r, btn in enumerate(buttons):
+            b = QPushButton(btn["label"])
+            b.clicked.connect(btn["callback"])
+            self.step_ctrl_layout.addWidget(b, r, 0)
 
     def restart_step1(self):
         """Reset all Step 1 related state and UI elements."""
@@ -489,38 +504,48 @@ class OPMCoregGUI(QWidget):
     def _populate_step2_controls(self):
         """Set up the controls for Step 2: head scan to master scan registration using fiducials and pairwise points."""
         self._clear_step_controls()
-        r = 0
-        b1 = QPushButton("Load OUTSIDE head (LEFT)")
-        b1.clicked.connect(lambda: load_head_scan(self))
-        self.step_ctrl_layout.addWidget(b1, r, 0)
-        r += 1
-        b2 = QPushButton("Load HELMET scan (RIGHT)")
-        b2.clicked.connect(lambda: load_master_scan(self))
-        self.step_ctrl_layout.addWidget(b2, r, 0)
-        r += 1
-        b3 = QPushButton("Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)")
-        b3.clicked.connect(self.start_fiducial_mode_step2)
-        self.step_ctrl_layout.addWidget(b3, r, 0)
-        r += 1
-        b4 = QPushButton("Undo last fiducial (step2)")
-        b4.clicked.connect(self.undo_last_fiducial_step2)
-        self.step_ctrl_layout.addWidget(b4, r, 0)
-        r += 1
-        b5 = QPushButton("Start pairwise mode (LEFT->RIGHT)")
-        b5.clicked.connect(self.start_pairs_step2)
-        self.step_ctrl_layout.addWidget(b5, r, 0)
-        r += 1
-        b6 = QPushButton("Undo last pair (step2)")
-        b6.clicked.connect(self.undo_last_pair_step2)
-        self.step_ctrl_layout.addWidget(b6, r, 0)
-        r += 1
-        b7 = QPushButton("Compute outside->helmet")
-        b7.clicked.connect(lambda: compute_head_to_scan(self))
-        self.step_ctrl_layout.addWidget(b7, r, 0)
-        r += 1
-        b8 = QPushButton("Restart Step 2")
-        b8.clicked.connect(self.restart_step2)
-        self.step_ctrl_layout.addWidget(b8, r, 0)
+
+        # Define data structure for buttons required in the current step
+        buttons = [
+            {
+                "label": "Load OUTSIDE head (LEFT)",
+                "callback": lambda: load_head_scan(self)
+            },
+            {
+                "label": "Load HELMET scan (RIGHT)",
+                "callback": lambda: load_master_scan(self)
+            },
+            {
+                "label": "Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)",
+                "callback": self.start_fiducial_mode_step2
+            },
+            {
+                "label": "Undo last fiducial (step2)",
+                "callback": self.undo_last_fiducial_step2
+            },
+            {
+                "label": "Start pairwise mode (LEFT->RIGHT)",
+                "callback": self.start_pairs_step2
+            },
+            {
+                "label": "Undo last pair (step2)",
+                "callback": self.undo_last_pair_step2
+            },
+            {
+                "label": "Compute outside->helmet",
+                "callback": lambda: compute_head_to_scan(self)
+            },
+            {
+                "label": "Restart Step 2",
+                "callback": self.restart_step2
+            },
+        ]
+
+        # Place all the buttons in step controls window
+        for r, btn in enumerate(buttons):
+            b = QPushButton(btn["label"])
+            b.clicked.connect(btn["callback"])
+            self.step_ctrl_layout.addWidget(b, r, 0)
 
     def start_fiducial_mode_step2(self):
         """Enable picking fiducials on the head scan (left) in the order NAS, LPA, RPA, Nose, Chin."""
@@ -769,34 +794,48 @@ class OPMCoregGUI(QWidget):
     def _populate_step3_controls(self):
         """Set up the controls for Step 3: helmet STL and sensor positions to master scan registration using pairwise points."""
         self._clear_step_controls()
-        r = 0
-        b1 = QPushButton("Load helmet STL (LEFT)")
-        b1.clicked.connect(lambda: load_helmet_cad(self))
-        self.step_ctrl_layout.addWidget(b1, r, 0)
-        r += 1
-        b2 = QPushButton("Load master scan (RIGHT)")
-        b2.clicked.connect(lambda: load_master_scan(self))
-        self.step_ctrl_layout.addWidget(b2, r, 0)
-        r += 1
-        b3 = QPushButton("Load sensor locations CSV (plot LEFT)")
-        b3.clicked.connect(lambda: load_sensor_csv(self))
-        self.step_ctrl_layout.addWidget(b3, r, 0)
-        r += 1
-        b4 = QPushButton("Start helmet to master scan pair mode (LEFT->RIGHT)")
-        b4.clicked.connect(self.start_pairs_step3)
-        self.step_ctrl_layout.addWidget(b4, r, 0)
-        r += 1
-        b5 = QPushButton("Undo last pair (Step3)")
-        b5.clicked.connect(self.undo_last_pair_step3)
-        self.step_ctrl_layout.addWidget(b5, r, 0)
-        r += 1
-        b6 = QPushButton("Compute transform & save sensors")
-        b6.clicked.connect(lambda: compute_sensors_transform(self))
-        self.step_ctrl_layout.addWidget(b6, r, 0)
-        r += 1
-        b7 = QPushButton("Restart Step3")
-        b7.clicked.connect(self.restart_step3)
-        self.step_ctrl_layout.addWidget(b7, r, 0)
+        
+        # Define data structure for buttons required in the current step
+        buttons = [
+            {
+                "label": "Load helmet STL (LEFT)",
+                "callback": lambda: load_helmet_cad(self)
+            },
+            {
+                "label": "Load sensor locations CSV (plot LEFT)",
+                "callback": lambda: load_sensor_csv(self)
+            },
+            {
+                "label": "Load helmet landmarks CSV (plot LEFT) (Optional)",
+                "callback": lambda: load_helmet_landmark_csv(self)
+            },
+            {
+                "label": "Load master scan (RIGHT)",
+                "callback": lambda: load_master_scan(self)
+            },
+            {
+                "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
+                "callback": self.start_pairs_step3
+            },
+            {
+                "label": "Undo last pair (Step3)",
+                "callback": self.undo_last_pair_step3
+            },
+            {
+                "label": "Compute transform & save sensors",
+                "callback": lambda: compute_sensors_transform(self)
+            },
+            {
+                "label": "Restart Step3",
+                "callback": self.restart_step3
+            },
+        ]
+
+        # Place all the buttons in step controls window
+        for r, btn in enumerate(buttons):
+            b = QPushButton(btn["label"])
+            b.clicked.connect(btn["callback"])
+            self.step_ctrl_layout.addWidget(b, r, 0)
 
     def restart_step3(self):
         """Reset all Step 3 related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
@@ -819,6 +858,8 @@ class OPMCoregGUI(QWidget):
             self.sensor_actors_left
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
+            + self.helmet_landmark_actors_left
+            + self.helmet_landmark_text_actors_left
         ):
             try:
                 self.ren_left.RemoveActor(actor)
@@ -830,6 +871,10 @@ class OPMCoregGUI(QWidget):
         self.sensor_df = None
         self.sensor_csv_path = None
         self.sensor_actors_left = []
+        self.helmet_landmark_positions = None
+        self.helmet_landmark_actors_left = []
+        self.helmet_landmark_text_actors_left = []
+        self.helmet_landmark_csv_path = None
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         # pairs
@@ -843,12 +888,12 @@ class OPMCoregGUI(QWidget):
         self._update_info("Restarted Step3.")
 
     def start_pairs_step3(self):
-        """Enable picking pairwise points between the helmet STL (left) and master scan (right) for Step 3 registration of the device.
+        """Enable picking pairwise points between the helmet STL/helmet landmark list (left) and master scan (right) for Step 3 registration of the device.
 
-        Requires that both the helmet STL and master scan are loaded first."""
-        if self.helmet_stl_raw is None or self.helmet_polydata is None:
+        Requires that both the helmet STL (or helmet landmark CSV) and master scan are loaded first."""
+        if self.helmet_polydata is None or (self.helmet_stl_raw is None and self.helmet_landmark_positions is None):
             self._update_info(
-                "Need helmet STL (left) and participant in the helmet scan (right) loaded."
+                "Need helmet STL/helmet ladmark list (left) and participant in the helmet scan (right) loaded."
             )
             return
         self.ref_point_pairs_helmet_stl = []
@@ -883,7 +928,7 @@ class OPMCoregGUI(QWidget):
             self.picking_state["await"] = "right"
 
             self._update_info(
-                "Selected STL point; now SHIFT+click matching point on RIGHT."
+                "Selected point on the helmet; now SHIFT+click matching point on RIGHT."
             )
 
             obj.OnLeftButtonDown()
@@ -992,36 +1037,40 @@ class OPMCoregGUI(QWidget):
     def _populate_step4_controls(self):
         """Set up the controls for Step 4: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
         self._clear_step_controls()
-        r = 0
 
-        b1 = QPushButton("Load MRI mesh (LEFT)")
-        b1.clicked.connect(lambda: load_mri_mesh(self))
-        self.step_ctrl_layout.addWidget(b1, r, 0)
-        r += 1
+        # Define data structure for buttons required in the current step
+        buttons = [
+            {
+                "label": "Load MRI mesh (LEFT)",
+                "callback": lambda: load_mri_mesh(self)
+            },
+            {
+                "label": "Load MRI fiducials (.fif)",
+                "callback": lambda: load_mri_fiducials(self)
+            },
+            {
+                "label": "Compute initial Head→MRI (base on step 2 fiducials)",
+                "callback": lambda: compute_head_to_mri_initial(self)
+            },
+            {
+                "label": "Run ICP refinement",
+                "callback": lambda: run_icp_head_to_mri(self)
+            },
+            {
+                "label": "Preview MRI on master scan (RIGHT)",
+                "callback": lambda: preview_mri_on_scan(self)
+            },
+            {
+                "label": "Save Head→MRI",
+                "callback": lambda: save_head_to_mri(self)
+            },
+        ]
 
-        b2 = QPushButton("Load MRI fiducials (.fif)")
-        b2.clicked.connect(lambda: load_mri_fiducials(self))
-        self.step_ctrl_layout.addWidget(b2, r, 0)
-        r += 1
-
-        b3 = QPushButton("Compute initial Head→MRI (base on step 2 fiducials)")
-        b3.clicked.connect(lambda: compute_head_to_mri_initial(self))
-        self.step_ctrl_layout.addWidget(b3, r, 0)
-        r += 1
-
-        b4 = QPushButton("Run ICP refinement")
-        b4.clicked.connect(lambda: run_icp_head_to_mri(self))
-        self.step_ctrl_layout.addWidget(b4, r, 0)
-        r += 1
-
-        b_preview = QPushButton("Preview MRI on master scan (RIGHT)")
-        b_preview.clicked.connect(lambda: preview_mri_on_scan(self))
-        self.step_ctrl_layout.addWidget(b_preview, r, 0)
-        r += 1
-
-        b5 = QPushButton("Save Head→MRI")
-        b5.clicked.connect(lambda: save_head_to_mri(self))
-        self.step_ctrl_layout.addWidget(b5, r, 0)
+        # Place all the buttons in step controls window
+        for r, btn in enumerate(buttons):
+            b = QPushButton(btn["label"])
+            b.clicked.connect(btn["callback"])
+            self.step_ctrl_layout.addWidget(b, r, 0)
 
     def _left_click_step4(self, obj, event):
         """Handle left clicks in Step 4 mode for picking fiducials on the MRI mesh (left) that correspond to head scan fiducials."""

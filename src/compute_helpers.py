@@ -72,6 +72,30 @@ def compute_head_to_scan(gui):
     save_transform(T, base + "_head_to_scan")
 
 
+def obtain_true_landmarks_from_marked_points(helmet_landmark_positions, ref_point_pairs_helmet_stl):
+    """Obtain a list of true landmark coordinates from points marked during step3.
+    
+    Args:
+        helmet_landmark_positions (list): Pre-defined true landmark coordinates
+            (e.g., from CAD model or manufacturer specification), shape (n_landmarks, 3).
+        ref_point_pairs_helmet_stl (list): User-marked points on the helmet STL,
+            shape (n_marked_points, 3).
+    
+    Returns:
+        list: True landmark coordinates corresponding to each user-marked point, in the same
+            order as ref_point_pairs_helmet_stl. shape (n_marked_points, 3)
+    """
+    true_landmark_coords = []
+
+    for marked_point in ref_point_pairs_helmet_stl:
+        # Find closest landmark to marked point
+        distances = [np.linalg.norm(marked_point - lm) for lm in helmet_landmark_positions]
+        closest_idx = np.argmin(distances)
+        true_landmark_coords.append(helmet_landmark_positions[closest_idx])
+
+    return true_landmark_coords
+
+
 def compute_sensors_transform(gui):
     """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
     if len(gui.ref_point_pairs_helmet_stl) < 3:
@@ -79,6 +103,11 @@ def compute_sensors_transform(gui):
         return
     src = np.vstack(gui.ref_point_pairs_helmet_stl)
     dst = np.vstack(gui.ref_point_pairs_scan)
+
+    # If helmet landmark points exist, obtain a list of true landmark positions based on the marked points on helmet STL window
+    true_landmark_coords = obtain_true_landmarks_from_marked_points(gui.helmet_landmark_positions, gui.ref_point_pairs_helmet_stl)
+    src = np.vstack(true_landmark_coords)
+
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_dev_to_scan = T
     # -------------------------------------------------

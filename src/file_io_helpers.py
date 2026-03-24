@@ -19,6 +19,7 @@ from src.utils import (
     load_mesh_to_polydata,
     sphere_actor,
     save_transform,
+    create_text_actor,
 )
 from mne.io import read_fiducials
 import vtk
@@ -204,6 +205,65 @@ def load_sensor_csv(gui):
     gui.vtk_left.GetRenderWindow().Render()
     gui._update_info(
         f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
+    )
+
+
+def load_helmet_landmark_csv(gui):
+    """Load helmet landmark points CSV, display on LEFT."""
+    filepath, _ = QFileDialog.getOpenFileName(
+        gui, "Load helmet landmark CSV", "", "CSV Files (*.csv)"
+    )
+    if not filepath:
+        return
+    df = pd.read_csv(filepath)
+    cols = [
+        "X",
+        "Y",
+        "Z",
+    ]
+    for column in cols:
+        if column not in df.columns:
+            gui._update_info(f"CSV missing column: {column}")
+            return
+    gui.helmet_landamrk_csv_path = filepath
+    gui.helmet_landmark_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
+
+    # Get labels if they exist, otherwise use index
+    has_labels = "Label" in df.columns
+    labels = df["Label"].tolist() if has_labels else [f"L{i+1}" for i in range(len(df))]
+
+    # Clear existing actors
+    for actor in gui.helmet_landmark_actors_left:
+        try:
+            gui.ren_left.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_actors_left = []
+    
+    # Clear existing text actors
+    for actor in gui.helmet_landmark_text_actors_left:
+        try:
+            gui.ren_left.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_text_actors_left = []
+
+    # Add sphere and text for each landmark
+    for pnt, label in zip(gui.helmet_landmark_positions, labels):
+        # Sphere actor
+        sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        gui.ren_left.AddActor(sphere)
+        gui.helmet_landmark_actors_left.append(sphere)
+        
+        # Text label
+        text_actor = create_text_actor(label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2))
+        gui.ren_left.AddActor(text_actor)
+        gui.helmet_landmark_text_actors_left.append(text_actor)
+
+    gui.ren_left.ResetCamera()
+    gui.vtk_left.GetRenderWindow().Render()
+    gui._update_info(
+        f"Loaded helmet landmark CSV: {os.path.basename(filepath)}."
     )
 
 

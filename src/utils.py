@@ -118,6 +118,48 @@ def sphere_actor(pos, color=(1, 0, 0), radius=2.5):
     return a
 
 
+def create_text_actor(text, position, color=(1, 1, 1), font_size=14, offset=(5, 5, 5)):
+    """Create a VTK text label that always faces the camera.
+    
+    Args:
+        text: Text to be displayed in the window.
+        position: Tuple of (x, y, z) coordinates for the text location.
+        color: Tuple of (R, G, B) values for the text color.
+        font_size: font size of the text label.
+        offset: Tuple of (offsetx, offsety, offstez) to offset the text label from the sphere centre.
+
+    Returns:
+        actor: vtkActor representing the text label.
+    """
+    # Create text source
+    text_source = vtk.vtkVectorText()
+    text_source.SetText(str(text))
+    
+    # Create mapper and actor
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputConnection(text_source.GetOutputPort())
+    
+    actor = vtk.vtkFollower()
+    actor.SetMapper(mapper)
+    
+    # Position with offset
+    position = (
+        position[0] + offset[0],
+        position[1] + offset[1],
+        position[2] + offset[2]
+    )
+    actor.SetPosition(position[0], position[1], position[2])
+    actor.SetScale(font_size)
+    
+    # Set text color
+    actor.GetProperty().SetColor(color)
+    
+    # Optionally add a white background for readability
+    actor.GetProperty().SetOpacity(1.0)
+    
+    return actor
+
+
 def arrow_actor(start, vec, scale=1.0, color=(1, 0, 0)):
     """Create a vtkActor representing an arrow from start in the direction of vec.
 
