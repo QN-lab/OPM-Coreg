@@ -19,6 +19,7 @@ from src.utils import (
     load_mesh_to_polydata,
     sphere_actor,
     save_transform,
+    create_text_actor,
 )
 from mne.io import read_fiducials
 import vtk
@@ -227,17 +228,37 @@ def load_helmet_landmark_csv(gui):
     gui.helmet_landamrk_csv_path = filepath
     gui.helmet_landmark_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
 
-    # display helmet landmarks on LEFT (on top of STL if available)
+    # Get labels if they exist, otherwise use index
+    has_labels = "Label" in df.columns
+    labels = df["Label"].tolist() if has_labels else [f"L{i+1}" for i in range(len(df))]
+
+    # Clear existing actors
     for actor in gui.helmet_landmark_actors_left:
         try:
             gui.ren_left.RemoveActor(actor)
         except Exception:
             pass
     gui.helmet_landmark_actors_left = []
-    for pnt in gui.helmet_landmark_positions:
-        actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-        gui.ren_left.AddActor(actor)
-        gui.helmet_landmark_actors_left.append(actor)
+    
+    # Clear existing text actors
+    for actor in gui.helmet_landmark_text_actors_left:
+        try:
+            gui.ren_left.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_text_actors_left = []
+
+    # Add sphere and text for each landmark
+    for pnt, label in zip(gui.helmet_landmark_positions, labels):
+        # Sphere actor
+        sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        gui.ren_left.AddActor(sphere)
+        gui.helmet_landmark_actors_left.append(sphere)
+        
+        # Text label
+        text_actor = create_text_actor(label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2))
+        gui.ren_left.AddActor(text_actor)
+        gui.helmet_landmark_text_actors_left.append(text_actor)
 
     gui.ren_left.ResetCamera()
     gui.vtk_left.GetRenderWindow().Render()

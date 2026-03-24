@@ -140,6 +140,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_actors_left = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_actors_left = []
+        self.helmet_landmark_text_actors_left = []
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         self.ref_point_pairs_helmet_stl = []
@@ -858,6 +859,7 @@ class OPMCoregGUI(QWidget):
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
             + self.helmet_landmark_actors_left
+            + self.helmet_landmark_text_actors_left
         ):
             try:
                 self.ren_left.RemoveActor(actor)
@@ -871,6 +873,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_actors_left = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_actors_left = []
+        self.helmet_landmark_text_actors_left = []
         self.helmet_landmark_csv_path = None
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
