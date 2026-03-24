@@ -48,6 +48,7 @@ The GUI allows two ways of handling OPM helmets from different manufacturers :
 
 **Note**:
 
+- It is assumed that the helmet landmarks and sensors are in the same coordinate space.
 - The fitting will not work unless the helmet design or landmark csv is loaded.
 - When both helmet design and landmark csv are loaded, landmark coordinates in the csv file will be utilized for fitting purposes rather than the ones marked on the helmet.
 - In either case, marking >=6 points in the paiwise mode will ensure better fit.
