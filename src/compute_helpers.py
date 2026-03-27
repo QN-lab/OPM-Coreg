@@ -63,9 +63,9 @@ def compute_head_to_scan(gui):
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_head_to_scan = T
     gui._update_info(
-        f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto RIGHT."
+        f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
     )
-    # overlay transformed head scan on right (light orange)
+    # overlay transformed head scan on target window (light orange)
     overlay_head_transformed(gui, T)
     # save transform
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
@@ -139,7 +139,7 @@ def compute_sensors_transform(gui):
         )
 
     gui._update_info(
-        f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on RIGHT."
+        f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on target window."
     )
     # overlay transformed STL + transformed sensors
     overlay_step3_transformed(gui, T)
@@ -285,18 +285,18 @@ def run_icp_head_to_mri(gui):
     roi_head = tf_filter.GetOutput()
 
     # --------------------------------------------------
-    # 3) Show ROI in LEFT window (red)
+    # 3) Show ROI in source window (red)
     # --------------------------------------------------
     if hasattr(gui, "_roi_actor") and gui._roi_actor is not None:
         try:
-            gui.ren_left.RemoveActor(gui._roi_actor)
+            gui.ren_source.RemoveActor(gui._roi_actor)
         except Exception:
             pass
 
     gui._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
 
-    gui.ren_left.AddActor(gui._roi_actor)
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.AddActor(gui._roi_actor)
+    gui.vtk_source.GetRenderWindow().Render()
 
     # --------------------------------------------------
     # 4) Initial RMS
