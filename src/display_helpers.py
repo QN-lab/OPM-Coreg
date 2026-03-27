@@ -92,7 +92,7 @@ def overlay_head_transformed(gui, T):
     gui.vtk_target.GetRenderWindow().Render()
 
 
-def overlay_step3_transformed(gui, T):
+def overlay_helmet_sensors_transformed(gui, T):
     """Overlay the helmet STL and sensors transformed by T onto the target window view.
 
     Args:
@@ -232,11 +232,11 @@ def preview_head_on_mri(gui, T):
 def preview_mri_on_scan(gui):
     """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the target window view."""
     if gui.T_head_to_mri is None:
-        gui._update_info("Compute Head→MRI first.")
+        gui._update_info("Compute Head→MRI (MRI ALignment step) first.")
         return
 
     if gui.T_head_to_scan is None:
-        gui._update_info("Need Head→Scan (Step2) first.")
+        gui._update_info("Need Head→Scan (Head Alignment step) first.")
         return
 
     if gui.mri_polydata is None:

@@ -2,7 +2,7 @@
 
 from src.display_helpers import (
     draw_sensor_vectors_source_window,
-    overlay_step3_transformed,
+    overlay_helmet_sensors_transformed,
 )
 
 
@@ -17,7 +17,7 @@ def toggle_vectors(gui, state):
     # redraw source window vectors and transformed vectors if transform exists
     draw_sensor_vectors_source_window(gui)
     if gui.T_dev_to_scan is not None:
-        overlay_step3_transformed(gui, gui.T_dev_to_scan)
+        overlay_helmet_sensors_transformed(gui, gui.T_dev_to_scan)
 
 
 def toggle_helmet_overlay(gui, state):

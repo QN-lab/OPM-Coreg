@@ -7,7 +7,7 @@ import vtk
 
 from src.display_helpers import (
     overlay_head_transformed,
-    overlay_step3_transformed,
+    overlay_helmet_sensors_transformed,
     preview_head_on_mri,
 )
 from src.utils import (
@@ -41,7 +41,7 @@ def compute_aux_to_device(gui):
 
     Using the aux->scan transform and dev->scan transform."""
     if gui.aux_dev_to_scan is None or gui.T_dev_to_scan is None:
-        gui._update_info("Need Step1 and Step3 transforms.")
+        gui._update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
         return
 
     T_scan_to_dev = np.linalg.inv(gui.T_dev_to_scan)
@@ -55,11 +55,11 @@ def compute_aux_to_device(gui):
 
 def compute_head_to_scan(gui):
     """Compute transform from head scan to master scan using the head pairs."""
-    if len(gui.step2_pairs_head) < 3:
-        gui._update_info("Need at least 3 Step2 pairs to compute transform.")
+    if len(gui.head_alignment_points_from_source) < 3:
+        gui._update_info("Need at least 3 head alignment pairs to compute transform.")
         return
-    src = np.vstack(gui.step2_pairs_head)
-    dst = np.vstack(gui.step2_pairs_scan)
+    src = np.vstack(gui.head_alignment_points_from_source)
+    dst = np.vstack(gui.head_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_head_to_scan = T
     gui._update_info(
@@ -73,7 +73,7 @@ def compute_head_to_scan(gui):
 
 
 def obtain_true_landmarks_from_marked_points(helmet_landmark_positions, ref_point_pairs_helmet_stl):
-    """Obtain a list of true landmark coordinates from points marked during step3.
+    """Obtain a list of true landmark coordinates from points marked during sensor alignment step.
     
     Args:
         helmet_landmark_positions (list): Pre-defined true landmark coordinates
@@ -99,7 +99,7 @@ def obtain_true_landmarks_from_marked_points(helmet_landmark_positions, ref_poin
 def compute_sensors_transform(gui):
     """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
     if len(gui.ref_point_pairs_helmet_stl) < 3:
-        gui._update_info("Need ≥3 Step3 pairs.")
+        gui._update_info("Need ≥3 point pairs from sensor alignment step.")
         return
     src = np.vstack(gui.ref_point_pairs_helmet_stl)
     dst = np.vstack(gui.ref_point_pairs_scan)
@@ -122,7 +122,7 @@ def compute_sensors_transform(gui):
 
         gui._update_info("Saved aux→device transform.")
     # ---------------------------------------------------
-    # Compute device -> head if Step2 is available
+    # Compute device -> head head alignment step completed
     # ---------------------------------------------------
     if gui.T_head_to_scan is not None:
         T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
@@ -142,7 +142,7 @@ def compute_sensors_transform(gui):
         f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on target window."
     )
     # overlay transformed STL + transformed sensors
-    overlay_step3_transformed(gui, T)
+    overlay_helmet_sensors_transformed(gui, T)
     # save transform automatically
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
     save_transform(T, base + "_T_dev_to_scan")
@@ -151,11 +151,11 @@ def compute_sensors_transform(gui):
 
 
 def compute_head_to_mri_initial(gui):
-    """Compute initial head to MRI transform using the fiducials from step2 (head scan) and step4 (MRI)."""
+    """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
     required = ["NAS", "LPA", "RPA"]
 
     if not all(fid in gui.head_fiducials for fid in required):
-        gui._update_info("Head fiducials missing (Step2).")
+        gui._update_info("Head fiducials missing (incomplete head alignment step).")
         return
 
     if not all(fid in gui.mri_fiducials for fid in required):
@@ -199,10 +199,10 @@ def compute_head_to_mri_initial(gui):
 
 def compute_helmet_to_mri(gui):
     """Compute transform from helmet to MRI using the head scan as an intermediate, then apply to coil/device."""
-    # requires mri_fiducials and head scan fiducials transformed to master scan (from step2)
+    # requires mri_fiducials and head scan fiducials transformed to master scan (from head alignment step)
     if not gui.mri_fiducials or not gui.head_fiducials or gui.T_head_to_scan is None:
         gui._update_info(
-            "Need MRI fiducials (step4) and head_to_scan transform (step2)."
+            "Need MRI fiducials (mri alignment step) and head_to_scan transform (head alignment step)."
         )
         return
     # map head scan fiducials to helmet using T_head_to_scan
