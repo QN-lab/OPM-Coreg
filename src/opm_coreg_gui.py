@@ -1,14 +1,6 @@
-#!/usr/bin/env python3
-# tms_opm_all_steps_gui_fixed.py
-#
-# All-in-one GUI (fixed):
-#  - Step1: coil -> master scan (select landmarks on master scan based on landmark locations in csv)
-#  - Step2: scan of the head "outside" -> master scan (fiducials + pairwise)
-#  - Step3: sensors & helmet STL -> master_scan (pairwise)  <- integrated from your working script
-#  - Step4: helmet -> MRI (fiducial) ### check this
-
 # TODO : rename members/methods containing step_xx.
-# TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
+# TODO : rename members/methods containing coil keyword
+# TODO : remove magic numbers, compile constants
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 
 
@@ -41,17 +33,17 @@ from src.display_helpers import (
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
+    auto_save_transform,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
     load_helmet_cad,
+    load_helmet_landmark_csv,
     load_master_scan,
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
-    load_helmet_landmark_csv,
     save_head_to_mri,
-    auto_save_transform,
 )
 from src.observer_helpers import (
     add_source_observer,
