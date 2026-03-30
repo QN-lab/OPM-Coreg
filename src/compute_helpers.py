@@ -105,8 +105,9 @@ def compute_sensors_transform(gui):
     dst = np.vstack(gui.ref_point_pairs_scan)
 
     # If helmet landmark points exist, obtain a list of true landmark positions based on the marked points on helmet STL window
-    true_landmark_coords = obtain_true_landmarks_from_marked_points(gui.helmet_landmark_positions, gui.ref_point_pairs_helmet_stl)
-    src = np.vstack(true_landmark_coords)
+    if gui.helmet_landmark_positions is not None:
+        true_landmark_coords = obtain_true_landmarks_from_marked_points(gui.helmet_landmark_positions, gui.ref_point_pairs_helmet_stl)
+        src = np.vstack(true_landmark_coords)
 
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_dev_to_scan = T
