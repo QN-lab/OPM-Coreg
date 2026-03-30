@@ -1,6 +1,8 @@
-# TODO : rename members/methods containing coil keyword
-# TODO : remove magic numbers, compile constants
+# TODO : remove magic numbers, compile constants.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
+# TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
+# TODO : rethink about the button order and button labels on each step screen.
+# TODO : make display messages consistent.
 
 
 import numpy as np
@@ -99,16 +101,16 @@ class OPMCoregGUI(QWidget):
         self.helmet_polydata = None
         self.helmet_actor = None
         self.helmet_filename = None
-        self.coil_polydata = None
-        self.coil_actor_source_window = None
-        self.coil_landmarks = {}
-        self.coil_landmark_actors_source_window = []
-        self.coil_expected_labels = []
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_polydata = None
+        self.aux_dev_actor_source_window = None
+        self.aux_dev_landmarks = {}
+        self.aux_dev_landmark_actors_source_window = []
+        self.aux_dev_expected_labels = []
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
         self.aux_dev_to_scan = None
-        self.coil_actor_transformed = None
+        self.aux_dev_actor_transformed = None
 
         # Head alignment step
         self.head_polydata = None
@@ -164,7 +166,7 @@ class OPMCoregGUI(QWidget):
     def _build_ui(self):
         """Build the main UI layout.
 
-        Left (source) pane: 3D view (coil/helmet for aux alignment, head scan for head alignment, helmet STL + sensors for sensor alignment, MRI for mri alignment)
+        Left (source) pane: 3D view (auxiliary device STL for aux alignment, head scan for head alignment, helmet STL + sensors for sensor alignment, MRI for mri alignment)
         Right (target) pane: 3D view (master scan for all steps, with overlays)
         Bottom pane: controls that change based on step, plus info and toggles for overlays
         """
@@ -181,7 +183,7 @@ class OPMCoregGUI(QWidget):
         steps_box = QGroupBox("Steps")
         steps_v = QVBoxLayout()
         for button_label, mode in [
-            ("Step 1: Coil to scan", "align_aux"),
+            ("Step 1: Aux device to scan", "align_aux"),
             ("Step 2: Head to scan", "align_head"),
             ("Step 3: Sensors to scan", "align_sensors"),
             ("Step 4: Head to MRI", "align_mri"),
@@ -207,7 +209,7 @@ class OPMCoregGUI(QWidget):
         self.info_label.setWordWrap(True)
         info_v.addWidget(self.info_label)
 
-        self.cb_show_aux_dev = QCheckBox("TMS coil")
+        self.cb_show_aux_dev = QCheckBox("Aux device")
         self.cb_show_aux_dev.setChecked(True)
         self.cb_show_aux_dev.stateChanged.connect(
             lambda state: toggle_aux_dev_overlay(self, state)
@@ -312,7 +314,7 @@ class OPMCoregGUI(QWidget):
 
     # ----------------- Auxiliary device alignment step -------------------
     def _populate_aux_alignment_step_controls(self):
-        """Set up the controls for Aux Alignment step: coil to master scan registration."""
+        """Set up the controls for Aux Alignment step: auxiliary device to master scan registration."""
         self._clear_step_controls()
 
         # Define data structure for buttons required in the current step
@@ -322,27 +324,27 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: load_master_scan(self)
             },
             {
-                "label": "Load coil STL (source window)",
+                "label": "Load aux device STL (source window)",
                 "callback": lambda: load_aux_dev_stl(self)
             },
             {
-                "label": "Load coil landmarks CSV",
+                "label": "Load aux device landmarks CSV",
                 "callback": lambda: load_aux_dev_landmarks(self)
             },
             {
-                "label": "Start picking coil landmarks in master scan",
+                "label": "Start picking aux device landmarks in master scan",
                 "callback": self.start_aux_dev_landmark_pairs
             },
             {
-                "label": "Undo last coil pair",
+                "label": "Undo last aux device pair",
                 "callback": self.undo_last_aux_dev_pair
             },
             {
-                "label": "Compute coil to master scan transform",
+                "label": "Compute aux device to master scan transform",
                 "callback": lambda: compute_aux_dev_to_scan(self)
             },
             {
-                "label": "Preview coil on master scan",
+                "label": "Preview aux device on master scan",
                 "callback": lambda: merge_aux_dev_into_helmet(self)
             },
             {
@@ -360,58 +362,58 @@ class OPMCoregGUI(QWidget):
     def restart_aux_alignment(self):
         """Reset all Aux Alignment step related state and UI elements."""
         try:
-            if self.coil_actor_source_window is not None:
-                self.ren_source.RemoveActor(self.coil_actor_source_window)
+            if self.aux_dev_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.aux_dev_actor_source_window)
         except Exception:
             pass
-        for actor in getattr(self, "coil_landmark_actors_source_window", []):
+        for actor in getattr(self, "aux_dev_landmark_actors_source_window", []):
             try:
                 self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
         try:
-            if self.coil_actor_transformed is not None:
-                self.ren_target.RemoveActor(self.coil_actor_transformed)
+            if self.aux_dev_actor_transformed is not None:
+                self.ren_target.RemoveActor(self.aux_dev_actor_transformed)
         except Exception:
             pass
-        self.coil_polydata = None
-        self.coil_actor_source_window = None
-        self.coil_landmarks = {}
-        self.coil_landmark_actors_source_window = []
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_polydata = None
+        self.aux_dev_actor_source_window = None
+        self.aux_dev_landmarks = {}
+        self.aux_dev_landmark_actors_source_window = []
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
         self.aux_dev_to_scan = None
-        self.coil_actor_transformed = None
+        self.aux_dev_actor_transformed = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
         self._update_info("Aux Alignment restarted.")
 
     def start_aux_dev_landmark_pairs(self):
-        """Start the process of picking coil landmark pairs on the master scan (target window) based on loaded coil landmarks CSV."""
-        if not self.coil_landmarks or self.helmet_polydata is None:
+        """Start the process of picking aux device landmark pairs on the master scan (target window) based on loaded aux device landmarks CSV."""
+        if not self.aux_dev_landmarks or self.helmet_polydata is None:
             self._update_info(
-                "Need coil landmarks and master scan (participant in helmet)."
+                "Need aux device landmarks and master scan (participant in helmet)."
             )
             return
 
         ordered = [
             lab
             for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
-            if lab in self.coil_landmarks
+            if lab in self.aux_dev_landmarks
         ]
 
         if not ordered:
-            ordered = list(self.coil_landmarks.keys())
+            ordered = list(self.aux_dev_landmarks.keys())
 
-        self.coil_expected_labels = ordered
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_expected_labels = ordered
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
 
         self._update_info(
-            "Pick coil landmarks in the target window in order: "
-            + ", ".join(self.coil_expected_labels)
+            "Pick aux device landmarks in the target window in order: "
+            + ", ".join(self.aux_dev_expected_labels)
         )
 
         def handler(obj, event):
@@ -422,7 +424,7 @@ class OPMCoregGUI(QWidget):
                 return
 
             # 🔹 If done picking → let VTK rotate
-            if self.coil_pick_index >= len(self.coil_expected_labels):
+            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
                 obj.OnLeftButtonDown()
                 return
 
@@ -436,30 +438,30 @@ class OPMCoregGUI(QWidget):
                 return
 
             pos = np.array(picker.GetPickPosition(), float)
-            lab = self.coil_expected_labels[self.coil_pick_index]
+            lab = self.aux_dev_expected_labels[self.aux_dev_pick_index]
 
-            self.coil_pairs_src.append(self.coil_landmarks[lab])
-            self.coil_pairs_dst.append(pos)
+            self.aux_dev_pairs_src.append(self.aux_dev_landmarks[lab])
+            self.aux_dev_pairs_dst.append(pos)
 
-            selected_color = PAIR_COLORS[self.coil_pick_index % len(PAIR_COLORS)]
+            selected_color = PAIR_COLORS[self.aux_dev_pick_index % len(PAIR_COLORS)]
 
             self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
 
             self.vtk_target.GetRenderWindow().Render()
 
-            self.coil_pick_index += 1
+            self.aux_dev_pick_index += 1
 
-            if self.coil_pick_index >= len(self.coil_expected_labels):
+            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
                 try:
                     self.iren_target.RemoveObserver(obs_id)
                 except Exception:
                     pass
 
-                self._update_info("All coil pairs picked. Click 'Compute coil→helmet'.")
+                self._update_info("All aux device pairs picked. Click 'Compute aux→helmet'.")
             else:
                 self._update_info(
                     f"Picked {lab}. Next: "
-                    f"{self.coil_expected_labels[self.coil_pick_index]}"
+                    f"{self.aux_dev_expected_labels[self.aux_dev_pick_index]}"
                 )
 
             # 🔹 IMPORTANT: After handling SHIFT pick,
@@ -469,24 +471,24 @@ class OPMCoregGUI(QWidget):
         obs_id = add_target_observer(self, "LeftButtonPressEvent", handler)
 
     def undo_last_aux_dev_pair(self):
-        """Undo the last picked coil landmark pair, removing the marker from the target renderer and updating state."""
-        if not getattr(self, "coil_pairs_src", []):
-            self._update_info("No coil pairs to undo.")
+        """Undo the last picked aux device landmark pair, removing the marker from the target renderer and updating state."""
+        if not getattr(self, "aux_dev_pairs_src", []):
+            self._update_info("No aux device pairs to undo.")
             return
-        self.coil_pairs_src.pop()
-        self.coil_pairs_dst.pop()
-        self.coil_pick_index = max(0, self.coil_pick_index - 1)
-        # redraw target window: helmet + placed coil pair spheres + transformed coil if present
+        self.aux_dev_pairs_src.pop()
+        self.aux_dev_pairs_dst.pop()
+        self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
+        # redraw target window: helmet + placed aux device pair spheres + transformed aux device if present
         self.ren_target.RemoveAllViewProps()
         if self.helmet_actor is not None:
             self.ren_target.AddActor(self.helmet_actor)
-        for i, pos in enumerate(self.coil_pairs_dst):
+        for i, pos in enumerate(self.aux_dev_pairs_dst):
             selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
             self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
-        if self.coil_actor_transformed is not None:
-            self.ren_target.AddActor(self.coil_actor_transformed)
+        if self.aux_dev_actor_transformed is not None:
+            self.ren_target.AddActor(self.aux_dev_actor_transformed)
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info("Undid last coil pair.")
+        self._update_info("Undid last aux device pair.")
 
     # ---------------------------------------------------------------
     # ----------------- head alignment step (Outside -> Helmet) -----------------

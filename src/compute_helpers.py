@@ -20,16 +20,16 @@ from src.file_io_helpers import save_transformed_sensors_csv
 
 
 def compute_aux_dev_to_scan(gui):
-    """Compute transform from auxiliary device (e.g. coil) to master scan using the coil pairs."""
-    if not getattr(gui, "coil_pairs_src", None) or len(gui.coil_pairs_src) < 3:
-        gui._update_info("Need ≥3 coil pairs.")
+    """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
+    if not getattr(gui, "aux_dev_pairs_src", None) or len(gui.aux_dev_pairs_src) < 3:
+        gui._update_info("Need ≥3 auxiliary device pairs.")
         return
-    src = np.vstack(gui.coil_pairs_src)
-    dst = np.vstack(gui.coil_pairs_dst)
+    src = np.vstack(gui.aux_dev_pairs_src)
+    dst = np.vstack(gui.aux_dev_pairs_dst)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.aux_dev_to_scan = T
     gui._update_info(
-        f"Computed coil to master scan transform RMS={rms:.3f} mm. Saved transform."
+        f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm. Saved transform."
     )
     # auto save
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
@@ -37,7 +37,7 @@ def compute_aux_dev_to_scan(gui):
 
 
 def compute_aux_to_device(gui):
-    """Compute transform from auxiliary device to device (e.g. coil to helmet).
+    """Compute transform from auxiliary device to device (sensor helmet).
 
     Using the aux->scan transform and dev->scan transform."""
     if gui.aux_dev_to_scan is None or gui.T_dev_to_scan is None:
@@ -198,7 +198,7 @@ def compute_head_to_mri_initial(gui):
 
 
 def compute_helmet_to_mri(gui):
-    """Compute transform from helmet to MRI using the head scan as an intermediate, then apply to coil/device."""
+    """Compute transform from helmet to MRI using the head scan as an intermediate, then apply to auxiliary device and head."""
     # requires mri_fiducials and head scan fiducials transformed to master scan (from head alignment step)
     if not gui.mri_fiducials or not gui.head_fiducials or gui.T_head_to_scan is None:
         gui._update_info(
@@ -217,7 +217,7 @@ def compute_helmet_to_mri(gui):
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_scan_to_mri = T
     gui._update_info(
-        f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to coil/device/head."
+        f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to aux/device/head."
     )
     # apply final transforms and save
     apply_final_transforms(gui, T)
@@ -349,7 +349,7 @@ def run_icp_head_to_mri(gui):
 
 
 def apply_final_transforms(gui, T_head_to_mri):
-    """Calculate additional transforms for coil/device/head to MRI in mm units."""
+    """Calculate additional transforms for aux/device/head to MRI in mm units."""
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
 
     if gui.T_head_to_scan is None:
@@ -363,11 +363,11 @@ def apply_final_transforms(gui, T_head_to_mri):
     save_transform(T_head_to_mri, base + "_head_to_mri_mm")
 
     # -----------------------------------------
-    # Coil → MRI
+    # Aux_dev → MRI
     # -----------------------------------------
     if gui.aux_dev_to_scan is not None:
-        coil_to_mri = T_head_to_mri @ T_scan_to_head @ gui.aux_dev_to_scan
-        save_transform(coil_to_mri, base + "_aux_dev_to_mri_mm")
+        aux_dev_to_mri = T_head_to_mri @ T_scan_to_head @ gui.aux_dev_to_scan
+        save_transform(aux_dev_to_mri, base + "_aux_dev_to_mri_mm")
 
     # -----------------------------------------
     # Device → MRI
@@ -376,7 +376,7 @@ def apply_final_transforms(gui, T_head_to_mri):
         dev_to_mri = T_head_to_mri @ T_scan_to_head @ gui.T_dev_to_scan
         save_transform(dev_to_mri, base + "_dev_to_mri_mm")
 
-    gui._update_info("Saved coil/device/head → MRI transforms (mm).")
+    gui._update_info("Saved aux/device/head → MRI transforms (mm).")
 
 
 def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):

@@ -53,31 +53,31 @@ def load_master_scan(gui):
 
 
 def load_aux_dev_stl(gui):
-    """Load auxiliary device STL (e.g. coil) on the source window."""
+    """Load auxiliary device STL on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select coil STL", "", "STL Files (*.stl)"
+        gui, "Select auxiliary device STL", "", "STL Files (*.stl)"
     )
     if not filepath:
         return
-    gui.coil_polydata = load_mesh_to_polydata(filepath)
-    if gui.coil_actor_source_window is not None:
+    gui.aux_dev_polydata = load_mesh_to_polydata(filepath)
+    if gui.aux_dev_actor_source_window is not None:
         try:
-            gui.ren_source.RemoveActor(gui.coil_actor_source_window)
+            gui.ren_source.RemoveActor(gui.aux_dev_actor_source_window)
         except Exception:
             pass
-    gui.coil_actor_source_window = actor_from_polydata(
-        gui.coil_polydata, color=(0.7, 1, 0.2), opacity=1.0
+    gui.aux_dev_actor_source_window = actor_from_polydata(
+        gui.aux_dev_polydata, color=(0.7, 1, 0.2), opacity=1.0
     )
-    gui.ren_source.AddActor(gui.coil_actor_source_window)
+    gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info("Loaded coil STL (source window).")
+    gui._update_info("Loaded auxiliary device STL (source window).")
 
 
 def load_aux_dev_landmarks(gui):
-    """Load auxiliary device (coil) landmarks CSV on the source window."""
+    """Load auxiliary device landmarks CSV on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select coil landmarks CSV", "", "CSV Files (*.csv)"
+        gui, "Select auxiliary device landmarks CSV", "", "CSV Files (*.csv)"
     )
     if not filepath:
         return
@@ -94,21 +94,21 @@ def load_aux_dev_landmarks(gui):
             except Exception:
                 continue
             lm[lab] = np.array([x, y, z], float)
-    gui.coil_landmarks = lm
+    gui.aux_dev_landmarks = lm
     # draw landmarks on source window
-    for actor in getattr(gui, "coil_landmark_actors_source_window", []):
+    for actor in getattr(gui, "aux_dev_landmark_actors_source_window", []):
         try:
             gui.ren_source.RemoveActor(actor)
         except Exception:
             pass
-    gui.coil_landmark_actors_source_window = []
-    for i, (lab, point_coords) in enumerate(gui.coil_landmarks.items()):
+    gui.aux_dev_landmark_actors_source_window = []
+    for i, (lab, point_coords) in enumerate(gui.aux_dev_landmarks.items()):
         selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
         actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
         gui.ren_source.AddActor(actor)
-        gui.coil_landmark_actors_source_window.append(actor)
+        gui.aux_dev_landmark_actors_source_window.append(actor)
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(f"Loaded {len(gui.coil_landmarks)} coil landmarks.")
+    gui._update_info(f"Loaded {len(gui.aux_dev_landmarks)} auxiliary device landmarks.")
 
 
 def load_head_scan(gui):

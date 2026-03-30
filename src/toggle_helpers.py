@@ -40,18 +40,18 @@ def toggle_helmet_overlay(gui, state):
 
 
 def toggle_aux_dev_overlay(gui, state):
-    """Toggle the visibility of the auxiliary device (TMS coil) overlay in the target window.
+    """Toggle the visibility of the auxiliary device overlay in the target window.
 
     Args:
         gui: The main GUI object.
         state: The state of the checkbox.
     """
-    if gui.coil_actor_transformed is None:
+    if gui.aux_dev_actor_transformed is None:
         return
     if state:
-        gui.ren_target.AddActor(gui.coil_actor_transformed)
+        gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
     else:
-        gui.ren_target.RemoveActor(gui.coil_actor_transformed)
+        gui.ren_target.RemoveActor(gui.aux_dev_actor_transformed)
     gui.vtk_target.GetRenderWindow().Render()
 
 

@@ -13,28 +13,28 @@ from src.utils import (
 
 
 def merge_aux_dev_into_helmet(gui):
-    """Merge the auxiliary device STL (e.g. coil) into the helmet STL on the target window using the aux_dev_to_scan transform."""
-    if gui.coil_polydata is None or gui.aux_dev_to_scan is None:
-        gui._update_info("Need coil STL and T_aux_dev_to_scan first.")
+    """Merge the auxiliary device STL into the helmet STL on the target window using the aux_dev_to_scan transform."""
+    if gui.aux_dev_polydata is None or gui.aux_dev_to_scan is None:
+        gui._update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
         return
     tf = vtk.vtkTransform()
     tf.SetMatrix(vtk_matrix_from_numpy(gui.aux_dev_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
-    tfilter.SetInputData(gui.coil_polydata)
+    tfilter.SetInputData(gui.aux_dev_polydata)
     tfilter.Update()
-    if gui.coil_actor_transformed is not None:
+    if gui.aux_dev_actor_transformed is not None:
         try:
-            gui.ren_target.RemoveActor(gui.coil_actor_transformed)
+            gui.ren_target.RemoveActor(gui.aux_dev_actor_transformed)
         except Exception:
             pass
-    gui.coil_actor_transformed = actor_from_polydata(
+    gui.aux_dev_actor_transformed = actor_from_polydata(
         tfilter.GetOutput(), color=(0.7, 1.0, 0.2), opacity=0.45
     )
-    gui.ren_target.AddActor(gui.coil_actor_transformed)
+    gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
-    gui._update_info("Previewed coil on helmet.")
+    gui._update_info("Previewed auxiliary device on helmet.")
 
 
 def overlay_head_transformed(gui, T):
