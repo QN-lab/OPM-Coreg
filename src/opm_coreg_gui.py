@@ -1,15 +1,8 @@
-#!/usr/bin/env python3
-# tms_opm_all_steps_gui_fixed.py
-#
-# All-in-one GUI (fixed):
-#  - Step1: coil -> master scan (select landmarks on master scan based on landmark locations in csv)
-#  - Step2: scan of the head "outside" -> master scan (fiducials + pairwise)
-#  - Step3: sensors & helmet STL -> master_scan (pairwise)  <- integrated from your working script
-#  - Step4: helmet -> MRI (fiducial) ### check this
-
-# TODO : rename members/methods containing step_xx.
-# TODO : rename members/methods/docstrings containing LEFT/RIGHT keywords.
+# TODO : remove magic numbers, compile constants.
 # TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
+# TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
+# TODO : rethink about the button order and button labels on each step screen.
+# TODO : make display messages consistent.
 
 
 import numpy as np
@@ -37,27 +30,27 @@ from src.compute_helpers import (
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     merge_aux_dev_into_helmet,
-    overlay_step3_transformed,
+    overlay_helmet_sensors_transformed,
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
+    auto_save_transform,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
     load_helmet_cad,
+    load_helmet_landmark_csv,
     load_master_scan,
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
-    load_helmet_landmark_csv,
     save_head_to_mri,
-    auto_save_transform,
 )
 from src.observer_helpers import (
-    add_left_observer,
-    add_right_observer,
-    clear_left_renderer,
-    clear_right_renderer_keep_scan,
+    add_source_observer,
+    add_target_observer,
+    clear_source_renderer,
+    clear_target_renderer_keep_scan,
     remove_all_observers,
 )
 from src.toggle_helpers import (
@@ -81,21 +74,21 @@ class OPMCoregGUI(QWidget):
         self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
         # Renderers / interactors
-        self.vtk_left = QVTKRenderWindowInteractor(self)
-        self.ren_left = vtk.vtkRenderer()
-        self.vtk_left.GetRenderWindow().AddRenderer(self.ren_left)
-        self.left_iren = self.vtk_left.GetRenderWindow().GetInteractor()
-        style_l = vtk.vtkInteractorStyleTrackballCamera()
-        style_l.SetMotionFactor(4.0)
-        self.left_iren.SetInteractorStyle(style_l)
+        self.vtk_source = QVTKRenderWindowInteractor(self)
+        self.ren_source = vtk.vtkRenderer()
+        self.vtk_source.GetRenderWindow().AddRenderer(self.ren_source)
+        self.iren_source = self.vtk_source.GetRenderWindow().GetInteractor()
+        style_source = vtk.vtkInteractorStyleTrackballCamera()
+        style_source.SetMotionFactor(4.0)
+        self.iren_source.SetInteractorStyle(style_source)
 
-        self.vtk_right = QVTKRenderWindowInteractor(self)
-        self.ren_right = vtk.vtkRenderer()
-        self.vtk_right.GetRenderWindow().AddRenderer(self.ren_right)
-        self.right_iren = self.vtk_right.GetRenderWindow().GetInteractor()
-        style_r = vtk.vtkInteractorStyleTrackballCamera()
-        style_r.SetMotionFactor(4.0)
-        self.right_iren.SetInteractorStyle(style_r)
+        self.vtk_target = QVTKRenderWindowInteractor(self)
+        self.ren_target = vtk.vtkRenderer()
+        self.vtk_target.GetRenderWindow().AddRenderer(self.ren_target)
+        self.iren_target = self.vtk_target.GetRenderWindow().GetInteractor()
+        style_target = vtk.vtkInteractorStyleTrackballCamera()
+        style_target.SetMotionFactor(4.0)
+        self.iren_target.SetInteractorStyle(style_target)
 
         # Keep track of added observer IDs so we can remove them safely
         self._observer_ids = []
@@ -104,43 +97,43 @@ class OPMCoregGUI(QWidget):
         self.mode = None
         self.picking_state = {}
 
-        # Step1 coil to master scan
+        # Auxiliary device alignment step
         self.helmet_polydata = None
         self.helmet_actor = None
         self.helmet_filename = None
-        self.coil_polydata = None
-        self.coil_actor_left = None
-        self.coil_landmarks = {}
-        self.coil_landmark_actors_left = []
-        self.coil_expected_labels = []
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_polydata = None
+        self.aux_dev_actor_source_window = None
+        self.aux_dev_landmarks = {}
+        self.aux_dev_landmark_actors_source_window = []
+        self.aux_dev_expected_labels = []
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
         self.aux_dev_to_scan = None
-        self.coil_actor_transformed = None
+        self.aux_dev_actor_transformed = None
 
-        # Step2 head to master scan
+        # Head alignment step
         self.head_polydata = None
         self.head_actor = None
         self.head_fiducials = {}  # NAS,LPA,RPA
         self.head_fiducial_actors = {}
-        self.step2_pairs_head = []
-        self.step2_pairs_scan = []
-        self.step2_pair_actors_left = []
-        self.step2_pair_actors_right = []
+        self.head_alignment_points_from_source = []
+        self.head_alignment_points_from_target = []
+        self.head_alignment_pair_actors_source = []
+        self.head_alignment_pair_actors_target = []
         self.T_head_to_scan = None
 
-        # Step3 helmet STL/sensor positions  to master scan (to get the device to scan transform)
+        # Sensors alignment step (to get the device to scan transform)
         self.helmet_stl_raw = None
-        self.helmet_stl_actor_left = None
-        self.helmet_stl_actor_overlay = None
+        self.helmet_stl_actor_source = None
+        self.helmet_stl_actor_target = None
         self.sensor_df = None
         self.sensor_positions = None
         self.sensor_axes = None
-        self.sensor_actors_left = []
+        self.sensor_actors_source_window = []
         self.helmet_landmark_positions = None
-        self.helmet_landmark_actors_left = []
-        self.helmet_landmark_text_actors_left = []
+        self.helmet_landmark_actors_source_window = []
+        self.helmet_landmark_text_actors_source_window = []
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         self.ref_point_pairs_helmet_stl = []
@@ -152,36 +145,36 @@ class OPMCoregGUI(QWidget):
         self.show_helmet_stl = True
         self.sensor_csv_path = None
         self.helmet_landmark_csv_path = None
-        # Step3 pairing actors (MUST exist before use)
-        self.pair_actors_left = []
-        self.pair_actors_right = []
+        # Sensors alignment pairing actors (MUST exist before use)
+        self.pair_actors_source = []
+        self.pair_actors_target = []
 
-        # Step4 (MRI)
+        # MRI alignment step
         self.mri_polydata = None
         self.mri_fiducials = {}
         self.mri_fiducial_actors = {}
         self.T_head_to_mri = None
-        self.mri_actor_right = None
+        self.mri_actor_target_window = None
 
         # Build UI
         self._build_ui()
         # initialize
-        self.left_iren.Initialize()
-        self.right_iren.Initialize()
+        self.iren_source.Initialize()
+        self.iren_target.Initialize()
 
     # ---------- UI ----------
     def _build_ui(self):
         """Build the main UI layout.
 
-        Left pane: 3D view (coil/helmet for step1, head scan for step2, helmet STL + sensors for step3, MRI for step4)
-        Right pane: 3D view (master scan for all steps, with overlays)
+        Left (source) pane: 3D view (auxiliary device STL for aux alignment, head scan for head alignment, helmet STL + sensors for sensor alignment, MRI for mri alignment)
+        Right (target) pane: 3D view (master scan for all steps, with overlays)
         Bottom pane: controls that change based on step, plus info and toggles for overlays
         """
         main_layout = QVBoxLayout(self)
         # two render windows
         view_layout = QHBoxLayout()
-        view_layout.addWidget(self.vtk_left, 1)
-        view_layout.addWidget(self.vtk_right, 1)
+        view_layout.addWidget(self.vtk_source, 1)
+        view_layout.addWidget(self.vtk_target, 1)
         main_layout.addLayout(view_layout, stretch=8)
 
         # bottom controls
@@ -190,10 +183,10 @@ class OPMCoregGUI(QWidget):
         steps_box = QGroupBox("Steps")
         steps_v = QVBoxLayout()
         for button_label, mode in [
-            ("Step 1: Coil to scan", "step1"),
-            ("Step 2: Head to scan", "step2"),
-            ("Step 3: Sensors to scan", "step3"),
-            ("Step 4: Head to MRI", "step4"),
+            ("Step 1: Aux device to scan", "align_aux"),
+            ("Step 2: Head to scan", "align_head"),
+            ("Step 3: Sensors to scan", "align_sensors"),
+            ("Step 4: Head to MRI", "align_mri"),
         ]:
             button = QPushButton(button_label)
             button.clicked.connect(
@@ -216,30 +209,30 @@ class OPMCoregGUI(QWidget):
         self.info_label.setWordWrap(True)
         info_v.addWidget(self.info_label)
 
-        self.cb_show_aux_dev = QCheckBox("TMS coil (Step 1)")
+        self.cb_show_aux_dev = QCheckBox("Aux device")
         self.cb_show_aux_dev.setChecked(True)
         self.cb_show_aux_dev.stateChanged.connect(
             lambda state: toggle_aux_dev_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_aux_dev)
 
-        self.cb_show_head = QCheckBox("Head scan (Step 2)")
+        self.cb_show_head = QCheckBox("Head scan")
         self.cb_show_head.setChecked(True)
         self.cb_show_head.stateChanged.connect(
             lambda state: toggle_head_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_head)
-        self.cb_stl = QCheckBox("Sensors (Step 3)")
+        self.cb_stl = QCheckBox("Sensors")
         self.cb_stl.setChecked(True)
         self.cb_stl.stateChanged.connect(
             lambda state: toggle_helmet_overlay(self, state)
         )
         info_v.addWidget(self.cb_stl)
-        self.cb_vec = QCheckBox("Unit vectors (Step 3)")
+        self.cb_vec = QCheckBox("Unit vectors")
         self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
         info_v.addWidget(self.cb_vec)
 
-        self.cb_show_mri = QCheckBox("MRI (Step 4)")
+        self.cb_show_mri = QCheckBox("MRI")
         self.cb_show_mri.setChecked(True)
         self.cb_show_mri.stateChanged.connect(
             lambda state: toggle_mri_overlay(self, state)
@@ -276,39 +269,39 @@ class OPMCoregGUI(QWidget):
         remove_all_observers(self)
 
         # 2. Create fresh styles with motion factor
-        style_l = vtk.vtkInteractorStyleTrackballCamera()
-        style_l.SetMotionFactor(4.0)
+        style_source = vtk.vtkInteractorStyleTrackballCamera()
+        style_source.SetMotionFactor(4.0)
 
-        style_r = vtk.vtkInteractorStyleTrackballCamera()
-        style_r.SetMotionFactor(4.0)
+        style_target = vtk.vtkInteractorStyleTrackballCamera()
+        style_target.SetMotionFactor(4.0)
 
-        self.left_iren.SetInteractorStyle(style_l)
-        self.right_iren.SetInteractorStyle(style_r)
+        self.iren_source.SetInteractorStyle(style_source)
+        self.iren_target.SetInteractorStyle(style_target)
 
         self.mode = selected_mode
         self.picking_state = {}
 
         # 3. Reset renderers
-        clear_left_renderer(self)
-        clear_right_renderer_keep_scan(self)
+        clear_source_renderer(self)
+        clear_target_renderer_keep_scan(self)
 
         # 4. Step setup
-        if selected_mode == "step1":
-            self._populate_step1_controls()
+        if selected_mode == "align_aux":
+            self._populate_aux_alignment_step_controls()
 
-        elif selected_mode == "step2":
-            self._populate_step2_controls()
-            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step2)
-            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step2)
+        elif selected_mode == "align_head":
+            self._populate_head_alignment_step_controls()
+            add_source_observer(self, "LeftButtonPressEvent", self._source_click_head_alignment)
+            add_target_observer(self, "LeftButtonPressEvent", self._target_click_head_alignment)
 
-        elif selected_mode == "step3":
-            self._populate_step3_controls()
-            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step3)
-            add_right_observer(self, "LeftButtonPressEvent", self._right_click_step3)
+        elif selected_mode == "align_sensors":
+            self._populate_sensors_alignment_step_controls()
+            add_source_observer(self, "LeftButtonPressEvent", self._source_click_sensors_alignment)
+            add_target_observer(self, "LeftButtonPressEvent", self._target_click_sensors_alignment)
 
-        elif selected_mode == "step4":
-            self._populate_step4_controls()
-            add_left_observer(self, "LeftButtonPressEvent", self._left_click_step4)
+        elif selected_mode == "align_mri":
+            self._populate_mri_alignment_step_controls()
+            add_source_observer(self, "LeftButtonPressEvent", self._source_click_mri_alignment)
 
         self._update_info(f"Mode: {selected_mode}")
 
@@ -319,44 +312,44 @@ class OPMCoregGUI(QWidget):
             if w:
                 w.setParent(None)
 
-    # ----------------- STEP 1 -------------------
-    def _populate_step1_controls(self):
-        """Set up the controls for Step 1: coil to master scan registration."""
+    # ----------------- Auxiliary device alignment step -------------------
+    def _populate_aux_alignment_step_controls(self):
+        """Set up the controls for Aux Alignment step: auxiliary device to master scan registration."""
         self._clear_step_controls()
 
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load 3D master scan (RIGHT)",
+                "label": "Load 3D master scan (target window)",
                 "callback": lambda: load_master_scan(self)
             },
             {
-                "label": "Load coil STL (LEFT)",
+                "label": "Load aux device STL (source window)",
                 "callback": lambda: load_aux_dev_stl(self)
             },
             {
-                "label": "Load coil landmarks CSV",
+                "label": "Load aux device landmarks CSV",
                 "callback": lambda: load_aux_dev_landmarks(self)
             },
             {
-                "label": "Start picking coil landmarks in master scan",
+                "label": "Start picking aux device landmarks in master scan",
                 "callback": self.start_aux_dev_landmark_pairs
             },
             {
-                "label": "Undo last coil pair",
+                "label": "Undo last aux device pair",
                 "callback": self.undo_last_aux_dev_pair
             },
             {
-                "label": "Compute coil to master scan transform",
+                "label": "Compute aux device to master scan transform",
                 "callback": lambda: compute_aux_dev_to_scan(self)
             },
             {
-                "label": "Preview coil on master scan",
+                "label": "Preview aux device on master scan",
                 "callback": lambda: merge_aux_dev_into_helmet(self)
             },
             {
-                "label": "Restart Step 1",
-                "callback": self.restart_step1
+                "label": "Restart Aux Alignment step",
+                "callback": self.restart_aux_alignment
             },
         ]
 
@@ -366,178 +359,178 @@ class OPMCoregGUI(QWidget):
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
 
-    def restart_step1(self):
-        """Reset all Step 1 related state and UI elements."""
+    def restart_aux_alignment(self):
+        """Reset all Aux Alignment step related state and UI elements."""
         try:
-            if self.coil_actor_left is not None:
-                self.ren_left.RemoveActor(self.coil_actor_left)
+            if self.aux_dev_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.aux_dev_actor_source_window)
         except Exception:
             pass
-        for actor in getattr(self, "coil_landmark_actors_left", []):
+        for actor in getattr(self, "aux_dev_landmark_actors_source_window", []):
             try:
-                self.ren_left.RemoveActor(actor)
+                self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
         try:
-            if self.coil_actor_transformed is not None:
-                self.ren_right.RemoveActor(self.coil_actor_transformed)
+            if self.aux_dev_actor_transformed is not None:
+                self.ren_target.RemoveActor(self.aux_dev_actor_transformed)
         except Exception:
             pass
-        self.coil_polydata = None
-        self.coil_actor_left = None
-        self.coil_landmarks = {}
-        self.coil_landmark_actors_left = []
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_polydata = None
+        self.aux_dev_actor_source_window = None
+        self.aux_dev_landmarks = {}
+        self.aux_dev_landmark_actors_source_window = []
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
         self.aux_dev_to_scan = None
-        self.coil_actor_transformed = None
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info("Step1 restarted.")
+        self.aux_dev_actor_transformed = None
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
+        self._update_info("Aux Alignment restarted.")
 
     def start_aux_dev_landmark_pairs(self):
-        """Start the process of picking coil landmark pairs on the master scan (right) based on loaded coil landmarks CSV."""
-        if not self.coil_landmarks or self.helmet_polydata is None:
+        """Start the process of picking aux device landmark pairs on the master scan (target window) based on loaded aux device landmarks CSV."""
+        if not self.aux_dev_landmarks or self.helmet_polydata is None:
             self._update_info(
-                "Need coil landmarks and master scan (participant in helmet)."
+                "Need aux device landmarks and master scan (participant in helmet)."
             )
             return
 
         ordered = [
             lab
             for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
-            if lab in self.coil_landmarks
+            if lab in self.aux_dev_landmarks
         ]
 
         if not ordered:
-            ordered = list(self.coil_landmarks.keys())
+            ordered = list(self.aux_dev_landmarks.keys())
 
-        self.coil_expected_labels = ordered
-        self.coil_pairs_src = []
-        self.coil_pairs_dst = []
-        self.coil_pick_index = 0
+        self.aux_dev_expected_labels = ordered
+        self.aux_dev_pairs_src = []
+        self.aux_dev_pairs_dst = []
+        self.aux_dev_pick_index = 0
 
         self._update_info(
-            "Pick coil landmarks in the RIGHT window in order: "
-            + ", ".join(self.coil_expected_labels)
+            "Pick aux device landmarks in the target window in order: "
+            + ", ".join(self.aux_dev_expected_labels)
         )
 
         def handler(obj, event):
 
             # 🔹 If not SHIFT → let VTK rotate normally
-            if not self.right_iren.GetShiftKey():
+            if not self.iren_target.GetShiftKey():
                 obj.OnLeftButtonDown()
                 return
 
             # 🔹 If done picking → let VTK rotate
-            if self.coil_pick_index >= len(self.coil_expected_labels):
+            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
                 obj.OnLeftButtonDown()
                 return
 
-            x, y = self.right_iren.GetEventPosition()
+            x, y = self.iren_target.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            pick_success = picker.Pick(x, y, 0, self.ren_target)
             if not pick_success:
-                self._update_info("No pick on right.")
+                self._update_info("No pick on target window.")
                 obj.OnLeftButtonDown()
                 return
 
             pos = np.array(picker.GetPickPosition(), float)
-            lab = self.coil_expected_labels[self.coil_pick_index]
+            lab = self.aux_dev_expected_labels[self.aux_dev_pick_index]
 
-            self.coil_pairs_src.append(self.coil_landmarks[lab])
-            self.coil_pairs_dst.append(pos)
+            self.aux_dev_pairs_src.append(self.aux_dev_landmarks[lab])
+            self.aux_dev_pairs_dst.append(pos)
 
-            selected_color = PAIR_COLORS[self.coil_pick_index % len(PAIR_COLORS)]
+            selected_color = PAIR_COLORS[self.aux_dev_pick_index % len(PAIR_COLORS)]
 
-            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+            self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
 
-            self.vtk_right.GetRenderWindow().Render()
+            self.vtk_target.GetRenderWindow().Render()
 
-            self.coil_pick_index += 1
+            self.aux_dev_pick_index += 1
 
-            if self.coil_pick_index >= len(self.coil_expected_labels):
+            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
                 try:
-                    self.right_iren.RemoveObserver(obs_id)
+                    self.iren_target.RemoveObserver(obs_id)
                 except Exception:
                     pass
 
-                self._update_info("All coil pairs picked. Click 'Compute coil→helmet'.")
+                self._update_info("All aux device pairs picked. Click 'Compute aux→helmet'.")
             else:
                 self._update_info(
                     f"Picked {lab}. Next: "
-                    f"{self.coil_expected_labels[self.coil_pick_index]}"
+                    f"{self.aux_dev_expected_labels[self.aux_dev_pick_index]}"
                 )
 
             # 🔹 IMPORTANT: After handling SHIFT pick,
             # still forward event so camera doesn't freeze
             obj.OnLeftButtonDown()
 
-        obs_id = add_right_observer(self, "LeftButtonPressEvent", handler)
+        obs_id = add_target_observer(self, "LeftButtonPressEvent", handler)
 
     def undo_last_aux_dev_pair(self):
-        """Undo the last picked coil landmark pair, removing the marker from the right renderer and updating state."""
-        if not getattr(self, "coil_pairs_src", []):
-            self._update_info("No coil pairs to undo.")
+        """Undo the last picked aux device landmark pair, removing the marker from the target renderer and updating state."""
+        if not getattr(self, "aux_dev_pairs_src", []):
+            self._update_info("No aux device pairs to undo.")
             return
-        self.coil_pairs_src.pop()
-        self.coil_pairs_dst.pop()
-        self.coil_pick_index = max(0, self.coil_pick_index - 1)
-        # redraw right: helmet + placed coil pair spheres + transformed coil if present
-        self.ren_right.RemoveAllViewProps()
+        self.aux_dev_pairs_src.pop()
+        self.aux_dev_pairs_dst.pop()
+        self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
+        # redraw target window: helmet + placed aux device pair spheres + transformed aux device if present
+        self.ren_target.RemoveAllViewProps()
         if self.helmet_actor is not None:
-            self.ren_right.AddActor(self.helmet_actor)
-        for i, pos in enumerate(self.coil_pairs_dst):
+            self.ren_target.AddActor(self.helmet_actor)
+        for i, pos in enumerate(self.aux_dev_pairs_dst):
             selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
-            self.ren_right.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
-        if self.coil_actor_transformed is not None:
-            self.ren_right.AddActor(self.coil_actor_transformed)
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info("Undid last coil pair.")
+            self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+        if self.aux_dev_actor_transformed is not None:
+            self.ren_target.AddActor(self.aux_dev_actor_transformed)
+        self.vtk_target.GetRenderWindow().Render()
+        self._update_info("Undid last aux device pair.")
 
     # ---------------------------------------------------------------
-    # ----------------- STEP 2 (Outside -> Helmet) -----------------
+    # ----------------- head alignment step (Outside -> Helmet) -----------------
     # ---------------------------------------------------------------
 
-    def _populate_step2_controls(self):
-        """Set up the controls for Step 2: head scan to master scan registration using fiducials and pairwise points."""
+    def _populate_head_alignment_step_controls(self):
+        """Set up the controls for head alignment step: head scan to master scan registration using fiducials and pairwise points."""
         self._clear_step_controls()
 
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load OUTSIDE head (LEFT)",
+                "label": "Load OUTSIDE head (source window)",
                 "callback": lambda: load_head_scan(self)
             },
             {
-                "label": "Load HELMET scan (RIGHT)",
+                "label": "Load HELMET scan (target window)",
                 "callback": lambda: load_master_scan(self)
             },
             {
                 "label": "Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)",
-                "callback": self.start_fiducial_mode_step2
+                "callback": self.start_fiducial_mode_for_head_alignment
             },
             {
-                "label": "Undo last fiducial (step2)",
-                "callback": self.undo_last_fiducial_step2
+                "label": "Undo last fiducial",
+                "callback": self.undo_last_fiducial_for_head_alignment
             },
             {
                 "label": "Start pairwise mode (LEFT->RIGHT)",
-                "callback": self.start_pairs_step2
+                "callback": self.start_pairs_for_head_alignment
             },
             {
-                "label": "Undo last pair (step2)",
-                "callback": self.undo_last_pair_step2
+                "label": "Undo last pair",
+                "callback": self.undo_last_pair_for_head_alignment
             },
             {
                 "label": "Compute outside->helmet",
                 "callback": lambda: compute_head_to_scan(self)
             },
             {
-                "label": "Restart Step 2",
-                "callback": self.restart_step2
+                "label": "Restart Head Alignment",
+                "callback": self.restart_head_alignment
             },
         ]
 
@@ -547,15 +540,15 @@ class OPMCoregGUI(QWidget):
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
 
-    def start_fiducial_mode_step2(self):
-        """Enable picking fiducials on the head scan (left) in the order NAS, LPA, RPA, Nose, Chin."""
-        self.picking_state = {"mode": "fiducials", "next": 0}
+    def start_fiducial_mode_for_head_alignment(self):
+        """Enable picking fiducials on the head scan (source window) in the order NAS, LPA, RPA, Nose, Chin."""
+        self.picking_state = {"mode": "head_alignment_fiducials", "next": 0}
         self._update_info(
-            "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (LEFT) (outside scan)."
+            "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (source window) (outside scan)."
         )
 
-    def undo_last_fiducial_step2(self):
-        """Undo the last picked fiducial on the head scan (left), removing the marker and updating state."""
+    def undo_last_fiducial_for_head_alignment(self):
+        """Undo the last picked fiducial on the head scan (source window), removing the marker and updating state."""
         if not self.head_fiducials:
             self._update_info("No fiducials to undo.")
             return
@@ -567,45 +560,45 @@ class OPMCoregGUI(QWidget):
                 actor = self.head_fiducial_actors.get(lbl)
                 if actor is not None:
                     try:
-                        self.ren_left.RemoveActor(actor)
+                        self.ren_source.RemoveActor(actor)
                     except Exception:
                         pass
                 del self.head_fiducials[lbl]
                 if lbl in self.head_fiducial_actors:
                     del self.head_fiducial_actors[lbl]
-                self.vtk_left.GetRenderWindow().Render()
+                self.vtk_source.GetRenderWindow().Render()
                 self._update_info(f"Removed fiducial {lbl}.")
                 return
 
-    def start_pairs_step2(self):
-        """Enable picking pairwise points between the head scan (left) and master scan (right) for Step 2 registration."""
+    def start_pairs_for_head_alignment(self):
+        """Enable picking pairwise points between the head scan (source window) and master scan (target window) for head alignment step."""
         if self.head_polydata is None or self.helmet_polydata is None:
-            self._update_info("Load head scan (left) and master scan (right) first.")
+            self._update_info("Load head scan (source window) and master scan (target window) first.")
             return
-        self.step2_pairs_head = []
-        self.step2_pairs_scan = []
-        self._clear_step2_pair_markers()
-        self.picking_state = {"mode": "pairs", "await": "left"}
+        self.head_alignment_points_from_source = []
+        self.head_alignment_points_from_target = []
+        self._clear_head_alignment_pair_markers()
+        self.picking_state = {"mode": "head_alignment_pairs", "await": "source"}
         self._update_info(
-            "Pair mode: SHIFT+click LEFT (head scan) then SHIFT+click RIGHT (master scan)."
+            "Pair mode: SHIFT+click source window (head scan) then SHIFT+click target window (master scan)."
         )
 
-    def _left_click_step2(self, obj, event):
-        """Handle left clicks in Step 2 mode for picking fiducials and pairwise points on the head scan (left)."""
-        if not self.left_iren.GetShiftKey():
+    def _source_click_head_alignment(self, obj, event):
+        """Handle left clicks in head alignment step mode for picking fiducials and pairwise points on the head scan (source window)."""
+        if not self.iren_source.GetShiftKey():
             obj.OnLeftButtonDown()
             return
 
         ps = self.picking_state or {}
 
         # ---------- Fiducials ----------
-        if ps.get("mode") == "fiducials":
-            x, y = self.left_iren.GetEventPosition()
+        if ps.get("mode") == "head_alignment_fiducials":
+            x, y = self.iren_source.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            pick_success = picker.Pick(x, y, 0, self.ren_left)
+            pick_success = picker.Pick(x, y, 0, self.ren_source)
 
             if not pick_success:
-                self._update_info("No pick on left (fiducial).")
+                self._update_info("No pick on source window (fiducial).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -626,9 +619,9 @@ class OPMCoregGUI(QWidget):
 
             actor = sphere_actor(pos, color=FIDUCIAL_COLORS[next_lbl], radius=3.5)
 
-            self.ren_left.AddActor(actor)
+            self.ren_source.AddActor(actor)
             self.head_fiducial_actors[next_lbl] = actor
-            self.vtk_left.GetRenderWindow().Render()
+            self.vtk_source.GetRenderWindow().Render()
 
             self._update_info(f"Set fiducial {next_lbl} at {np.round(pos, 2)}")
 
@@ -636,24 +629,24 @@ class OPMCoregGUI(QWidget):
             return
 
         # ---------- Pair picking ----------
-        elif ps.get("mode") == "pairs" and ps.get("await") == "left":
-            x, y = self.left_iren.GetEventPosition()
+        elif ps.get("mode") == "head_alignment_pairs" and ps.get("await") == "source":
+            x, y = self.iren_source.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            pick_success = picker.Pick(x, y, 0, self.ren_left)
+            pick_success = picker.Pick(x, y, 0, self.ren_source)
 
             if not pick_success:
-                self._update_info("No pick on left (pair).")
+                self._update_info("No pick on source window (pair).")
                 obj.OnLeftButtonDown()
                 return
 
             pos = np.array(picker.GetPickPosition(), dtype=float)
 
-            ps["left_pt"] = pos
-            ps["await"] = "right"
+            ps["source_pt"] = pos
+            ps["await"] = "target"
             self.picking_state = ps
 
             self._update_info(
-                "Picked left pair point; now pick matching point on RIGHT."
+                "Picked source window pair point; now pick matching point on target window."
             )
 
             obj.OnLeftButtonDown()
@@ -661,173 +654,173 @@ class OPMCoregGUI(QWidget):
 
         obj.OnLeftButtonDown()
 
-    def _right_click_step2(self, obj, event):
-        """Handle left clicks in Step 2 mode for picking pairwise points on the master scan (right) that correspond to previously picked points on the head scan (left)."""
-        if not self.right_iren.GetShiftKey():
+    def _target_click_head_alignment(self, obj, event):
+        """Handle left clicks in head alignment step mode for picking pairwise points on the master scan (target window) that correspond to previously picked points on the head scan (source window)."""
+        if not self.iren_target.GetShiftKey():
             obj.OnLeftButtonDown()
             return
 
         ps = self.picking_state or {}
 
-        if ps.get("mode") == "pairs" and ps.get("await") == "right":
-            x, y = self.right_iren.GetEventPosition()
+        if ps.get("mode") == "head_alignment_pairs" and ps.get("await") == "target":
+            x, y = self.iren_target.GetEventPosition()
             picker = vtk.vtkPropPicker()
-            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            pick_success = picker.Pick(x, y, 0, self.ren_target)
 
             if not pick_success:
-                self._update_info("No pick on right (pair).")
+                self._update_info("No pick on target window (pair).")
                 obj.OnLeftButtonDown()
                 return
 
-            pos_scan = np.array(picker.GetPickPosition(), dtype=float)
-            pos_left = ps.get("left_pt")
+            pos_target = np.array(picker.GetPickPosition(), dtype=float)
+            pos_source = ps.get("source_pt")
 
-            if pos_left is None:
-                self._update_info("No left point stored.")
+            if pos_source is None:
+                self._update_info("No source window point stored.")
                 obj.OnLeftButtonDown()
                 return
 
-            idx = len(self.step2_pairs_head)
+            idx = len(self.head_alignment_points_from_source)
             selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
-            self.step2_pairs_head.append(pos_left)
-            self.step2_pairs_scan.append(pos_scan)
+            self.head_alignment_points_from_source.append(pos_source)
+            self.head_alignment_points_from_target.append(pos_target)
 
-            a_l = sphere_actor(pos_left, color=selected_color, radius=3.0)
-            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
+            a_l = sphere_actor(pos_source, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_target, color=selected_color, radius=3.0)
 
-            self.ren_left.AddActor(a_l)
-            self.ren_right.AddActor(a_r)
+            self.ren_source.AddActor(a_l)
+            self.ren_target.AddActor(a_r)
 
-            self.step2_pair_actors_left.append(a_l)
-            self.step2_pair_actors_right.append(a_r)
+            self.head_alignment_pair_actors_source.append(a_l)
+            self.head_alignment_pair_actors_target.append(a_r)
 
-            self.vtk_left.GetRenderWindow().Render()
-            self.vtk_right.GetRenderWindow().Render()
+            self.vtk_source.GetRenderWindow().Render()
+            self.vtk_target.GetRenderWindow().Render()
 
-            self.picking_state = {"mode": "pairs", "await": "left"}
+            self.picking_state = {"mode": "head_alignment_pairs", "await": "source"}
 
-            self._update_info(f"Added Step2 pair #{idx + 1}.")
+            self._update_info(f"Added head alignment pair #{idx + 1}.")
 
             obj.OnLeftButtonDown()
             return
 
         obj.OnLeftButtonDown()
 
-    def undo_last_pair_step2(self):
-        """Undo the last picked pairwise point between the head scan and master scan in Step 2, removing the markers from both renderers and updating state."""
-        if not self.step2_pairs_head:
-            self._update_info("No Step2 pairs to undo.")
+    def undo_last_pair_for_head_alignment(self):
+        """Undo the last picked pairwise point between the head scan and master scan in head alignment step, removing the markers from both renderers and updating state."""
+        if not self.head_alignment_points_from_source:
+            self._update_info("No head alignment pairs to undo.")
             return
-        self.step2_pairs_head.pop()
-        self.step2_pairs_scan.pop()
-        if self.step2_pair_actors_left:
-            actor = self.step2_pair_actors_left.pop()
-            self.ren_left.RemoveActor(actor)
-        if self.step2_pair_actors_right:
-            actor = self.step2_pair_actors_right.pop()
-            self.ren_right.RemoveActor(actor)
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
+        self.head_alignment_points_from_source.pop()
+        self.head_alignment_points_from_target.pop()
+        if self.head_alignment_pair_actors_source:
+            actor = self.head_alignment_pair_actors_source.pop()
+            self.ren_source.RemoveActor(actor)
+        if self.head_alignment_pair_actors_target:
+            actor = self.head_alignment_pair_actors_target.pop()
+            self.ren_target.RemoveActor(actor)
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
         self._update_info(
-            f"Undid last Step2 pair. {len(self.step2_pairs_head)} remain."
+            f"Undid last head alignment pair. {len(self.head_alignment_points_from_source)} remain."
         )
 
-    def _clear_step2_pair_markers(self):
-        """Remove all pairwise point markers from both renderers in Step 2."""
-        for actor in self.step2_pair_actors_left:
+    def _clear_head_alignment_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in head alignment step."""
+        for actor in self.head_alignment_pair_actors_source:
             try:
-                self.ren_left.RemoveActor(actor)
+                self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
-        for actor in self.step2_pair_actors_right:
+        for actor in self.head_alignment_pair_actors_target:
             try:
-                self.ren_right.RemoveActor(actor)
+                self.ren_target.RemoveActor(actor)
             except Exception:
                 pass
-        self.step2_pair_actors_left = []
-        self.step2_pair_actors_right = []
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
+        self.head_alignment_pair_actors_source = []
+        self.head_alignment_pair_actors_target = []
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
 
-    def restart_step2(self):
-        """Reset all Step 2 related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
+    def restart_head_alignment(self):
+        """Reset all Head Alignment related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
         # remove transformed actor and pair markers
         try:
             if (
                 hasattr(self, "head_actor_transformed")
                 and self.head_actor_transformed is not None
             ):
-                self.ren_right.RemoveActor(self.head_actor_transformed)
+                self.ren_target.RemoveActor(self.head_actor_transformed)
         except Exception:
             pass
-        # remove right fiducials
+        # remove target window fiducials
         try:
-            if hasattr(self, "head_fiducial_actors_right"):
-                for actor in self.head_fiducial_actors_right.values():
+            if hasattr(self, "head_fiducial_actors_target_window"):
+                for actor in self.head_fiducial_actors_target_window.values():
                     try:
-                        self.ren_right.RemoveActor(actor)
+                        self.ren_target.RemoveActor(actor)
                     except Exception:
                         pass
-                self.head_fiducial_actors_right = {}
+                self.head_fiducial_actors_target_window = {}
         except Exception:
             pass
-        # remove left fiducials
+        # remove source window fiducials
         for actor in self.head_fiducial_actors.values():
             try:
-                self.ren_left.RemoveActor(actor)
+                self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
         self.head_fiducials = {}
         self.head_fiducial_actors = {}
-        self._clear_step2_pair_markers()
-        self.step2_pairs_head = []
-        self.step2_pairs_scan = []
+        self._clear_head_alignment_pair_markers()
+        self.head_alignment_points_from_source = []
+        self.head_alignment_points_from_target = []
         self.T_head_to_scan = None
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info("Restarted Step2 (fiducials & pairs cleared).")
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
+        self._update_info("Restarted Head Alignment (fiducials & pairs cleared).")
 
     # -------------------------------------------------------------------
-    # ------------------ STEP 3 (Sensors & STL -> scan) -----------------
+    # ------------------ sensor alignment step (Sensors & STL -> scan) -----------------
     # -------------------------------------------------------------------
-    def _populate_step3_controls(self):
-        """Set up the controls for Step 3: helmet STL and sensor positions to master scan registration using pairwise points."""
+    def _populate_sensors_alignment_step_controls(self):
+        """Set up the controls for sensor alignment step: helmet STL and sensor positions to master scan registration using pairwise points."""
         self._clear_step_controls()
         
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load helmet STL (LEFT)",
+                "label": "Load helmet STL (source window)",
                 "callback": lambda: load_helmet_cad(self)
             },
             {
-                "label": "Load sensor locations CSV (plot LEFT)",
+                "label": "Load sensor locations CSV (plot on source window)",
                 "callback": lambda: load_sensor_csv(self)
             },
             {
-                "label": "Load helmet landmarks CSV (plot LEFT) (Optional)",
+                "label": "Load helmet landmarks CSV (plot on source window) (Optional)",
                 "callback": lambda: load_helmet_landmark_csv(self)
             },
             {
-                "label": "Load master scan (RIGHT)",
+                "label": "Load master scan (target window)",
                 "callback": lambda: load_master_scan(self)
             },
             {
                 "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
-                "callback": self.start_pairs_step3
+                "callback": self.start_pairs_for_sensor_alignment
             },
             {
-                "label": "Undo last pair (Step3)",
-                "callback": self.undo_last_pair_step3
+                "label": "Undo last pair",
+                "callback": self.undo_last_pair_from_sensor_alignment_step
             },
             {
                 "label": "Compute transform & save sensors",
                 "callback": lambda: compute_sensors_transform(self)
             },
             {
-                "label": "Restart Step3",
-                "callback": self.restart_step3
+                "label": "Restart Sensor Alignment",
+                "callback": self.restart_sensors_alignment
             },
         ]
 
@@ -837,98 +830,98 @@ class OPMCoregGUI(QWidget):
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
 
-    def restart_step3(self):
-        """Reset all Step 3 related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
-        # remove actors (left/right)
+    def restart_sensors_alignment(self):
+        """Reset all Sensor Alignment related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
+        # remove actors (source window/target window)
         try:
-            if self.helmet_stl_actor_left is not None:
-                self.ren_left.RemoveActor(self.helmet_stl_actor_left)
+            if self.helmet_stl_actor_source is not None:
+                self.ren_source.RemoveActor(self.helmet_stl_actor_source)
         except Exception:
             pass
         try:
-            if self.helmet_stl_actor_overlay is not None:
-                self.ren_right.RemoveActor(self.helmet_stl_actor_overlay)
+            if self.helmet_stl_actor_target is not None:
+                self.ren_target.RemoveActor(self.helmet_stl_actor_target)
         except Exception:
             pass
         self.helmet_stl_raw = None
-        self.helmet_stl_actor_left = None
-        self.helmet_stl_actor_overlay = None
+        self.helmet_stl_actor_source = None
+        self.helmet_stl_actor_target = None
         # sensors
         for actor in (
-            self.sensor_actors_left
+            self.sensor_actors_source_window
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
-            + self.helmet_landmark_actors_left
-            + self.helmet_landmark_text_actors_left
+            + self.helmet_landmark_actors_source_window
+            + self.helmet_landmark_text_actors_source_window
         ):
             try:
-                self.ren_left.RemoveActor(actor)
-                self.ren_right.RemoveActor(actor)
+                self.ren_source.RemoveActor(actor)
+                self.ren_target.RemoveActor(actor)
             except Exception:
                 pass
         self.sensor_positions = None
         self.sensor_axes = None
         self.sensor_df = None
         self.sensor_csv_path = None
-        self.sensor_actors_left = []
+        self.sensor_actors_source_window = []
         self.helmet_landmark_positions = None
-        self.helmet_landmark_actors_left = []
-        self.helmet_landmark_text_actors_left = []
+        self.helmet_landmark_actors_source_window = []
+        self.helmet_landmark_text_actors_source_window = []
         self.helmet_landmark_csv_path = None
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         # pairs
         self.ref_point_pairs_helmet_stl = []
         self.ref_point_pairs_scan = []
-        self.pair_actors_left = []
-        self.pair_actors_right = []
+        self.pair_actors_source = []
+        self.pair_actors_target = []
         self.T_dev_to_scan = None
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
-        self._update_info("Restarted Step3.")
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
+        self._update_info("Restarted Sensor Alignment.")
 
-    def start_pairs_step3(self):
-        """Enable picking pairwise points between the helmet STL/helmet landmark list (left) and master scan (right) for Step 3 registration of the device.
+    def start_pairs_for_sensor_alignment(self):
+        """Enable picking pairwise points between the helmet STL/helmet landmark list (source window) and master scan (target window) for sensor alignment.
 
         Requires that both the helmet STL (or helmet landmark CSV) and master scan are loaded first."""
         if self.helmet_polydata is None or (self.helmet_stl_raw is None and self.helmet_landmark_positions is None):
             self._update_info(
-                "Need helmet STL/helmet ladmark list (left) and participant in the helmet scan (right) loaded."
+                "Need helmet STL/helmet ladmark list (source window) and participant in the helmet scan (target window) loaded."
             )
             return
         self.ref_point_pairs_helmet_stl = []
         self.ref_point_pairs_scan = []
-        self._clear_step3_pair_markers()
-        self.picking_state = {"mode": "step3_pairs", "await": "left"}
+        self._clear_sensor_alignment_pair_markers()
+        self.picking_state = {"mode": "sensor_alignment_pairs", "await": "source"}
         self._update_info(
-            "Step3: SHIFT+click helmet STL on LEFT then matching point on RIGHT (scan)."
+            "sensor alignment step: SHIFT+click helmet STL on source window then matching point on target window (scan)."
         )
 
-    def _left_click_step3(self, obj, event):
-        """Handle left clicks in Step 3 mode for picking points on the helmet STL (left) that correspond to points on the master scan (right) for device registration."""
-        if not self.left_iren.GetShiftKey():
+    def _source_click_sensors_alignment(self, obj, event):
+        """Handle left clicks in sensor alignment step mode for picking points on the helmet STL (source window) that correspond to points on the master scan (target window) for device registration."""
+        if not self.iren_source.GetShiftKey():
             obj.OnLeftButtonDown()
             return
 
         ps = self.picking_state or {}
 
-        if ps.get("mode") == "step3_pairs" and ps.get("await") == "left":
-            x, y = self.left_iren.GetEventPosition()
+        if ps.get("mode") == "sensor_alignment_pairs" and ps.get("await") == "source":
+            x, y = self.iren_source.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            pick_success = picker.Pick(x, y, 0, self.ren_left)
+            pick_success = picker.Pick(x, y, 0, self.ren_source)
             if not pick_success:
-                self._update_info("No pick on left (STL).")
+                self._update_info("No pick on source window (STL).")
                 obj.OnLeftButtonDown()
                 return
 
             pos = np.array(picker.GetPickPosition(), dtype=float)
 
-            self.picking_state["left_pt"] = pos
-            self.picking_state["await"] = "right"
+            self.picking_state["source_pt"] = pos
+            self.picking_state["await"] = "target"
 
             self._update_info(
-                "Selected point on the helmet; now SHIFT+click matching point on RIGHT."
+                "Selected point on the helmet; now SHIFT+click matching point on target window."
             )
 
             obj.OnLeftButtonDown()
@@ -936,112 +929,112 @@ class OPMCoregGUI(QWidget):
 
         obj.OnLeftButtonDown()
 
-    def _right_click_step3(self, obj, event):
-        """Handle left clicks in Step 3 mode for picking points on the master scan (right) that correspond to previously picked points on the helmet STL (left) for device registration."""
-        if not self.right_iren.GetShiftKey():
+    def _target_click_sensors_alignment(self, obj, event):
+        """Handle left clicks in sensor alignment step mode for picking points on the master scan (target window) that correspond to previously picked points on the helmet STL (source window) for device registration."""
+        if not self.iren_target.GetShiftKey():
             obj.OnLeftButtonDown()
             return
 
         ps = self.picking_state or {}
 
-        if ps.get("mode") == "step3_pairs" and ps.get("await") == "right":
-            x, y = self.right_iren.GetEventPosition()
+        if ps.get("mode") == "sensor_alignment_pairs" and ps.get("await") == "target":
+            x, y = self.iren_target.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
-            pick_success = picker.Pick(x, y, 0, self.ren_right)
+            pick_success = picker.Pick(x, y, 0, self.ren_target)
             if not pick_success:
-                self._update_info("No pick on right (scan).")
+                self._update_info("No pick on target window (scan).")
                 obj.OnLeftButtonDown()
                 return
 
-            pos_scan = np.array(picker.GetPickPosition(), dtype=float)
-            pos_stl = ps.get("left_pt")
+            pos_target = np.array(picker.GetPickPosition(), dtype=float)
+            pos_source = ps.get("source_pt")
 
-            if pos_stl is None:
-                self._update_info("No left point stored.")
+            if pos_source is None:
+                self._update_info("No source window point stored.")
                 obj.OnLeftButtonDown()
                 return
 
-            self.ref_point_pairs_helmet_stl.append(pos_stl)
-            self.ref_point_pairs_scan.append(pos_scan)
+            self.ref_point_pairs_helmet_stl.append(pos_source)
+            self.ref_point_pairs_scan.append(pos_target)
 
             idx = len(self.ref_point_pairs_helmet_stl) - 1
             selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
-            a_l = sphere_actor(pos_stl, color=selected_color, radius=3.0)
-            a_r = sphere_actor(pos_scan, color=selected_color, radius=3.0)
+            a_l = sphere_actor(pos_source, color=selected_color, radius=3.0)
+            a_r = sphere_actor(pos_target, color=selected_color, radius=3.0)
 
-            self.ren_left.AddActor(a_l)
-            self.ren_right.AddActor(a_r)
+            self.ren_source.AddActor(a_l)
+            self.ren_target.AddActor(a_r)
 
-            self.pair_actors_left.append(a_l)
-            self.pair_actors_right.append(a_r)
+            self.pair_actors_source.append(a_l)
+            self.pair_actors_target.append(a_r)
 
-            self.vtk_left.GetRenderWindow().Render()
-            self.vtk_right.GetRenderWindow().Render()
+            self.vtk_source.GetRenderWindow().Render()
+            self.vtk_target.GetRenderWindow().Render()
 
-            self.picking_state = {"mode": "step3_pairs", "await": "left"}
+            self.picking_state = {"mode": "sensor_alignment_pairs", "await": "source"}
 
-            self._update_info(f"Added Step3 pair #{idx + 1}.")
+            self._update_info(f"Added sensor alignment pair #{idx + 1}.")
 
             obj.OnLeftButtonDown()
             return
 
         obj.OnLeftButtonDown()
 
-    def undo_last_pair_step3(self):
-        """Undo the last picked pairwise point between the helmet STL and master scan in Step 3, removing the markers from both renderers and updating state."""
+    def undo_last_pair_from_sensor_alignment_step(self):
+        """Undo the last picked pairwise point between the helmet STL and master scan in sensor alignment step, removing the markers from both renderers and updating state."""
         if not self.ref_point_pairs_helmet_stl:
-            self._update_info("No Step3 pairs to undo.")
+            self._update_info("No sensor alignment pairs to undo.")
             return
         self.ref_point_pairs_helmet_stl.pop()
         self.ref_point_pairs_scan.pop()
-        if self.pair_actors_left:
-            actor = self.pair_actors_left.pop()
-            self.ren_left.RemoveActor(actor)
-        if self.pair_actors_right:
-            actor = self.pair_actors_right.pop()
-            self.ren_right.RemoveActor(actor)
+        if self.pair_actors_source:
+            actor = self.pair_actors_source.pop()
+            self.ren_source.RemoveActor(actor)
+        if self.pair_actors_target:
+            actor = self.pair_actors_target.pop()
+            self.ren_target.RemoveActor(actor)
         # re-render and re-add transformed if present
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
         if self.T_dev_to_scan is not None:
-            overlay_step3_transformed(self, self.T_dev_to_scan)
-        self._update_info("Undid last Step3 pair.")
+            overlay_helmet_sensors_transformed(self, self.T_dev_to_scan)
+        self._update_info("Undid last sensor alignment pair.")
 
-    def _clear_step3_pair_markers(self):
-        """Remove all pairwise point markers from both renderers in Step 3."""
-        if hasattr(self, "pair_actors_left"):
-            for actor in self.pair_actors_left:
+    def _clear_sensor_alignment_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in sensor alignment step."""
+        if hasattr(self, "pair_actors_source"):
+            for actor in self.pair_actors_source:
                 try:
-                    self.ren_left.RemoveActor(actor)
+                    self.ren_source.RemoveActor(actor)
                 except Exception:
                     pass
 
-        if hasattr(self, "pair_actors_right"):
-            for actor in self.pair_actors_right:
+        if hasattr(self, "pair_actors_target"):
+            for actor in self.pair_actors_target:
                 try:
-                    self.ren_right.RemoveActor(actor)
+                    self.ren_target.RemoveActor(actor)
                 except Exception:
                     pass
 
-        self.pair_actors_left = []
-        self.pair_actors_right = []
+        self.pair_actors_source = []
+        self.pair_actors_target = []
 
-        self.vtk_left.GetRenderWindow().Render()
-        self.vtk_right.GetRenderWindow().Render()
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
 
     # ---------------------------------------------------------
-    # ----------------- STEP 4 (head -> MRI) -----------------
+    # ----------------- mri alignment step (head -> MRI) -----------------
     # ---------------------------------------------------------
-    def _populate_step4_controls(self):
-        """Set up the controls for Step 4: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
+    def _populate_mri_alignment_step_controls(self):
+        """Set up the controls for mri alignment step: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
         self._clear_step_controls()
 
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load MRI mesh (LEFT)",
+                "label": "Load MRI mesh (source window)",
                 "callback": lambda: load_mri_mesh(self)
             },
             {
@@ -1049,7 +1042,7 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: load_mri_fiducials(self)
             },
             {
-                "label": "Compute initial Head→MRI (base on step 2 fiducials)",
+                "label": "Compute initial Head→MRI (base on head alignment step fiducials)",
                 "callback": lambda: compute_head_to_mri_initial(self)
             },
             {
@@ -1057,7 +1050,7 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: run_icp_head_to_mri(self)
             },
             {
-                "label": "Preview MRI on master scan (RIGHT)",
+                "label": "Preview MRI on master scan (target window)",
                 "callback": lambda: preview_mri_on_scan(self)
             },
             {
@@ -1072,24 +1065,24 @@ class OPMCoregGUI(QWidget):
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
 
-    def _left_click_step4(self, obj, event):
-        """Handle left clicks in Step 4 mode for picking fiducials on the MRI mesh (left) that correspond to head scan fiducials."""
+    def _source_click_mri_alignment(self, obj, event):
+        """Handle left clicks in mri alignment step mode for picking fiducials on the MRI mesh (source window) that correspond to head scan fiducials."""
         # If not SHIFT → forward to Trackball (rotate)
-        if not self.left_iren.GetShiftKey():
+        if not self.iren_source.GetShiftKey():
             obj.OnLeftButtonDown()
             return
 
         # Safety: wrong mode → still forward
-        if self.mode != "step4":
+        if self.mode != "align_mri":
             obj.OnLeftButtonDown()
             return
 
-        x, y = self.left_iren.GetEventPosition()
+        x, y = self.iren_source.GetEventPosition()
         picker = vtk.vtkPropPicker()
 
-        pick_success = picker.Pick(x, y, 0, self.ren_left)
+        pick_success = picker.Pick(x, y, 0, self.ren_source)
         if not pick_success:
-            self._update_info("No pick on left (MRI).")
+            self._update_info("No pick on source window (MRI).")
             obj.OnLeftButtonDown()  # allow normal interaction
             return
 
@@ -1101,10 +1094,10 @@ class OPMCoregGUI(QWidget):
 
                 actor = sphere_actor(pos, color=FIDUCIAL_COLORS[lbl], radius=3.5)
 
-                self.ren_left.AddActor(actor)
+                self.ren_source.AddActor(actor)
                 self.mri_fiducial_actors[lbl] = actor
 
-                self.vtk_left.GetRenderWindow().Render()
+                self.vtk_source.GetRenderWindow().Render()
 
                 self._update_info(f"Picked MRI fiducial {lbl} at {np.round(pos, 2)}")
 

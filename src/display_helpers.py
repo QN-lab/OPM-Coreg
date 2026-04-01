@@ -13,32 +13,32 @@ from src.utils import (
 
 
 def merge_aux_dev_into_helmet(gui):
-    """Merge the auxiliary device STL (e.g. coil) into the helmet STL on the RIGHT view using the aux_dev_to_scan transform."""
-    if gui.coil_polydata is None or gui.aux_dev_to_scan is None:
-        gui._update_info("Need coil STL and T_aux_dev_to_scan first.")
+    """Merge the auxiliary device STL into the helmet STL on the target window using the aux_dev_to_scan transform."""
+    if gui.aux_dev_polydata is None or gui.aux_dev_to_scan is None:
+        gui._update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
         return
     tf = vtk.vtkTransform()
     tf.SetMatrix(vtk_matrix_from_numpy(gui.aux_dev_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
-    tfilter.SetInputData(gui.coil_polydata)
+    tfilter.SetInputData(gui.aux_dev_polydata)
     tfilter.Update()
-    if gui.coil_actor_transformed is not None:
+    if gui.aux_dev_actor_transformed is not None:
         try:
-            gui.ren_right.RemoveActor(gui.coil_actor_transformed)
+            gui.ren_target.RemoveActor(gui.aux_dev_actor_transformed)
         except Exception:
             pass
-    gui.coil_actor_transformed = actor_from_polydata(
+    gui.aux_dev_actor_transformed = actor_from_polydata(
         tfilter.GetOutput(), color=(0.7, 1.0, 0.2), opacity=0.45
     )
-    gui.ren_right.AddActor(gui.coil_actor_transformed)
-    gui.ren_right.ResetCameraClippingRange()
-    gui.vtk_right.GetRenderWindow().Render()
-    gui._update_info("Previewed coil on helmet.")
+    gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
+    gui.ren_target.ResetCameraClippingRange()
+    gui.vtk_target.GetRenderWindow().Render()
+    gui._update_info("Previewed auxiliary device on helmet.")
 
 
 def overlay_head_transformed(gui, T):
-    """Overlay the head scan transformed by T onto the RIGHT view, along with transformed fiducials.
+    """Overlay the head scan transformed by T onto the target window, along with transformed fiducials.
 
     Args:
         gui: The main GUI object containing the VTK renderers and data.
@@ -50,7 +50,7 @@ def overlay_head_transformed(gui, T):
             hasattr(gui, "head_actor_transformed")
             and gui.head_actor_transformed is not None
         ):
-            gui.ren_right.RemoveActor(gui.head_actor_transformed)
+            gui.ren_target.RemoveActor(gui.head_actor_transformed)
     except Exception:
         pass
     if gui.head_polydata is None:
@@ -68,43 +68,43 @@ def overlay_head_transformed(gui, T):
     actor.GetProperty().SetColor(1.0, 0.6, 0.3)
     actor.GetProperty().SetOpacity(0.45)
     gui.head_actor_transformed = actor
-    gui.ren_right.AddActor(actor)
-    # transform fiducials too and plot on right
+    gui.ren_target.AddActor(actor)
+    # transform fiducials too and plot on target window
     rotation = T[:3, :3]
     translation = T[:3, 3]
     for lbl, p in gui.head_fiducials.items():
         p_hel = rotation @ p + translation
         try:
-            # if existing fid actor on right, remove it first
+            # if existing fid actor on target window, remove it first
             if (
-                hasattr(gui, "head_fiducial_actors_right")
-                and lbl in gui.head_fiducial_actors_right
+                hasattr(gui, "head_fiducial_actors_target_window")
+                and lbl in gui.head_fiducial_actors_target_window
             ):
-                gui.ren_right.RemoveActor(gui.head_fiducial_actors_right[lbl])
+                gui.ren_target.RemoveActor(gui.head_fiducial_actors_target_window[lbl])
         except Exception:
             pass
         actor = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
-        if not hasattr(gui, "head_fiducial_actors_right"):
-            gui.head_fiducial_actors_right = {}
-        gui.ren_right.AddActor(actor)
-        gui.head_fiducial_actors_right[lbl] = actor
-    gui.ren_right.ResetCameraClippingRange()
-    gui.vtk_right.GetRenderWindow().Render()
+        if not hasattr(gui, "head_fiducial_actors_target_window"):
+            gui.head_fiducial_actors_target_window = {}
+        gui.ren_target.AddActor(actor)
+        gui.head_fiducial_actors_target_window[lbl] = actor
+    gui.ren_target.ResetCameraClippingRange()
+    gui.vtk_target.GetRenderWindow().Render()
 
 
-def overlay_step3_transformed(gui, T):
-    """Overlay the helmet STL and sensors transformed by T onto the RIGHT view.
+def overlay_helmet_sensors_transformed(gui, T):
+    """Overlay the helmet STL and sensors transformed by T onto the target window view.
 
     Args:
         gui: The main GUI object containing the VTK renderers and data.
         T: A 4x4 numpy array representing the rigid transform to apply to the helmet STL and sensor positions.
     """
-    # transformed STL preview on RIGHT
+    # transformed STL preview on target window
     rotation = T[:3, :3]
     translation = T[:3, 3]
     try:
-        if gui.helmet_stl_actor_overlay is not None:
-            gui.ren_right.RemoveActor(gui.helmet_stl_actor_overlay)
+        if gui.helmet_stl_actor_target is not None:
+            gui.ren_target.RemoveActor(gui.helmet_stl_actor_target)
     except Exception:
         pass
     if gui.helmet_stl_raw is not None:
@@ -114,20 +114,20 @@ def overlay_step3_transformed(gui, T):
         tfilter.SetTransform(tf)
         tfilter.SetInputData(gui.helmet_stl_raw)
         tfilter.Update()
-        gui.helmet_stl_actor_overlay = actor_from_polydata(
+        gui.helmet_stl_actor_target = actor_from_polydata(
             tfilter.GetOutput(), color=(0.3, 0.8, 1.0), opacity=0.4
         )
         if gui.cb_stl.isChecked():
-            gui.ren_right.AddActor(gui.helmet_stl_actor_overlay)
-    # transformed sensors on right
+            gui.ren_target.AddActor(gui.helmet_stl_actor_target)
+    # transformed sensors on target window
     for actor in gui.transformed_sensor_actors:
         try:
-            gui.ren_right.RemoveActor(actor)
+            gui.ren_target.RemoveActor(actor)
         except Exception:
             pass
     for actor in gui.transformed_vector_actors:
         try:
-            gui.ren_right.RemoveActor(actor)
+            gui.ren_target.RemoveActor(actor)
         except Exception:
             pass
     gui.transformed_sensor_actors = []
@@ -136,7 +136,7 @@ def overlay_step3_transformed(gui, T):
         pts_t = (rotation @ gui.sensor_positions.T).T + translation
         for p in pts_t:
             actor = sphere_actor(p, color=(0.6, 0.0, 0.6), radius=3.2)
-            gui.ren_right.AddActor(actor)
+            gui.ren_target.AddActor(actor)
             gui.transformed_sensor_actors.append(actor)
         if gui.cb_vec.isChecked() and (gui.sensor_axes is not None):
             axes_t = np.empty_like(gui.sensor_axes)
@@ -150,24 +150,24 @@ def overlay_step3_transformed(gui, T):
                 ]:
                     ar = arrow_actor(p, vec, scale=10.0, color=color)
                     if ar is not None:
-                        gui.ren_right.AddActor(ar)
+                        gui.ren_target.AddActor(ar)
                         gui.transformed_vector_actors.append(ar)
-    gui.ren_right.ResetCameraClippingRange()
-    gui.vtk_right.GetRenderWindow().Render()
+    gui.ren_target.ResetCameraClippingRange()
+    gui.vtk_target.GetRenderWindow().Render()
 
 
-def draw_sensor_vectors_left(gui):
-    """Draw unit vectors for each sensor on the LEFT view, if toggled on and if sensor axes are available."""
-    # rebuild left view: helmet_stl + sensor spheres + optional vectors
-    gui.ren_left.RemoveAllViewProps()
-    if gui.helmet_stl_actor_left is not None:
-        gui.ren_left.AddActor(gui.helmet_stl_actor_left)
-    gui.sensor_actors_left = []
+def draw_sensor_vectors_source_window(gui):
+    """Draw unit vectors for each sensor on the source window, if toggled on and if sensor axes are available."""
+    # rebuild source window: helmet_stl + sensor spheres + optional vectors
+    gui.ren_source.RemoveAllViewProps()
+    if gui.helmet_stl_actor_source is not None:
+        gui.ren_source.AddActor(gui.helmet_stl_actor_source)
+    gui.sensor_actors_source_window = []
     if gui.sensor_positions is not None:
         for pnt in gui.sensor_positions:
             actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-            gui.ren_left.AddActor(actor)
-            gui.sensor_actors_left.append(actor)
+            gui.ren_source.AddActor(actor)
+            gui.sensor_actors_source_window.append(actor)
     if gui.cb_vec.isChecked() and (gui.sensor_axes is not None):
         for p, vecs in zip(gui.sensor_positions, gui.sensor_axes):
             for vec, color in [
@@ -177,20 +177,20 @@ def draw_sensor_vectors_left(gui):
             ]:
                 ar = arrow_actor(p, vec, scale=6.0, color=color)
                 if ar is not None:
-                    gui.ren_left.AddActor(ar)
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+                    gui.ren_source.AddActor(ar)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
 
 
 def draw_mri_fiducials(gui):
-    """Draw fiducials on the LEFT view in MRI frame.
+    """Draw fiducials on the source window in MRI frame.
 
     This is called after loading MRI fiducials, and also after computing head→MRI transform to update the transformed head fiducials."""
     # Remove old actors
     if hasattr(gui, "mri_fiducial_actors"):
         for actor in gui.mri_fiducial_actors.values():
             try:
-                gui.ren_left.RemoveActor(actor)
+                gui.ren_source.RemoveActor(actor)
             except Exception:
                 pass
 
@@ -199,14 +199,14 @@ def draw_mri_fiducials(gui):
     for lbl, pos in gui.mri_fiducials.items():
         actor = sphere_actor(pos, color=FIDUCIAL_COLORS.get(lbl, (1, 1, 0)), radius=3.5)
 
-        gui.ren_left.AddActor(actor)
+        gui.ren_source.AddActor(actor)
         gui.mri_fiducial_actors[lbl] = actor
 
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.vtk_source.GetRenderWindow().Render()
 
 
 def preview_head_on_mri(gui, T):
-    """Preview the head scan transformed by T overlaid on the MRI in the LEFT view.
+    """Preview the head scan transformed by T overlaid on the MRI in the source window.
 
     Args:
         gui: The main GUI object containing the VTK renderers and data.
@@ -225,18 +225,18 @@ def preview_head_on_mri(gui, T):
 
     actor = actor_from_polydata(filt.GetOutput(), color=(0.3, 0.6, 1.0), opacity=0.5)
 
-    gui.ren_left.AddActor(actor)
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.AddActor(actor)
+    gui.vtk_source.GetRenderWindow().Render()
 
 
 def preview_mri_on_scan(gui):
-    """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the RIGHT view."""
+    """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the target window view."""
     if gui.T_head_to_mri is None:
-        gui._update_info("Compute Head→MRI first.")
+        gui._update_info("Compute Head→MRI (MRI ALignment step) first.")
         return
 
     if gui.T_head_to_scan is None:
-        gui._update_info("Need Head→Scan (Step2) first.")
+        gui._update_info("Need Head→Scan (Head Alignment step) first.")
         return
 
     if gui.mri_polydata is None:
@@ -244,7 +244,7 @@ def preview_mri_on_scan(gui):
         return
 
     # MRI is in MRI frame
-    # We want MRI in SCAN frame (RIGHT window)
+    # We want MRI in SCAN frame (target window)
 
     # head -> mri  = T_head_to_mri
     # head -> scan = T_head_to_scan
@@ -268,16 +268,16 @@ def preview_mri_on_scan(gui):
     filt.Update()
 
     # remove old if exists
-    if gui.mri_actor_right is not None:
-        gui.ren_right.RemoveActor(gui.mri_actor_right)
+    if gui.mri_actor_target_window is not None:
+        gui.ren_target.RemoveActor(gui.mri_actor_target_window)
 
-    gui.mri_actor_right = actor_from_polydata(
+    gui.mri_actor_target_window = actor_from_polydata(
         filt.GetOutput(),
         color=(1.0, 0.6, 0.8),  # pink
         opacity=0.4,
     )
 
-    gui.ren_right.AddActor(gui.mri_actor_right)
-    gui.vtk_right.GetRenderWindow().Render()
+    gui.ren_target.AddActor(gui.mri_actor_target_window)
+    gui.vtk_target.GetRenderWindow().Render()
 
-    gui._update_info("Previewed MRI on master scan (RIGHT).")
+    gui._update_info("Previewed MRI on master scan (target window).")

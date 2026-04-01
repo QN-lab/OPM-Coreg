@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QFileDialog
 from src.const import PAIR_COLORS
 from src.display_helpers import (
     draw_mri_fiducials,
-    draw_sensor_vectors_left,
+    draw_sensor_vectors_source_window,
 )
 from src.utils import (
     actor_from_polydata,
@@ -27,7 +27,7 @@ from mne.io.constants import FIFF
 
 
 def load_master_scan(gui):
-    """Load master scan (with participant in the helmet) on the RIGHT."""
+    """Load master scan (with participant in the helmet) on the target window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui,
         "Select master scan (with participant in the helmet)",
@@ -40,44 +40,44 @@ def load_master_scan(gui):
     gui.helmet_filename = os.path.basename(filepath)
     if gui.helmet_actor is not None:
         try:
-            gui.ren_right.RemoveActor(gui.helmet_actor)
+            gui.ren_target.RemoveActor(gui.helmet_actor)
         except Exception:
             pass
     gui.helmet_actor = actor_from_polydata(
         gui.helmet_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
     )
-    gui.ren_right.AddActor(gui.helmet_actor)
-    gui.ren_right.ResetCamera()
-    gui.vtk_right.GetRenderWindow().Render()
+    gui.ren_target.AddActor(gui.helmet_actor)
+    gui.ren_target.ResetCamera()
+    gui.vtk_target.GetRenderWindow().Render()
     gui._update_info(f"Loaded master scan: {gui.helmet_filename}")
 
 
 def load_aux_dev_stl(gui):
-    """Load auxiliary device STL (e.g. coil) on the LEFT."""
+    """Load auxiliary device STL on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select coil STL", "", "STL Files (*.stl)"
+        gui, "Select auxiliary device STL", "", "STL Files (*.stl)"
     )
     if not filepath:
         return
-    gui.coil_polydata = load_mesh_to_polydata(filepath)
-    if gui.coil_actor_left is not None:
+    gui.aux_dev_polydata = load_mesh_to_polydata(filepath)
+    if gui.aux_dev_actor_source_window is not None:
         try:
-            gui.ren_left.RemoveActor(gui.coil_actor_left)
+            gui.ren_source.RemoveActor(gui.aux_dev_actor_source_window)
         except Exception:
             pass
-    gui.coil_actor_left = actor_from_polydata(
-        gui.coil_polydata, color=(0.7, 1, 0.2), opacity=1.0
+    gui.aux_dev_actor_source_window = actor_from_polydata(
+        gui.aux_dev_polydata, color=(0.7, 1, 0.2), opacity=1.0
     )
-    gui.ren_left.AddActor(gui.coil_actor_left)
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
-    gui._update_info("Loaded coil STL (left).")
+    gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+    gui._update_info("Loaded auxiliary device STL (source window).")
 
 
 def load_aux_dev_landmarks(gui):
-    """Load auxiliary device (coil) landmarks CSV on the LEFT."""
+    """Load auxiliary device landmarks CSV on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select coil landmarks CSV", "", "CSV Files (*.csv)"
+        gui, "Select auxiliary device landmarks CSV", "", "CSV Files (*.csv)"
     )
     if not filepath:
         return
@@ -94,69 +94,69 @@ def load_aux_dev_landmarks(gui):
             except Exception:
                 continue
             lm[lab] = np.array([x, y, z], float)
-    gui.coil_landmarks = lm
-    # draw landmarks on left
-    for actor in getattr(gui, "coil_landmark_actors_left", []):
+    gui.aux_dev_landmarks = lm
+    # draw landmarks on source window
+    for actor in getattr(gui, "aux_dev_landmark_actors_source_window", []):
         try:
-            gui.ren_left.RemoveActor(actor)
+            gui.ren_source.RemoveActor(actor)
         except Exception:
             pass
-    gui.coil_landmark_actors_left = []
-    for i, (lab, point_coords) in enumerate(gui.coil_landmarks.items()):
+    gui.aux_dev_landmark_actors_source_window = []
+    for i, (lab, point_coords) in enumerate(gui.aux_dev_landmarks.items()):
         selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
         actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
-        gui.ren_left.AddActor(actor)
-        gui.coil_landmark_actors_left.append(actor)
-    gui.vtk_left.GetRenderWindow().Render()
-    gui._update_info(f"Loaded {len(gui.coil_landmarks)} coil landmarks.")
+        gui.ren_source.AddActor(actor)
+        gui.aux_dev_landmark_actors_source_window.append(actor)
+    gui.vtk_source.GetRenderWindow().Render()
+    gui._update_info(f"Loaded {len(gui.aux_dev_landmarks)} auxiliary device landmarks.")
 
 
 def load_head_scan(gui):
-    """Load head scan (without helmet) on the LEFT."""
+    """Load head scan (without helmet) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select OUTSIDE head scan (LEFT)", "", "PLY/STL Files (*.ply *.stl)"
+        gui, "Select OUTSIDE head scan (source window)", "", "PLY/STL Files (*.ply *.stl)"
     )
     if not filepath:
         return
     gui.head_polydata = load_mesh_to_polydata(filepath)
     if gui.head_actor is not None:
         try:
-            gui.ren_left.RemoveActor(gui.head_actor)
+            gui.ren_source.RemoveActor(gui.head_actor)
         except Exception:
             pass
     gui.head_actor = actor_from_polydata(
         gui.head_polydata, color=(0.8, 0.8, 0.95), opacity=1.0
     )
-    gui.ren_left.AddActor(gui.head_actor)
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.AddActor(gui.head_actor)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
     gui._update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
 
 
 def load_helmet_cad(gui):
-    """Load helmet CAD (STL) on the LEFT."""
+    """Load helmet CAD (STL) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Load helmet STL", "", "STL/PLY Files (*.stl *.ply)"
     )
     if not filepath:
         return
     gui.helmet_stl_raw = load_mesh_to_polydata(filepath)
-    if gui.helmet_stl_actor_left is not None:
+    if gui.helmet_stl_actor_source is not None:
         try:
-            gui.ren_left.RemoveActor(gui.helmet_stl_actor_left)
+            gui.ren_source.RemoveActor(gui.helmet_stl_actor_source)
         except Exception:
             pass
-    gui.helmet_stl_actor_left = actor_from_polydata(
+    gui.helmet_stl_actor_source = actor_from_polydata(
         gui.helmet_stl_raw, color=(0.7, 0.9, 1.0), opacity=0.8
     )
-    gui.ren_left.AddActor(gui.helmet_stl_actor_left)
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.AddActor(gui.helmet_stl_actor_source)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
     gui._update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
 
 
 def load_sensor_csv(gui):
-    """Load sensor positions + axes from CSV, display on LEFT."""
+    """Load sensor positions + axes from CSV, display on source window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Load sensor CSV", "", "CSV Files (*.csv)"
     )
@@ -188,28 +188,28 @@ def load_sensor_csv(gui):
     y = df[["y_i", "y_j", "y_k"]].to_numpy(dtype=float)
     z = df[["z_i", "z_j", "z_k"]].to_numpy(dtype=float)
     gui.sensor_axes = np.stack([x, y, z], axis=1)
-    # display original sensors on LEFT (on top of STL)
-    for actor in gui.sensor_actors_left:
+    # display original sensors on source window (on top of STL)
+    for actor in gui.sensor_actors_source_window:
         try:
-            gui.ren_left.RemoveActor(actor)
+            gui.ren_source.RemoveActor(actor)
         except Exception:
             pass
-    gui.sensor_actors_left = []
+    gui.sensor_actors_source_window = []
     for pnt in gui.sensor_positions:
         actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-        gui.ren_left.AddActor(actor)
-        gui.sensor_actors_left.append(actor)
-    # show vectors on left if toggled
-    draw_sensor_vectors_left(gui)
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+        gui.ren_source.AddActor(actor)
+        gui.sensor_actors_source_window.append(actor)
+    # show vectors on source window if toggled
+    draw_sensor_vectors_source_window(gui)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
     gui._update_info(
         f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
     )
 
 
 def load_helmet_landmark_csv(gui):
-    """Load helmet landmark points CSV, display on LEFT."""
+    """Load helmet landmark points CSV, display on source window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Load helmet landmark CSV", "", "CSV Files (*.csv)"
     )
@@ -233,42 +233,42 @@ def load_helmet_landmark_csv(gui):
     labels = df["Label"].tolist() if has_labels else [f"L{i+1}" for i in range(len(df))]
 
     # Clear existing actors
-    for actor in gui.helmet_landmark_actors_left:
+    for actor in gui.helmet_landmark_actors_source_window:
         try:
-            gui.ren_left.RemoveActor(actor)
+            gui.ren_source.RemoveActor(actor)
         except Exception:
             pass
-    gui.helmet_landmark_actors_left = []
+    gui.helmet_landmark_actors_source_window = []
     
     # Clear existing text actors
-    for actor in gui.helmet_landmark_text_actors_left:
+    for actor in gui.helmet_landmark_text_actors_source_window:
         try:
-            gui.ren_left.RemoveActor(actor)
+            gui.ren_source.RemoveActor(actor)
         except Exception:
             pass
-    gui.helmet_landmark_text_actors_left = []
+    gui.helmet_landmark_text_actors_source_window = []
 
     # Add sphere and text for each landmark
     for pnt, label in zip(gui.helmet_landmark_positions, labels):
         # Sphere actor
         sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-        gui.ren_left.AddActor(sphere)
-        gui.helmet_landmark_actors_left.append(sphere)
+        gui.ren_source.AddActor(sphere)
+        gui.helmet_landmark_actors_source_window.append(sphere)
         
         # Text label
         text_actor = create_text_actor(label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2))
-        gui.ren_left.AddActor(text_actor)
-        gui.helmet_landmark_text_actors_left.append(text_actor)
+        gui.ren_source.AddActor(text_actor)
+        gui.helmet_landmark_text_actors_source_window.append(text_actor)
 
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
     gui._update_info(
         f"Loaded helmet landmark CSV: {os.path.basename(filepath)}."
     )
 
 
 def load_mri_mesh(gui):
-    """Load MRI mesh (e.g. scalp) on the LEFT, auto-detect unit scale."""
+    """Load MRI mesh (e.g. scalp) on the source window, auto-detect unit scale."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Load MRI mesh", "", "PLY/STL Files (*.ply *.stl)"
     )
@@ -306,21 +306,21 @@ def load_mri_mesh(gui):
         print("MRI appears already in mm")
 
     # -------------------------------------------------
-    # Display on left
+    # Display on source window
     # -------------------------------------------------
     actor = actor_from_polydata(gui.mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7)
 
-    gui.ren_left.RemoveAllViewProps()
-    gui.ren_left.AddActor(actor)
+    gui.ren_source.RemoveAllViewProps()
+    gui.ren_source.AddActor(actor)
 
-    gui.ren_left.ResetCamera()
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
 
-    gui._update_info("Loaded MRI mesh (left).")
+    gui._update_info("Loaded MRI mesh (source window).")
 
 
 def load_mri_fiducials(gui):
-    """Load MRI fiducials from FIF, display on LEFT."""
+    """Load MRI fiducials from FIF, display on source window."""
     path = QFileDialog.getOpenFileName(
         gui, "Load MRI Fiducials (.fif)", "", "FIF files (*.fif)"
     )[0]

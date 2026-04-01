@@ -7,7 +7,7 @@ import vtk
 
 from src.display_helpers import (
     overlay_head_transformed,
-    overlay_step3_transformed,
+    overlay_helmet_sensors_transformed,
     preview_head_on_mri,
 )
 from src.utils import (
@@ -20,16 +20,16 @@ from src.file_io_helpers import save_transformed_sensors_csv
 
 
 def compute_aux_dev_to_scan(gui):
-    """Compute transform from auxiliary device (e.g. coil) to master scan using the coil pairs."""
-    if not getattr(gui, "coil_pairs_src", None) or len(gui.coil_pairs_src) < 3:
-        gui._update_info("Need ≥3 coil pairs.")
+    """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
+    if not getattr(gui, "aux_dev_pairs_src", None) or len(gui.aux_dev_pairs_src) < 3:
+        gui._update_info("Need ≥3 auxiliary device pairs.")
         return
-    src = np.vstack(gui.coil_pairs_src)
-    dst = np.vstack(gui.coil_pairs_dst)
+    src = np.vstack(gui.aux_dev_pairs_src)
+    dst = np.vstack(gui.aux_dev_pairs_dst)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.aux_dev_to_scan = T
     gui._update_info(
-        f"Computed coil to master scan transform RMS={rms:.3f} mm. Saved transform."
+        f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm. Saved transform."
     )
     # auto save
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
@@ -37,11 +37,11 @@ def compute_aux_dev_to_scan(gui):
 
 
 def compute_aux_to_device(gui):
-    """Compute transform from auxiliary device to device (e.g. coil to helmet).
+    """Compute transform from auxiliary device to device (sensor helmet).
 
     Using the aux->scan transform and dev->scan transform."""
     if gui.aux_dev_to_scan is None or gui.T_dev_to_scan is None:
-        gui._update_info("Need Step1 and Step3 transforms.")
+        gui._update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
         return
 
     T_scan_to_dev = np.linalg.inv(gui.T_dev_to_scan)
@@ -55,17 +55,17 @@ def compute_aux_to_device(gui):
 
 def compute_head_to_scan(gui):
     """Compute transform from head scan to master scan using the head pairs."""
-    if len(gui.step2_pairs_head) < 3:
-        gui._update_info("Need at least 3 Step2 pairs to compute transform.")
+    if len(gui.head_alignment_points_from_source) < 3:
+        gui._update_info("Need at least 3 head alignment pairs to compute transform.")
         return
-    src = np.vstack(gui.step2_pairs_head)
-    dst = np.vstack(gui.step2_pairs_scan)
+    src = np.vstack(gui.head_alignment_points_from_source)
+    dst = np.vstack(gui.head_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_head_to_scan = T
     gui._update_info(
-        f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto RIGHT."
+        f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
     )
-    # overlay transformed head scan on right (light orange)
+    # overlay transformed head scan on target window (light orange)
     overlay_head_transformed(gui, T)
     # save transform
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
@@ -73,7 +73,7 @@ def compute_head_to_scan(gui):
 
 
 def obtain_true_landmarks_from_marked_points(helmet_landmark_positions, ref_point_pairs_helmet_stl):
-    """Obtain a list of true landmark coordinates from points marked during step3.
+    """Obtain a list of true landmark coordinates from points marked during sensor alignment step.
     
     Args:
         helmet_landmark_positions (list): Pre-defined true landmark coordinates
@@ -99,14 +99,15 @@ def obtain_true_landmarks_from_marked_points(helmet_landmark_positions, ref_poin
 def compute_sensors_transform(gui):
     """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
     if len(gui.ref_point_pairs_helmet_stl) < 3:
-        gui._update_info("Need ≥3 Step3 pairs.")
+        gui._update_info("Need ≥3 point pairs from sensor alignment step.")
         return
     src = np.vstack(gui.ref_point_pairs_helmet_stl)
     dst = np.vstack(gui.ref_point_pairs_scan)
 
     # If helmet landmark points exist, obtain a list of true landmark positions based on the marked points on helmet STL window
-    true_landmark_coords = obtain_true_landmarks_from_marked_points(gui.helmet_landmark_positions, gui.ref_point_pairs_helmet_stl)
-    src = np.vstack(true_landmark_coords)
+    if gui.helmet_landmark_positions is not None:
+        true_landmark_coords = obtain_true_landmarks_from_marked_points(gui.helmet_landmark_positions, gui.ref_point_pairs_helmet_stl)
+        src = np.vstack(true_landmark_coords)
 
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_dev_to_scan = T
@@ -122,7 +123,7 @@ def compute_sensors_transform(gui):
 
         gui._update_info("Saved aux→device transform.")
     # ---------------------------------------------------
-    # Compute device -> head if Step2 is available
+    # Compute device -> head head alignment step completed
     # ---------------------------------------------------
     if gui.T_head_to_scan is not None:
         T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
@@ -139,10 +140,10 @@ def compute_sensors_transform(gui):
         )
 
     gui._update_info(
-        f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on RIGHT."
+        f"Computed helmet→scan RMS={rms:.3f} mm. Previewing transformed STL & sensors on target window."
     )
     # overlay transformed STL + transformed sensors
-    overlay_step3_transformed(gui, T)
+    overlay_helmet_sensors_transformed(gui, T)
     # save transform automatically
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
     save_transform(T, base + "_T_dev_to_scan")
@@ -151,11 +152,11 @@ def compute_sensors_transform(gui):
 
 
 def compute_head_to_mri_initial(gui):
-    """Compute initial head to MRI transform using the fiducials from step2 (head scan) and step4 (MRI)."""
+    """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
     required = ["NAS", "LPA", "RPA"]
 
     if not all(fid in gui.head_fiducials for fid in required):
-        gui._update_info("Head fiducials missing (Step2).")
+        gui._update_info("Head fiducials missing (incomplete head alignment step).")
         return
 
     if not all(fid in gui.mri_fiducials for fid in required):
@@ -198,11 +199,11 @@ def compute_head_to_mri_initial(gui):
 
 
 def compute_helmet_to_mri(gui):
-    """Compute transform from helmet to MRI using the head scan as an intermediate, then apply to coil/device."""
-    # requires mri_fiducials and head scan fiducials transformed to master scan (from step2)
+    """Compute transform from helmet to MRI using the head scan as an intermediate, then apply to auxiliary device and head."""
+    # requires mri_fiducials and head scan fiducials transformed to master scan (from head alignment step)
     if not gui.mri_fiducials or not gui.head_fiducials or gui.T_head_to_scan is None:
         gui._update_info(
-            "Need MRI fiducials (step4) and head_to_scan transform (step2)."
+            "Need MRI fiducials (mri alignment step) and head_to_scan transform (head alignment step)."
         )
         return
     # map head scan fiducials to helmet using T_head_to_scan
@@ -217,7 +218,7 @@ def compute_helmet_to_mri(gui):
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_scan_to_mri = T
     gui._update_info(
-        f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to coil/device/head."
+        f"Computed scan_to_mri RMS={rms:.3f} mm. Applying to aux/device/head."
     )
     # apply final transforms and save
     apply_final_transforms(gui, T)
@@ -285,18 +286,18 @@ def run_icp_head_to_mri(gui):
     roi_head = tf_filter.GetOutput()
 
     # --------------------------------------------------
-    # 3) Show ROI in LEFT window (red)
+    # 3) Show ROI in source window (red)
     # --------------------------------------------------
     if hasattr(gui, "_roi_actor") and gui._roi_actor is not None:
         try:
-            gui.ren_left.RemoveActor(gui._roi_actor)
+            gui.ren_source.RemoveActor(gui._roi_actor)
         except Exception:
             pass
 
     gui._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
 
-    gui.ren_left.AddActor(gui._roi_actor)
-    gui.vtk_left.GetRenderWindow().Render()
+    gui.ren_source.AddActor(gui._roi_actor)
+    gui.vtk_source.GetRenderWindow().Render()
 
     # --------------------------------------------------
     # 4) Initial RMS
@@ -349,7 +350,7 @@ def run_icp_head_to_mri(gui):
 
 
 def apply_final_transforms(gui, T_head_to_mri):
-    """Calculate additional transforms for coil/device/head to MRI in mm units."""
+    """Calculate additional transforms for aux/device/head to MRI in mm units."""
     base = os.path.splitext(gui.helmet_filename or "helmet")[0]
 
     if gui.T_head_to_scan is None:
@@ -363,11 +364,11 @@ def apply_final_transforms(gui, T_head_to_mri):
     save_transform(T_head_to_mri, base + "_head_to_mri_mm")
 
     # -----------------------------------------
-    # Coil → MRI
+    # Aux_dev → MRI
     # -----------------------------------------
     if gui.aux_dev_to_scan is not None:
-        coil_to_mri = T_head_to_mri @ T_scan_to_head @ gui.aux_dev_to_scan
-        save_transform(coil_to_mri, base + "_aux_dev_to_mri_mm")
+        aux_dev_to_mri = T_head_to_mri @ T_scan_to_head @ gui.aux_dev_to_scan
+        save_transform(aux_dev_to_mri, base + "_aux_dev_to_mri_mm")
 
     # -----------------------------------------
     # Device → MRI
@@ -376,7 +377,7 @@ def apply_final_transforms(gui, T_head_to_mri):
         dev_to_mri = T_head_to_mri @ T_scan_to_head @ gui.T_dev_to_scan
         save_transform(dev_to_mri, base + "_dev_to_mri_mm")
 
-    gui._update_info("Saved coil/device/head → MRI transforms (mm).")
+    gui._update_info("Saved aux/device/head → MRI transforms (mm).")
 
 
 def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
