@@ -2,3 +2,5 @@
 src/__pycache__/*
 results/*
 !results/.gitkeep
+logs/*
+!logs/.gitkeep
