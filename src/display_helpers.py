@@ -13,12 +13,12 @@ from src.utils import (
 
 
 def merge_aux_dev_into_helmet(gui):
-    """Merge the auxiliary device STL into the helmet STL on the target window using the aux_dev_to_scan transform."""
-    if gui.aux_dev_polydata is None or gui.aux_dev_to_scan is None:
+    """Merge the auxiliary device STL into the helmet STL on the target window using the T_aux_dev_to_scan transform."""
+    if gui.aux_dev_polydata is None or gui.T_aux_dev_to_scan is None:
         gui._update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
         return
     tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(gui.aux_dev_to_scan))
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_aux_dev_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
     tfilter.SetInputData(gui.aux_dev_polydata)

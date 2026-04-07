@@ -111,7 +111,7 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pairs_src = []
         self.aux_dev_pairs_dst = []
         self.aux_dev_pick_index = 0
-        self.aux_dev_to_scan = None
+        self.T_aux_dev_to_scan = None
         self.aux_dev_actor_transformed = None
 
         # Head alignment step
@@ -388,7 +388,7 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pairs_src = []
         self.aux_dev_pairs_dst = []
         self.aux_dev_pick_index = 0
-        self.aux_dev_to_scan = None
+        self.T_aux_dev_to_scan = None
         self.aux_dev_actor_transformed = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
