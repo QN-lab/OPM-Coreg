@@ -4,6 +4,8 @@
 # TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
 
+from datetime import datetime
+import logging
 
 import numpy as np
 import vtk
@@ -69,7 +71,7 @@ class OPMCoregGUI(QWidget):
     def __init__(self):
         """Initialize the main GUI window, VTK renderers, and shared state variables for the multi-step registration process."""
         super().__init__()
-        self.setWindowTitle("TMS-OPM Multi-step Registration (fixed)")
+        self.setWindowTitle("OPM Coregistration GUI")
         self.resize(1800, 1000)
         self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
@@ -160,6 +162,9 @@ class OPMCoregGUI(QWidget):
         project_paths = ProjectPaths()
         self.results_dir = project_paths.get_results_dir()
         self.logs_dir = project_paths.get_logs_dir()
+
+        # Set up logging for this GUI instance
+        self.logger = self._setup_logger()
 
         # Build UI
         self._build_ui()
@@ -261,11 +266,6 @@ class OPMCoregGUI(QWidget):
         self.bottom_instr.setWordWrap(True)
         bottom_layout.addWidget(self.bottom_instr)
         main_layout.addWidget(bottom, stretch=1)
-
-    def _update_info(self, txt):
-        """Update the info label at the bottom with new text."""
-        print(txt)
-        self.info_label.setText(txt)
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
@@ -1107,3 +1107,51 @@ class OPMCoregGUI(QWidget):
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
+    
+    # ---- loggging and info updates ----
+    def _setup_logger(self):
+        """Create instance logger with timestamped log file."""
+        # Create unique log filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # YYYYMMDD_HHMMSS_milliseconds
+        log_filename = f"opm_gui_log_{timestamp}.txt"
+        log_filepath = self.logs_dir / log_filename
+        
+        # Create logger for this instance
+        logger = logging.getLogger(f"{__name__}.{id(self)}")
+        logger.setLevel(logging.INFO)
+        
+        # Remove any existing handlers to avoid duplicates
+        if logger.handlers:
+            logger.handlers.clear()
+        
+        # File handler for this specific log file
+        file_handler = logging.FileHandler(log_filepath, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        
+        # Add handlers
+        logger.addHandler(file_handler)
+        
+        # Log initial info
+        logger.info(f"Log file created: {log_filepath}")
+        logger.info(f"Application started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        return logger
+
+    def _update_info(self, txt):
+        """Update the info label at the bottom with new text."""
+        # Log the info in the terminal
+        print(txt)
+
+        # Log the info in the info label of the GUI
+        self.info_label.setText(txt)
+
+        # Log the info in the log file with timestamp
+        if hasattr(self, "logger"):
+            self.logger.info(txt)
