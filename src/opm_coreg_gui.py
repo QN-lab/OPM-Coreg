@@ -44,7 +44,6 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
-    save_head_to_mri,
 )
 from src.observer_helpers import (
     add_source_observer,
@@ -245,7 +244,7 @@ class OPMCoregGUI(QWidget):
         )
         info_v.addWidget(self.cb_show_mri)
 
-        self.btn_save_all = QPushButton("Auto-save available transforms")
+        self.btn_save_all = QPushButton("Save All Available Transforms")
         self.btn_save_all.clicked.connect(lambda: auto_save_transform(self))
         info_v.addWidget(self.btn_save_all)
         info_box.setLayout(info_v)
@@ -1058,10 +1057,6 @@ class OPMCoregGUI(QWidget):
             {
                 "label": "Preview MRI on master scan (target window)",
                 "callback": lambda: preview_mri_on_scan(self)
-            },
-            {
-                "label": "Save Head→MRI",
-                "callback": lambda: save_head_to_mri(self)
             },
         ]
 
