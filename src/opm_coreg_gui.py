@@ -53,6 +53,7 @@ from src.observer_helpers import (
     clear_target_renderer_keep_scan,
     remove_all_observers,
 )
+from src.project_paths import ProjectPaths
 from src.toggle_helpers import (
     toggle_aux_dev_overlay,
     toggle_head_overlay,
@@ -155,6 +156,11 @@ class OPMCoregGUI(QWidget):
         self.mri_fiducial_actors = {}
         self.T_head_to_mri = None
         self.mri_actor_target_window = None
+
+        # Obtain required project paths
+        project_paths = ProjectPaths()
+        self.results_dir = project_paths.get_results_dir()
+        self.logs_dir = project_paths.get_logs_dir()
 
         # Build UI
         self._build_ui()

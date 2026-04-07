@@ -1,12 +1,16 @@
 """Helper functions to load files based on GUI actions, and update the GUI state accordingly."""
 
 import csv
-import mne
-from mne.transforms import Transform
 import os
+from pathlib import Path
 
+import mne
 import numpy as np
 import pandas as pd
+import vtk
+from mne.io import read_fiducials
+from mne.io.constants import FIFF
+from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
 from src.const import PAIR_COLORS
@@ -16,14 +20,11 @@ from src.display_helpers import (
 )
 from src.utils import (
     actor_from_polydata,
-    load_mesh_to_polydata,
-    sphere_actor,
-    save_transform,
     create_text_actor,
+    load_mesh_to_polydata,
+    save_transform,
+    sphere_actor,
 )
-from mne.io import read_fiducials
-import vtk
-from mne.io.constants import FIFF
 
 
 def load_master_scan(gui):
@@ -409,18 +410,22 @@ def save_head_to_mri(gui):
 
 def auto_save_transform(gui):
     """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
-    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+    master_scan_basename = os.path.splitext(gui.helmet_filename or "master_scan_missing")[0]
 
-    if gui.aux_dev_to_scan is not None:
-        save_transform(gui.aux_dev_to_scan, base + "_aux_dev_to_scan_mm")
+    # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    participant_result_dir = Path(gui.results_dir) / master_scan_basename
+    participant_result_dir.mkdir(exist_ok=True)
 
-    if gui.T_head_to_scan is not None:
-        save_transform(gui.T_head_to_scan, base + "_head_to_scan_mm")
+    # Create a dictionary of available transforms for easy iteration
+    available_transforms = {
+        "aux_dev_to_scan": gui.aux_dev_to_scan,
+        "dev_to_scan": gui.T_dev_to_scan,
+        "head_to_scan": gui.T_head_to_scan,
+        "head_to_mri": gui.T_head_to_mri,
+    }
 
-    if gui.T_dev_to_scan is not None:
-        save_transform(gui.T_dev_to_scan, base + "_dev_to_scan_mm")
-
-    if gui.T_head_to_mri is not None:
-        save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
+    for transform_name, transform in available_transforms.items():
+        if transform is not None:
+            save_transform(transform, participant_result_dir / f"{master_scan_basename}_{transform_name}_mm")
 
     gui._update_info("Auto-saved available transforms (mm).")
