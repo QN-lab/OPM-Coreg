@@ -354,12 +354,17 @@ def load_mri_fiducials(gui):
     gui._update_info("Loaded MRI fiducials from FIF.")
 
 
-def save_transformed_sensors_csv(gui, T, base):
+def save_transformed_sensors_csv(gui):
     """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
     if gui.sensor_positions is None:
         return
-    rotation = T[:3, :3]
-    translation = T[:3, 3]
+    if gui.T_dev_to_scan is None:
+        gui._update_info("No device→scan transform available, cannot save transformed sensors.")
+        return
+    
+    # Transforming sensor positions from device space to master scan space
+    rotation = gui.T_dev_to_scan[:3, :3]
+    translation = gui.T_dev_to_scan[:3, 3]
     pts_t = (rotation @ gui.sensor_positions.T).T + translation
     df_out = gui.sensor_df.copy()
     df_out[["X", "Y", "Z"]] = pts_t
@@ -376,36 +381,32 @@ def save_transformed_sensors_csv(gui, T, base):
         df_out["z_i"] = axes_t[:, 2, 0]
         df_out["z_j"] = axes_t[:, 2, 1]
         df_out["z_k"] = axes_t[:, 2, 2]
-    out_dir = (
-        os.path.dirname(gui.sensor_csv_path)
-        if getattr(gui, "sensor_csv_path", None)
-        else os.getcwd()
-    )
-    out_path = os.path.join(out_dir, base + "_sensors_to_scan_transformed.csv")
+    
+    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    master_scan_basename = os.path.splitext(gui.helmet_filename or "master_scan_missing")[0]
+
+    # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    participant_result_dir = Path(gui.results_dir) / master_scan_basename
+    participant_result_dir.mkdir(exist_ok=True)
+
+    out_path = participant_result_dir / f"{master_scan_basename}_sensors_to_scan_transformed.csv"
     df_out.to_csv(out_path, index=False)
     gui._update_info(f"Saved transformed sensors CSV: {out_path}")
 
 
-def save_head_to_mri(gui):
-    """Save the computed head to MRI transform to disk.
+def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
+    """Save the head-to-MRI transform in MNE FIF format, converting from mm (internal) to m (FIF) units. 
+    
+    The output file will be named {out_base}-trans.fif.
+    This allows compatibility with MNE-Python for downstream processing such as source localization.
+    """
+    # Convert from mm (internal) to m (MNE FIF)
+    head_to_mri_transform_m = head_to_mri_transform_mm.copy()
+    head_to_mri_transform_m[:3, 3] /= 1000.0
 
-    Transforms are saved in custom format and MNE's .fif format, converting units as needed for compatibility."""
-    if gui.T_head_to_mri is None:
-        return
-
-    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
-
-    # --- Convert mm → meters for MNE ---
-    T_m = gui.T_head_to_mri.copy()
-    T_m[:3, 3] /= 1000.0
-
-    save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
-
-    trans = Transform("head", "mri", T_m)
-
-    mne.write_trans(base + "-trans.fif", trans, overwrite=True)
-
-    gui._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
+    # Create MNE Transform object and save to FIF
+    trans = Transform("head", "mri", head_to_mri_transform_m)
+    mne.write_trans(out_base + "-trans.fif", trans, overwrite=True)
 
 
 def auto_save_transform(gui):
@@ -422,10 +423,15 @@ def auto_save_transform(gui):
         "dev_to_scan": gui.T_dev_to_scan,
         "head_to_scan": gui.T_head_to_scan,
         "head_to_mri": gui.T_head_to_mri,
-    }
+        "aux_to_device": gui.T_aux_to_device,
+        "dev_to_head": gui.T_dev_to_head,
+        }
 
     for transform_name, transform in available_transforms.items():
         if transform is not None:
             save_transform(transform, participant_result_dir / f"{master_scan_basename}_{transform_name}_mm")
+            gui._update_info(f"Saved {transform_name} transform (mm internally).")
 
-    gui._update_info("Auto-saved available transforms (mm).")
+            if transform_name == "head_to_mri":
+                save_head_to_mri_mne_fif(transform, participant_result_dir / f"{master_scan_basename}")
+                gui._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
