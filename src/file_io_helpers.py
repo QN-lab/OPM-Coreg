@@ -429,7 +429,7 @@ def auto_save_transform(gui):
 
     # Create a dictionary of available transforms for easy iteration
     available_transforms = {
-        "T_aux_dev_to_scan": gui.T_aux_dev_to_scan,
+        "aux_dev_to_scan": gui.T_aux_dev_to_scan,
         "dev_to_scan": gui.T_dev_to_scan,
         "head_to_scan": gui.T_head_to_scan,
         "head_to_mri": gui.T_head_to_mri,
