@@ -1,6 +1,5 @@
 """Helper functions to compute transforms based on GUI state and user inputs."""
 
-
 import numpy as np
 import vtk
 
@@ -20,13 +19,13 @@ from src.file_io_helpers import save_transformed_sensors_csv, auto_save_transfor
 def compute_aux_dev_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
     if not getattr(gui, "aux_dev_pairs_src", None) or len(gui.aux_dev_pairs_src) < 3:
-        gui._update_info("Need ≥3 auxiliary device pairs.")
+        gui.update_info("Need ≥3 auxiliary device pairs.")
         return
     src = np.vstack(gui.aux_dev_pairs_src)
     dst = np.vstack(gui.aux_dev_pairs_dst)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_aux_dev_to_scan = T
-    gui._update_info(
+    gui.update_info(
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
     # auto save available transforms
@@ -39,13 +38,13 @@ def compute_dev_to_scan(gui):
         not getattr(gui, "ref_point_pairs_helmet_stl", None)
         or len(gui.ref_point_pairs_helmet_stl) < 3
     ):
-        gui._update_info("Need ≥3 point pairs from sensor alignment step.")
+        gui.update_info("Need ≥3 point pairs from sensor alignment step.")
         return
     src = np.vstack(gui.ref_point_pairs_helmet_stl)
     dst = np.vstack(gui.ref_point_pairs_scan)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_dev_to_scan = T
-    gui._update_info(
+    gui.update_info(
         f"Computed device (helmet) to master scan transform RMS={rms:.3f} mm."
     )
     # auto save available transforms
@@ -55,13 +54,13 @@ def compute_dev_to_scan(gui):
 def compute_head_to_scan(gui):
     """Compute transform from head scan to master scan using the head pairs."""
     if len(gui.head_alignment_points_from_source) < 3:
-        gui._update_info("Need at least 3 head alignment pairs to compute transform.")
+        gui.update_info("Need at least 3 head alignment pairs to compute transform.")
         return
     src = np.vstack(gui.head_alignment_points_from_source)
     dst = np.vstack(gui.head_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_head_to_scan = T
-    gui._update_info(
+    gui.update_info(
         f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
     )
     # overlay transformed head scan on target window (light orange)
@@ -76,7 +75,7 @@ def compute_aux_to_device(gui):
 
     Using the aux->scan transform and dev->scan transform."""
     if gui.T_aux_dev_to_scan is None or gui.T_dev_to_scan is None:
-        gui._update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
+        gui.update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
         return
 
     T_scan_to_dev = np.linalg.inv(gui.T_dev_to_scan)
@@ -90,7 +89,7 @@ def compute_aux_to_device(gui):
 def compute_device_to_head(gui):
     """Compute transform from device (sensor helmet) to head using the dev->scan and head->scan transforms."""
     if gui.T_dev_to_scan is None or gui.T_head_to_scan is None:
-        gui._update_info("Need Sensors Alignment and Head Alignment steps transforms.")
+        gui.update_info("Need Sensors Alignment and Head Alignment steps transforms.")
         return
 
     T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
@@ -132,7 +131,7 @@ def obtain_true_landmarks_from_marked_points(
 def compute_sensors_transform(gui):
     """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
     if len(gui.ref_point_pairs_helmet_stl) < 3:
-        gui._update_info("Need ≥3 point pairs from sensor alignment step.")
+        gui.update_info("Need ≥3 point pairs from sensor alignment step.")
         return
 
     # Compute device (helmet) to scan transform
@@ -157,11 +156,11 @@ def compute_head_to_mri_initial(gui):
     required = ["NAS", "LPA", "RPA"]
 
     if not all(fid in gui.head_fiducials for fid in required):
-        gui._update_info("Head fiducials missing (incomplete head alignment step).")
+        gui.update_info("Head fiducials missing (incomplete head alignment step).")
         return
 
     if not all(fid in gui.mri_fiducials for fid in required):
-        gui._update_info("MRI fiducials missing.")
+        gui.update_info("MRI fiducials missing.")
         return
 
     src = np.array(
@@ -189,7 +188,7 @@ def compute_head_to_mri_initial(gui):
     print("Head→MRI RMS:", rms)
     print("Errors per fiducial:", errs)
 
-    gui._update_info(
+    gui.update_info(
         f"Head→MRI RMS = {rms:.2f} mm | "
         f"NAS={errs[0]:.2f}, "
         f"LPA={errs[1]:.2f}, "
@@ -225,17 +224,17 @@ def compute_surface_rms(src_poly, dst_poly):
 def run_icp_head_to_mri(gui):
     """Run ICP to refine head→MRI alignment using the face ROI."""
     if gui.T_head_to_mri is None:
-        gui._update_info("Compute initial fiducial alignment first.")
+        gui.update_info("Compute initial fiducial alignment first.")
         return
 
     if gui.head_polydata is None or gui.mri_polydata is None:
-        gui._update_info("Need head and MRI surfaces loaded.")
+        gui.update_info("Need head and MRI surfaces loaded.")
         return
 
     if not all(
         fid in gui.head_fiducials for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
     ):
-        gui._update_info("Need 5 head fiducials.")
+        gui.update_info("Need 5 head fiducials.")
         return
 
     # --------------------------------------------------
@@ -244,7 +243,7 @@ def run_icp_head_to_mri(gui):
     roi_head_native = extract_face_roi(gui.head_polydata, gui.head_fiducials)
 
     if roi_head_native is None:
-        gui._update_info("ROI extraction failed.")
+        gui.update_info("ROI extraction failed.")
         return
 
     # --------------------------------------------------
@@ -319,7 +318,7 @@ def run_icp_head_to_mri(gui):
 
     final_rms = compute_surface_rms(roi_refined, gui.mri_polydata)
 
-    gui._update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
     # --------------------------------------------------
     # 7) Preview full head
