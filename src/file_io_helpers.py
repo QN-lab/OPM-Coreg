@@ -409,6 +409,16 @@ def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
     mne.write_trans(out_base + "-trans.fif", trans, overwrite=True)
 
 
+def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
+    """Save the device-to-head transform in MNE compatible format, converting from mm (internal) to m (FIF) units."""
+    # Convert from mm (internal) to m (MNE FIF)
+    dev_to_head_transform_m = dev_to_head_transform_mm.copy()
+    dev_to_head_transform_m[:3, 3] /= 1000.0
+
+    # Save the device_to_head transform without "mm" to signify it is directly usable in MNE
+    save_transform(dev_to_head_transform_m, out_base)
+
+
 def auto_save_transform(gui):
     """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
     master_scan_basename = os.path.splitext(gui.helmet_filename or "master_scan_missing")[0]
@@ -435,3 +445,7 @@ def auto_save_transform(gui):
             if transform_name == "head_to_mri":
                 save_head_to_mri_mne_fif(transform, participant_result_dir / f"{master_scan_basename}")
                 gui._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
+
+            if transform_name == "dev_to_head":
+                save_dev_to_head_for_mne(transform, participant_result_dir / f"{master_scan_basename}")
+                gui._update_info("Saved Device→Head transform (mm internally, m in MNE compatible file).")
