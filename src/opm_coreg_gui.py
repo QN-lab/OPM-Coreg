@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -257,6 +258,26 @@ class OPMCoregGUI(QWidget):
 
         main_layout.addLayout(ctrl_layout, stretch=2)
 
+        # Terminal output window
+        terminal_box = QGroupBox("Terminal Output")
+        terminal_layout = QVBoxLayout()
+
+        self.terminal_output = QTextEdit()
+        self.terminal_output.setReadOnly(True)
+        self.terminal_output.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                font-family: 'Courier New', monospace;
+                font-size: 11px;
+            }
+        """)
+        terminal_layout.addWidget(self.terminal_output)
+
+        terminal_box.setLayout(terminal_layout)
+        main_layout.addWidget(terminal_box, stretch=2)
+
+        # Bottom instructions
         bottom = QFrame()
         bottom.setStyleSheet("background-color:#222;")
         bottom_layout = QVBoxLayout(bottom)
@@ -1168,6 +1189,15 @@ class OPMCoregGUI(QWidget):
 
         return logger
 
+    def _log_to_terminal(self, txt):
+        """Add a message to the terminal output window."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.terminal_output.append(f"[{timestamp}] {txt}")
+
+        # Auto-scroll to bottom
+        scrollbar = self.terminal_output.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
     def update_info(self, txt, info_update=True):
         """Log the provided message in the terminal, infobox and logfile.
 
@@ -1177,7 +1207,7 @@ class OPMCoregGUI(QWidget):
                                 Avoid updating the info label for saving of transforms.
         """
         # Log the info in the terminal
-        print(txt)
+        self._log_to_terminal(txt)
 
         # Log the info in the info label of the GUI
         if info_update:
