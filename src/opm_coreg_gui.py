@@ -1,5 +1,4 @@
 # TODO : remove magic numbers, compile constants.
-# TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 # TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
 # TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
