@@ -36,7 +36,7 @@ from src.display_helpers import (
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
-    auto_save_transform,
+    save_generated_transforms,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
@@ -250,7 +250,7 @@ class OPMCoregGUI(QWidget):
         info_v.addWidget(self.cb_show_mri)
 
         self.btn_save_all = QPushButton("Save All Available Transforms")
-        self.btn_save_all.clicked.connect(lambda: auto_save_transform(self))
+        self.btn_save_all.clicked.connect(lambda: save_generated_transforms(self))
         info_v.addWidget(self.btn_save_all)
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)

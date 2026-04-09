@@ -431,11 +431,16 @@ def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
     save_transform(dev_to_head_transform_m, out_base)
 
 
-def auto_save_transform(gui):
-    """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming.
-    
+def save_generated_transforms(gui, trans_to_save=None):
+    """Save specified transforms to disk in mm units, using the helmet filename as a base for naming.
+
     This function is called after computing any transform, to ensure results are saved without requiring extra user action.
-    The info box is not updated  for each individual transform save, but the logfile is updated normally."""
+    The info box is not updated for each individual transform save, but the logfile is updated normally.
+    
+    Args:
+        gui: The GUI object containing the transforms and state.
+        trans_to_save: The name of the transform to save (e.g., "dev_to_scan"). If None, all available transforms are saved.
+    """
     # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
     master_scan_basename = os.path.splitext(
         gui.helmet_filename or "master_scan_missing"
@@ -456,6 +461,11 @@ def auto_save_transform(gui):
     }
 
     for transform_name, transform in available_transforms.items():
+        # If a specific transform is specified to save, skip others
+        if trans_to_save is not None and trans_to_save != transform_name:
+            continue
+
+        # Only save if the transform is available (not None)
         if transform is not None:
             save_transform(
                 transform,

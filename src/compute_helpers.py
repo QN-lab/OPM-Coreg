@@ -13,7 +13,7 @@ from src.utils import (
     compute_rigid_transform,
     vtk_matrix_from_numpy,
 )
-from src.file_io_helpers import save_transformed_sensors_csv, auto_save_transform
+from src.file_io_helpers import save_transformed_sensors_csv, save_generated_transforms
 
 
 def compute_aux_dev_to_scan(gui):
@@ -28,8 +28,8 @@ def compute_aux_dev_to_scan(gui):
     gui.update_info(
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
-    # auto save available transforms
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="aux_dev_to_scan")
 
 
 def compute_dev_to_scan(gui):
@@ -47,8 +47,8 @@ def compute_dev_to_scan(gui):
     gui.update_info(
         f"Computed device (helmet) to master scan transform RMS={rms:.3f} mm."
     )
-    # auto save available transforms
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="dev_to_scan")
 
 
 def compute_head_to_scan(gui):
@@ -66,8 +66,8 @@ def compute_head_to_scan(gui):
     # overlay transformed head scan on target window (light orange)
     overlay_head_transformed(gui, T)
 
-    # auto save available transforms
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="head_to_scan")
 
 
 def compute_aux_to_device(gui):
@@ -82,8 +82,8 @@ def compute_aux_to_device(gui):
     T_aux_to_device = T_scan_to_dev @ gui.T_aux_dev_to_scan
     gui.T_aux_to_device = T_aux_to_device
 
-    # auto save available transforms
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="aux_to_device")
 
 
 def compute_device_to_head(gui):
@@ -96,8 +96,8 @@ def compute_device_to_head(gui):
     T_dev_to_head = T_scan_to_head @ gui.T_dev_to_scan
     gui.T_dev_to_head = T_dev_to_head
 
-    # auto save available transforms
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="dev_to_head")
 
 
 def obtain_true_landmarks_from_marked_points(
@@ -146,9 +146,6 @@ def compute_sensors_transform(gui):
 
     # save transformed sensors csv
     save_transformed_sensors_csv(gui)
-
-    # auto save available transforms
-    auto_save_transform(gui)
 
 
 def compute_head_to_mri_initial(gui):
@@ -300,8 +297,8 @@ def run_icp_head_to_mri(gui):
     # Compose
     gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
 
-    # save available transforms after ICP refinement
-    auto_save_transform(gui)
+    # Save generated transform
+    save_generated_transforms(gui, trans_to_save="head_to_mri")
 
     # --------------------------------------------------
     # 6) Recompute RMS after ICP
