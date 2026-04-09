@@ -481,7 +481,7 @@ def save_generated_transforms(gui, trans_to_save=None):
                 participant_result_dir / f"{master_scan_basename}_{transform_name}_mm",
             )
             gui.update_info(
-                f"Saved {transform_name} transform (mm internally).", info_update=False
+                f"Saved {transform_name} transform. Translation components are in mm units.", info_update=False
             )
 
             if transform_name == "head_to_mri":
@@ -489,15 +489,15 @@ def save_generated_transforms(gui, trans_to_save=None):
                     transform, participant_result_dir / f"{master_scan_basename}"
                 )
                 gui.update_info(
-                    "Saved Head→MRI transform (mm internally, m in trans.fif).",
+                    "Saved Head→MRI transform (Directly usable by MNE-Python for forward modeling).",
                     info_update=False,
                 )
 
             if transform_name == "dev_to_head":
                 save_dev_to_head_for_mne(
-                    transform, participant_result_dir / f"{master_scan_basename}"
+                    transform, participant_result_dir / f"{master_scan_basename}_{transform_name}"
                 )
                 gui.update_info(
-                    "Saved Device→Head transform (mm internally, m in MNE compatible file).",
+                    "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling).",
                     info_update=False,
                 )
