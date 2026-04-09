@@ -411,6 +411,10 @@ def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
 
     The output file will be named {out_base}-trans.fif.
     This allows compatibility with MNE-Python for downstream processing such as source localization.
+
+    Args:
+        head_to_mri_transform_mm: 4x4 numpy array representing the head-to-MRI transform in mm units.
+        out_base (Path): Base path (without extension) for the output FIF file.
     """
     # Convert from mm (internal) to m (MNE FIF)
     head_to_mri_transform_m = head_to_mri_transform_mm.copy()
@@ -418,11 +422,16 @@ def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
 
     # Create MNE Transform object and save to FIF
     trans = Transform("head", "mri", head_to_mri_transform_m)
-    mne.write_trans(out_base + "-trans.fif", trans, overwrite=True)
+    mne.write_trans(str(out_base) + "-trans.fif", trans, overwrite=True)
 
 
 def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
-    """Save the device-to-head transform in MNE compatible format, converting from mm (internal) to m (FIF) units."""
+    """Save the device-to-head transform in MNE compatible format, converting from mm (internal) to m (FIF) units.
+    
+    Args:
+        dev_to_head_transform_mm: 4x4 numpy array representing the device-to-head transform in mm units.
+        out_base (Path): Base path (without extension) for the output FIF file.
+    """
     # Convert from mm (internal) to m (MNE FIF)
     dev_to_head_transform_m = dev_to_head_transform_mm.copy()
     dev_to_head_transform_m[:3, 3] /= 1000.0
