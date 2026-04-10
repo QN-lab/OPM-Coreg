@@ -403,7 +403,7 @@ def save_transformed_sensors_csv(gui):
         / f"{master_scan_basename}_sensors_to_scan_transformed.csv"
     )
     df_out.to_csv(out_path, index=False)
-    gui.update_info(f"Saved transformed sensors CSV: {out_path}", info_update=False)
+    gui.update_info(f"Saved transformed sensors CSV: {out_path}")
 
 
 def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
@@ -481,7 +481,7 @@ def save_generated_transforms(gui, trans_to_save=None):
                 participant_result_dir / f"{master_scan_basename}_{transform_name}_mm",
             )
             gui.update_info(
-                f"Saved {transform_name} transform. Translation components are in mm units.", info_update=False
+                f"Saved {transform_name} transform. Translation components are in mm units."
             )
 
             if transform_name == "head_to_mri":
@@ -489,8 +489,7 @@ def save_generated_transforms(gui, trans_to_save=None):
                     transform, participant_result_dir / f"{master_scan_basename}"
                 )
                 gui.update_info(
-                    "Saved Head→MRI transform (Directly usable by MNE-Python for forward modeling).",
-                    info_update=False,
+                    "Saved Head→MRI transform (Directly usable by MNE-Python for forward modeling)."
                 )
 
             if transform_name == "dev_to_head":
@@ -498,6 +497,5 @@ def save_generated_transforms(gui, trans_to_save=None):
                     transform, participant_result_dir / f"{master_scan_basename}_{transform_name}"
                 )
                 gui.update_info(
-                    "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling).",
-                    info_update=False,
+                    "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling)."
                 )

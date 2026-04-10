@@ -10,7 +10,6 @@ import numpy as np
 import vtk
 from PyQt5.QtWidgets import (
     QCheckBox,
-    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -214,7 +213,7 @@ class OPMCoregGUI(QWidget):
         ctrl_layout.addWidget(self.step_ctrl_box, stretch=1)
 
         # info box
-        info_box = QGroupBox("Info / Save")
+        info_box = QGroupBox("View / Save")
         info_v = QVBoxLayout()
         self.info_label = QLabel("Select layers to see:")
         self.info_label.setWordWrap(True)
@@ -276,17 +275,6 @@ class OPMCoregGUI(QWidget):
 
         terminal_box.setLayout(terminal_layout)
         main_layout.addWidget(terminal_box, stretch=2)
-
-        # Bottom instructions
-        bottom = QFrame()
-        bottom.setStyleSheet("background-color:#222;")
-        bottom_layout = QVBoxLayout(bottom)
-        self.bottom_instr = QLabel(
-            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
-        )
-        self.bottom_instr.setWordWrap(True)
-        bottom_layout.addWidget(self.bottom_instr)
-        main_layout.addWidget(bottom, stretch=1)
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
@@ -438,7 +426,7 @@ class OPMCoregGUI(QWidget):
             lab
             for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
             if lab in self.aux_dev_landmarks
-        ]
+        ]  # TODO : make this more robust to different landmark naming conventions, or at least provide clear instructions on required format.
 
         if not ordered:
             ordered = list(self.aux_dev_landmarks.keys())
@@ -451,6 +439,9 @@ class OPMCoregGUI(QWidget):
         self.update_info(
             "Pick aux device landmarks in the target window in order: "
             + ", ".join(self.aux_dev_expected_labels)
+        )
+        self.update_info(
+            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
         )
 
         def handler(obj, event):
@@ -1198,20 +1189,14 @@ class OPMCoregGUI(QWidget):
         scrollbar = self.terminal_output.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def update_info(self, txt, info_update=True):
-        """Log the provided message in the terminal, infobox and logfile.
+    def update_info(self, txt):
+        """Log the provided message in the terminal and logfile.
 
         Args:
             txt (str): The message to log.
-            info_update (bool): Whether to update the info label in the GUI with this message. Defaults to True.
-                                Avoid updating the info label for saving of transforms.
         """
         # Log the info in the terminal
         self._log_to_terminal(txt)
-
-        # Log the info in the info label of the GUI
-        if info_update:
-            self.info_label.setText(txt)
 
         # Log the info in the log file with timestamp
         if hasattr(self, "logger"):
