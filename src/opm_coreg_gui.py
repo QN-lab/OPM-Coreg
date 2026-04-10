@@ -181,16 +181,39 @@ class OPMCoregGUI(QWidget):
         Bottom pane: controls that change based on step, plus info and toggles for overlays
         """
         main_layout = QVBoxLayout(self)
-        # two render windows
+
+        # two render windows with titles
         view_layout = QHBoxLayout()
-        view_layout.addWidget(self.vtk_source, 1)
-        view_layout.addWidget(self.vtk_target, 1)
+
+        # Source window with title
+        source_container = QVBoxLayout()
+        source_title = QLabel("Source Window")
+        source_title.setStyleSheet(
+            "font-weight: bold; background-color: #333; padding: 4px;"
+        )
+        source_container.addWidget(source_title)
+        source_container.addWidget(self.vtk_source, 1)
+
+        # Target window with title
+        target_container = QVBoxLayout()
+        target_title = QLabel("Target Window")
+        target_title.setStyleSheet(
+            "font-weight: bold; background-color: #333; padding: 4px;"
+        )
+        target_container.addWidget(target_title)
+        target_container.addWidget(self.vtk_target, 1)
+
+        view_layout.addLayout(source_container, 1)
+        view_layout.addLayout(target_container, 1)
         main_layout.addLayout(view_layout, stretch=8)
 
         # bottom controls
         ctrl_layout = QHBoxLayout()
         # steps list
         steps_box = QGroupBox("Steps")
+        steps_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         steps_v = QVBoxLayout()
         for button_label, mode in [
             ("Step 1: Aux device to scan", "align_aux"),
@@ -208,12 +231,18 @@ class OPMCoregGUI(QWidget):
 
         # dynamic step controls
         self.step_ctrl_box = QGroupBox("Step Controls")
+        self.step_ctrl_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         self.step_ctrl_layout = QGridLayout()
         self.step_ctrl_box.setLayout(self.step_ctrl_layout)
         ctrl_layout.addWidget(self.step_ctrl_box, stretch=1)
 
         # info box
         info_box = QGroupBox("View / Save")
+        info_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         info_v = QVBoxLayout()
         self.info_label = QLabel("Select layers to see:")
         self.info_label.setWordWrap(True)
@@ -255,12 +284,10 @@ class OPMCoregGUI(QWidget):
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
 
-        main_layout.addLayout(ctrl_layout, stretch=2)
+        main_layout.addLayout(ctrl_layout, stretch=1)
 
-        # Terminal output window
-        terminal_box = QGroupBox("Terminal Output")
-        terminal_layout = QVBoxLayout()
-
+        # Terminal output window (no title)
+        terminal_container = QVBoxLayout()
         self.terminal_output = QTextEdit()
         self.terminal_output.setReadOnly(True)
         self.terminal_output.setStyleSheet("""
@@ -271,10 +298,8 @@ class OPMCoregGUI(QWidget):
                 font-size: 11px;
             }
         """)
-        terminal_layout.addWidget(self.terminal_output)
-
-        terminal_box.setLayout(terminal_layout)
-        main_layout.addWidget(terminal_box, stretch=2)
+        terminal_container.addWidget(self.terminal_output)
+        main_layout.addLayout(terminal_container, stretch=1)
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
