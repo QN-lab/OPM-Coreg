@@ -164,6 +164,7 @@ class OPMCoregGUI(QWidget):
         self.logs_dir = project_paths.get_logs_dir()
 
         # Set up logging for this GUI instance
+        self.log_filepath = None
         self.logger = self._setup_logger()
 
         # Build UI
@@ -300,6 +301,10 @@ class OPMCoregGUI(QWidget):
         """)
         terminal_container.addWidget(self.terminal_output)
         main_layout.addLayout(terminal_container, stretch=1)
+
+        # Log GUI start message
+        self.update_info("OPM Coregistration GUI started. Please select a step to begin.")
+        self.update_info(f"Log file for this session placed at: {self.log_filepath}")
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
@@ -1175,6 +1180,7 @@ class OPMCoregGUI(QWidget):
         ]  # YYYYMMDD_HHMMSS_milliseconds
         log_filename = f"opm_gui_log_{timestamp}.txt"
         log_filepath = self.logs_dir / log_filename
+        self.log_filepath = log_filepath
 
         # Create logger for this instance
         logger = logging.getLogger(f"{__name__}.{id(self)}")
@@ -1198,9 +1204,8 @@ class OPMCoregGUI(QWidget):
         logger.addHandler(file_handler)
 
         # Log initial info
-        logger.info(f"Log file created: {log_filepath}")
         logger.info(
-            f"Application started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            f"Log file created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
 
         return logger
