@@ -39,15 +39,15 @@ def load_master_scan(gui):
         return
     gui.helmet_polydata = load_mesh_to_polydata(filepath)
     gui.helmet_filename = os.path.basename(filepath)
-    if gui.helmet_actor is not None:
+    if gui.master_scan_actor is not None:
         try:
-            gui.ren_target.RemoveActor(gui.helmet_actor)
+            gui.ren_target.RemoveActor(gui.master_scan_actor)
         except Exception:
             pass
-    gui.helmet_actor = actor_from_polydata(
+    gui.master_scan_actor = actor_from_polydata(
         gui.helmet_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
     )
-    gui.ren_target.AddActor(gui.helmet_actor)
+    gui.ren_target.AddActor(gui.master_scan_actor)
     gui.ren_target.ResetCamera()
     gui.vtk_target.GetRenderWindow().Render()
     gui.update_info(f"Loaded master scan: {gui.helmet_filename}")

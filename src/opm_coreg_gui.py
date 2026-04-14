@@ -59,6 +59,7 @@ from src.toggle_helpers import (
     toggle_aux_dev_overlay,
     toggle_head_overlay,
     toggle_helmet_overlay,
+    toggle_master_scan_overlay,
     toggle_mri_overlay,
     toggle_vectors,
 )
@@ -101,7 +102,7 @@ class OPMCoregGUI(QWidget):
 
         # Auxiliary device alignment step
         self.helmet_polydata = None
-        self.helmet_actor = None
+        self.master_scan_actor = None
         self.helmet_filename = None
         self.aux_dev_polydata = None
         self.aux_dev_actor_source_window = None
@@ -249,6 +250,13 @@ class OPMCoregGUI(QWidget):
         self.info_label = QLabel("Select layers to see:")
         self.info_label.setWordWrap(True)
         info_v.addWidget(self.info_label)
+
+        self.cb_show_master_scan = QCheckBox("Master scan")
+        self.cb_show_master_scan.setChecked(True)
+        self.cb_show_master_scan.stateChanged.connect(
+            lambda state: toggle_master_scan_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_master_scan)
 
         self.cb_show_aux_dev = QCheckBox("Aux device")
         self.cb_show_aux_dev.setChecked(True)
@@ -550,8 +558,8 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
         # redraw target window: helmet + placed aux device pair spheres + transformed aux device if present
         self.ren_target.RemoveAllViewProps()
-        if self.helmet_actor is not None:
-            self.ren_target.AddActor(self.helmet_actor)
+        if self.master_scan_actor is not None:
+            self.ren_target.AddActor(self.master_scan_actor)
         for i, pos in enumerate(self.aux_alignment_points_from_target):
             selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
             self.ren_target.AddActor(

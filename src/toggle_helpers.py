@@ -88,3 +88,19 @@ def toggle_mri_overlay(gui, state):
     else:
         gui.ren_target.RemoveActor(gui.mri_actor_target_window)
     gui.vtk_target.GetRenderWindow().Render()
+
+
+def toggle_master_scan_overlay(gui, state):
+    """Toggle the visibility of the master scan overlay in the target window.
+
+    Args:
+        gui: The main GUI object.
+        state: The state of the checkbox.
+    """
+    if not hasattr(gui, "master_scan_actor") or gui.master_scan_actor is None:
+        return
+    if state:
+        gui.ren_target.AddActor(gui.master_scan_actor)
+    else:
+        gui.ren_target.RemoveActor(gui.master_scan_actor)
+    gui.vtk_target.GetRenderWindow().Render()

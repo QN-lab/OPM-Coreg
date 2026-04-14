@@ -62,7 +62,7 @@ def clear_target_renderer_keep_scan(gui):
         gui: The GUI object containing the target renderer, helmet actor, and VTK window.
     """
     gui.ren_target.RemoveAllViewProps()
-    if gui.helmet_actor is not None:
-        gui.ren_target.AddActor(gui.helmet_actor)
+    if gui.master_scan_actor is not None:
+        gui.ren_target.AddActor(gui.master_scan_actor)
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
