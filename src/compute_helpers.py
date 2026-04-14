@@ -13,12 +13,19 @@ from src.utils import (
     compute_rigid_transform,
     vtk_matrix_from_numpy,
 )
-from src.file_io_helpers import save_transformed_sensors_csv, save_generated_transforms
+from src.file_io_helpers import (
+    save_transformed_sensors_csv,
+    save_generated_transforms,
+    save_marked_points_in_cache,
+)
 
 
 def compute_aux_dev_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
-    if not getattr(gui, "aux_alignment_points_from_source", None) or len(gui.aux_alignment_points_from_source) < 3:
+    if (
+        not getattr(gui, "aux_alignment_points_from_source", None)
+        or len(gui.aux_alignment_points_from_source) < 3
+    ):
         gui.update_info("Need ≥3 auxiliary device pairs.")
         return
     src = np.vstack(gui.aux_alignment_points_from_source)
@@ -28,8 +35,13 @@ def compute_aux_dev_to_scan(gui):
     gui.update_info(
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
+
     # Save generated transform
     save_generated_transforms(gui, trans_to_save="aux_dev_to_scan")
+
+    # Save marked points in cache after computing transform
+    save_marked_points_in_cache(gui, file_to_save="aux_alignment_points_from_source")
+    save_marked_points_in_cache(gui, file_to_save="aux_alignment_points_from_target")
 
 
 def compute_dev_to_scan(gui):
@@ -47,8 +59,13 @@ def compute_dev_to_scan(gui):
     gui.update_info(
         f"Computed device (helmet) to master scan transform RMS={rms:.3f} mm."
     )
+
     # Save generated transform
     save_generated_transforms(gui, trans_to_save="dev_to_scan")
+
+    # Save marked points in cache after computing transform
+    save_marked_points_in_cache(gui, file_to_save="sensor_alignment_points_from_source")
+    save_marked_points_in_cache(gui, file_to_save="sensor_alignment_points_from_target")
 
 
 def compute_head_to_scan(gui):
@@ -68,6 +85,10 @@ def compute_head_to_scan(gui):
 
     # Save generated transform
     save_generated_transforms(gui, trans_to_save="head_to_scan")
+
+    # Save marked points in cache after computing transform
+    save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_source")
+    save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_target")
 
 
 def compute_aux_to_device(gui):
