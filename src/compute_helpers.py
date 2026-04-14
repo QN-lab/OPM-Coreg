@@ -18,11 +18,11 @@ from src.file_io_helpers import save_transformed_sensors_csv, save_generated_tra
 
 def compute_aux_dev_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
-    if not getattr(gui, "aux_dev_pairs_src", None) or len(gui.aux_dev_pairs_src) < 3:
+    if not getattr(gui, "aux_alignment_points_from_source", None) or len(gui.aux_alignment_points_from_source) < 3:
         gui.update_info("Need ≥3 auxiliary device pairs.")
         return
-    src = np.vstack(gui.aux_dev_pairs_src)
-    dst = np.vstack(gui.aux_dev_pairs_dst)
+    src = np.vstack(gui.aux_alignment_points_from_source)
+    dst = np.vstack(gui.aux_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_aux_dev_to_scan = T
     gui.update_info(
@@ -35,13 +35,13 @@ def compute_aux_dev_to_scan(gui):
 def compute_dev_to_scan(gui):
     """Compute transform from device (sensor helmet) to master scan using the device pairs."""
     if (
-        not getattr(gui, "ref_point_pairs_helmet_stl", None)
-        or len(gui.ref_point_pairs_helmet_stl) < 3
+        not getattr(gui, "sensor_alignment_points_from_source", None)
+        or len(gui.sensor_alignment_points_from_source) < 3
     ):
         gui.update_info("Need ≥3 point pairs from sensor alignment step.")
         return
-    src = np.vstack(gui.ref_point_pairs_helmet_stl)
-    dst = np.vstack(gui.ref_point_pairs_scan)
+    src = np.vstack(gui.sensor_alignment_points_from_source)
+    dst = np.vstack(gui.sensor_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_dev_to_scan = T
     gui.update_info(
@@ -101,23 +101,23 @@ def compute_device_to_head(gui):
 
 
 def obtain_true_landmarks_from_marked_points(
-    helmet_landmark_positions, ref_point_pairs_helmet_stl
+    helmet_landmark_positions, sensor_alignment_points_from_source
 ):
     """Obtain a list of true landmark coordinates from points marked during sensor alignment step.
 
     Args:
         helmet_landmark_positions (list): Pre-defined true landmark coordinates
             (e.g., from CAD model or manufacturer specification), shape (n_landmarks, 3).
-        ref_point_pairs_helmet_stl (list): User-marked points on the helmet STL,
+        sensor_alignment_points_from_source (list): User-marked points on the helmet STL,
             shape (n_marked_points, 3).
 
     Returns:
         list: True landmark coordinates corresponding to each user-marked point, in the same
-            order as ref_point_pairs_helmet_stl. shape (n_marked_points, 3)
+            order as sensor_alignment_points_from_source. shape (n_marked_points, 3)
     """
     true_landmark_coords = []
 
-    for marked_point in ref_point_pairs_helmet_stl:
+    for marked_point in sensor_alignment_points_from_source:
         # Find closest landmark to marked point
         distances = [
             np.linalg.norm(marked_point - lm) for lm in helmet_landmark_positions
@@ -130,7 +130,7 @@ def obtain_true_landmarks_from_marked_points(
 
 def compute_sensors_transform(gui):
     """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
-    if len(gui.ref_point_pairs_helmet_stl) < 3:
+    if len(gui.sensor_alignment_points_from_source) < 3:
         gui.update_info("Need ≥3 point pairs from sensor alignment step.")
         return
 

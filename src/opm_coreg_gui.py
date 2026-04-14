@@ -107,8 +107,8 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_landmarks = {}
         self.aux_dev_landmark_actors_source_window = []
         self.aux_dev_expected_labels = []
-        self.aux_dev_pairs_src = []
-        self.aux_dev_pairs_dst = []
+        self.aux_alignment_points_from_source = []
+        self.aux_alignment_points_from_target = []
         self.aux_dev_pick_index = 0
         self.T_aux_dev_to_scan = None
         self.T_aux_to_device = None
@@ -138,8 +138,8 @@ class OPMCoregGUI(QWidget):
         self.helmet_landmark_text_actors_source_window = []
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
-        self.ref_point_pairs_helmet_stl = []
-        self.ref_point_pairs_scan = []
+        self.sensor_alignment_points_from_source = []
+        self.sensor_alignment_points_from_target = []
         self.T_dev_to_scan = None
         self.T_dev_to_head = None
 
@@ -436,8 +436,8 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_actor_source_window = None
         self.aux_dev_landmarks = {}
         self.aux_dev_landmark_actors_source_window = []
-        self.aux_dev_pairs_src = []
-        self.aux_dev_pairs_dst = []
+        self.aux_alignment_points_from_source = []
+        self.aux_alignment_points_from_target = []
         self.aux_dev_pick_index = 0
         self.T_aux_dev_to_scan = None
         self.T_aux_to_device = None
@@ -464,8 +464,8 @@ class OPMCoregGUI(QWidget):
             ordered = list(self.aux_dev_landmarks.keys())
 
         self.aux_dev_expected_labels = ordered
-        self.aux_dev_pairs_src = []
-        self.aux_dev_pairs_dst = []
+        self.aux_alignment_points_from_source = []
+        self.aux_alignment_points_from_target = []
         self.aux_dev_pick_index = 0
 
         self.update_info(
@@ -500,8 +500,8 @@ class OPMCoregGUI(QWidget):
             pos = np.array(picker.GetPickPosition(), float)
             lab = self.aux_dev_expected_labels[self.aux_dev_pick_index]
 
-            self.aux_dev_pairs_src.append(self.aux_dev_landmarks[lab])
-            self.aux_dev_pairs_dst.append(pos)
+            self.aux_alignment_points_from_source.append(self.aux_dev_landmarks[lab])
+            self.aux_alignment_points_from_target.append(pos)
 
             selected_color = PAIR_COLORS[self.aux_dev_pick_index % len(PAIR_COLORS)]
 
@@ -536,17 +536,17 @@ class OPMCoregGUI(QWidget):
 
     def undo_last_aux_dev_pair(self):
         """Undo the last picked aux device landmark pair, removing the marker from the target renderer and updating state."""
-        if not getattr(self, "aux_dev_pairs_src", []):
+        if not getattr(self, "aux_alignment_points_from_source", []):
             self.update_info("No aux device pairs to undo.")
             return
-        self.aux_dev_pairs_src.pop()
-        self.aux_dev_pairs_dst.pop()
+        self.aux_alignment_points_from_source.pop()
+        self.aux_alignment_points_from_target.pop()
         self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
         # redraw target window: helmet + placed aux device pair spheres + transformed aux device if present
         self.ren_target.RemoveAllViewProps()
         if self.helmet_actor is not None:
             self.ren_target.AddActor(self.helmet_actor)
-        for i, pos in enumerate(self.aux_dev_pairs_dst):
+        for i, pos in enumerate(self.aux_alignment_points_from_target):
             selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
             self.ren_target.AddActor(
                 sphere_actor(pos, color=selected_color, radius=3.5)
@@ -939,8 +939,8 @@ class OPMCoregGUI(QWidget):
         self.transformed_sensor_actors = []
         self.transformed_vector_actors = []
         # pairs
-        self.ref_point_pairs_helmet_stl = []
-        self.ref_point_pairs_scan = []
+        self.sensor_alignment_points_from_source = []
+        self.sensor_alignment_points_from_target = []
         self.pair_actors_source = []
         self.pair_actors_target = []
         self.T_dev_to_scan = None
@@ -959,8 +959,8 @@ class OPMCoregGUI(QWidget):
                 "Need helmet STL/helmet ladmark list (source window) and participant in the helmet scan (target window) loaded."
             )
             return
-        self.ref_point_pairs_helmet_stl = []
-        self.ref_point_pairs_scan = []
+        self.sensor_alignment_points_from_source = []
+        self.sensor_alignment_points_from_target = []
         self._clear_sensor_alignment_pair_markers()
         self.picking_state = {"mode": "sensor_alignment_pairs", "await": "source"}
         self.update_info(
@@ -1025,10 +1025,10 @@ class OPMCoregGUI(QWidget):
                 obj.OnLeftButtonDown()
                 return
 
-            self.ref_point_pairs_helmet_stl.append(pos_source)
-            self.ref_point_pairs_scan.append(pos_target)
+            self.sensor_alignment_points_from_source.append(pos_source)
+            self.sensor_alignment_points_from_target.append(pos_target)
 
-            idx = len(self.ref_point_pairs_helmet_stl) - 1
+            idx = len(self.sensor_alignment_points_from_source) - 1
             selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
             a_l = sphere_actor(pos_source, color=selected_color, radius=3.0)
@@ -1054,11 +1054,11 @@ class OPMCoregGUI(QWidget):
 
     def undo_last_pair_from_sensor_alignment_step(self):
         """Undo the last picked pairwise point between the helmet STL and master scan in sensor alignment step, removing the markers from both renderers and updating state."""
-        if not self.ref_point_pairs_helmet_stl:
+        if not self.sensor_alignment_points_from_source:
             self.update_info("No sensor alignment pairs to undo.")
             return
-        self.ref_point_pairs_helmet_stl.pop()
-        self.ref_point_pairs_scan.pop()
+        self.sensor_alignment_points_from_source.pop()
+        self.sensor_alignment_points_from_target.pop()
         if self.pair_actors_source:
             actor = self.pair_actors_source.pop()
             self.ren_source.RemoveActor(actor)
