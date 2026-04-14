@@ -539,6 +539,7 @@ def save_marked_points_in_cache(gui, file_to_save=None):
             continue
         if points is not None and len(points) > 0:
             np.save(cache_dir / f"{name}.npy", np.array(points))
+            gui.update_info(f"Saved {name} to cache: {cache_dir / f'{name}.npy'}")
 
 
 def load_cached_files(gui, cache_folder_path=None):
@@ -619,5 +620,3 @@ def load_all_saved_data(gui):
 
     # Load cached files (marked points)
     load_cached_files(gui, cache_folder_path=folder_path / "cache")
-
-    gui.update_info("Loaded all saved data from selected results folder.")
