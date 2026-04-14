@@ -72,7 +72,7 @@ def overlay_head_transformed(gui, T):
     # transform fiducials too and plot on target window
     rotation = T[:3, :3]
     translation = T[:3, 3]
-    for lbl, p in gui.head_fiducials.items():
+    for lbl, p in gui.marked_fiducials_on_head_scan.items():
         p_hel = rotation @ p + translation
         try:
             # if existing fid actor on target window, remove it first

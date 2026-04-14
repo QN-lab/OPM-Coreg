@@ -118,7 +118,7 @@ class OPMCoregGUI(QWidget):
         # Head alignment step
         self.head_polydata = None
         self.head_actor = None
-        self.head_fiducials = {}  # NAS,LPA,RPA
+        self.marked_fiducials_on_head_scan = {}  # NAS,LPA,RPA,Nose,Chin
         self.head_fiducial_actors = {}
         self.head_alignment_points_from_source = []
         self.head_alignment_points_from_target = []
@@ -621,13 +621,13 @@ class OPMCoregGUI(QWidget):
 
     def undo_last_fiducial_for_head_alignment(self):
         """Undo the last picked fiducial on the head scan (source window), removing the marker and updating state."""
-        if not self.head_fiducials:
+        if not self.marked_fiducials_on_head_scan:
             self.update_info("No fiducials to undo.")
             return
         # remove last inserted fiducial (order NAS,LPA,RPA)
         order = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
         for lbl in reversed(order):
-            if lbl in self.head_fiducials:
+            if lbl in self.marked_fiducials_on_head_scan:
                 # remove actor
                 actor = self.head_fiducial_actors.get(lbl)
                 if actor is not None:
@@ -635,7 +635,7 @@ class OPMCoregGUI(QWidget):
                         self.ren_source.RemoveActor(actor)
                     except Exception:
                         pass
-                del self.head_fiducials[lbl]
+                del self.marked_fiducials_on_head_scan[lbl]
                 if lbl in self.head_fiducial_actors:
                     del self.head_fiducial_actors[lbl]
                 self.vtk_source.GetRenderWindow().Render()
@@ -681,7 +681,7 @@ class OPMCoregGUI(QWidget):
             order = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
 
             for lbl in order:
-                if lbl not in self.head_fiducials:
+                if lbl not in self.marked_fiducials_on_head_scan:
                     next_lbl = lbl
                     break
             else:
@@ -689,7 +689,7 @@ class OPMCoregGUI(QWidget):
                 obj.OnLeftButtonDown()
                 return
 
-            self.head_fiducials[next_lbl] = pos
+            self.marked_fiducials_on_head_scan[next_lbl] = pos
 
             actor = sphere_actor(pos, color=FIDUCIAL_COLORS[next_lbl], radius=3.5)
 
@@ -845,7 +845,7 @@ class OPMCoregGUI(QWidget):
                 self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
-        self.head_fiducials = {}
+        self.marked_fiducials_on_head_scan = {}
         self.head_fiducial_actors = {}
         self._clear_head_alignment_pair_markers()
         self.head_alignment_points_from_source = []

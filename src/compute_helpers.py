@@ -89,6 +89,7 @@ def compute_head_to_scan(gui):
     # Save marked points in cache after computing transform
     save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_source")
     save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_target")
+    save_marked_points_in_cache(gui, file_to_save="marked_fiducials_on_head_scan")
 
 
 def compute_aux_to_device(gui):
@@ -173,7 +174,7 @@ def compute_head_to_mri_initial(gui):
     """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
     required = ["NAS", "LPA", "RPA"]
 
-    if not all(fid in gui.head_fiducials for fid in required):
+    if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
         gui.update_info("Head fiducials missing (incomplete head alignment step).")
         return
 
@@ -183,9 +184,9 @@ def compute_head_to_mri_initial(gui):
 
     src = np.array(
         [
-            gui.head_fiducials["NAS"],
-            gui.head_fiducials["LPA"],
-            gui.head_fiducials["RPA"],
+            gui.marked_fiducials_on_head_scan["NAS"],
+            gui.marked_fiducials_on_head_scan["LPA"],
+            gui.marked_fiducials_on_head_scan["RPA"],
         ]
     )
 
@@ -250,7 +251,7 @@ def run_icp_head_to_mri(gui):
         return
 
     if not all(
-        fid in gui.head_fiducials for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+        fid in gui.marked_fiducials_on_head_scan for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
     ):
         gui.update_info("Need 5 head fiducials.")
         return
@@ -258,7 +259,7 @@ def run_icp_head_to_mri(gui):
     # --------------------------------------------------
     # 1) Extract ROI in HEAD space
     # --------------------------------------------------
-    roi_head_native = extract_face_roi(gui.head_polydata, gui.head_fiducials)
+    roi_head_native = extract_face_roi(gui.head_polydata, gui.marked_fiducials_on_head_scan)
 
     if roi_head_native is None:
         gui.update_info("ROI extraction failed.")

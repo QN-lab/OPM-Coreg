@@ -532,13 +532,16 @@ def save_marked_points_in_cache(gui, file_to_save=None):
         "sensor_alignment_points_from_target": gui.sensor_alignment_points_from_target,
         "head_alignment_points_from_source": gui.head_alignment_points_from_source,
         "head_alignment_points_from_target": gui.head_alignment_points_from_target,
+        "marked_fiducials_on_head_scan": gui.marked_fiducials_on_head_scan,
     }
 
     for name, points in files_to_save.items():
         if file_to_save is not None and name != file_to_save:
             continue
+
+        # Save all points that are not None and have length > 0
         if points is not None and len(points) > 0:
-            np.save(cache_dir / f"{name}.npy", np.array(points))
+            np.save(cache_dir / f"{name}.npy", points)
             gui.update_info(f"Saved {name} to cache: {cache_dir / f'{name}.npy'}")
 
 
@@ -560,6 +563,7 @@ def load_cached_files(gui, cache_folder_path=None):
         "sensor_alignment_points_from_target": "Sensor alignment points (target)",
         "head_alignment_points_from_source": "Head alignment points (source)",
         "head_alignment_points_from_target": "Head alignment points (target)",
+        "marked_fiducials_on_head_scan": "Marked fiducials on head scan",
     }
 
     for name, description in files_to_load.items():
