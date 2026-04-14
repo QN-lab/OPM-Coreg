@@ -604,7 +604,7 @@ def load_transforms(gui, results_foler_path=None):
         # If such a file exists, load the transform and set it in the GUI
         if file_path is not None and file_path.exists():
             transform = np.load(file_path)
-            setattr(gui, name, transform)
+            setattr(gui, f"T_{name}", transform) # Set the transform in the GUI (e.g., T_dev_to_scan)
             gui.update_info(f"Loaded cached {description} from {file_path}.")
 
 
