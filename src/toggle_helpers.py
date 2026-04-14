@@ -78,7 +78,10 @@ def toggle_mri_overlay(gui, state):
         gui: The main GUI object.
         state: The state of the checkbox.
     """
-    if not hasattr(gui, "mri_actor_target_window") or gui.mri_actor_target_window is None:
+    if (
+        not hasattr(gui, "mri_actor_target_window")
+        or gui.mri_actor_target_window is None
+    ):
         return
     if state:
         gui.ren_target.AddActor(gui.mri_actor_target_window)

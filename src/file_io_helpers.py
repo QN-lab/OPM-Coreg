@@ -427,7 +427,7 @@ def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
 
 def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
     """Save the device-to-head transform in MNE compatible format, converting from mm (internal) to m (FIF) units.
-    
+
     Args:
         dev_to_head_transform_mm: 4x4 numpy array representing the device-to-head transform in mm units.
         out_base (Path): Base path (without extension) for the output FIF file.
@@ -445,7 +445,7 @@ def save_generated_transforms(gui, trans_to_save=None):
 
     This function is called after computing any transform, to ensure results are saved without requiring extra user action.
     The info box is not updated for each individual transform save, but the logfile is updated normally.
-    
+
     Args:
         gui: The GUI object containing the transforms and state.
         trans_to_save: The name of the transform to save (e.g., "dev_to_scan"). If None, all available transforms are saved.
@@ -494,7 +494,8 @@ def save_generated_transforms(gui, trans_to_save=None):
 
             if transform_name == "dev_to_head":
                 save_dev_to_head_for_mne(
-                    transform, participant_result_dir / f"{master_scan_basename}_{transform_name}"
+                    transform,
+                    participant_result_dir / f"{master_scan_basename}_{transform_name}",
                 )
                 gui.update_info(
                     "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling)."
