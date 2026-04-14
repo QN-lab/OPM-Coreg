@@ -500,3 +500,124 @@ def save_generated_transforms(gui, trans_to_save=None):
                 gui.update_info(
                     "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling)."
                 )
+
+
+def save_marked_points_in_cache(gui, file_to_save=None):
+    """Save marked points in all steps as cached files.
+
+    Cache directory is specific to each participant, and is located at root_dir/results/participant_name/cache/.
+    
+    Args:
+        gui: The GUI object containing the points and state.
+        file_to_save: The name of the specific points to save (e.g., "sensor_alignment_points_from_source"). If None, all available points are saved.
+    """
+    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    master_scan_basename = os.path.splitext(
+        gui.helmet_filename or "master_scan_missing"
+    )[0]
+
+    # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    participant_result_dir = Path(gui.results_dir) / master_scan_basename
+    participant_result_dir.mkdir(exist_ok=True)
+
+    # Create a cache subdirectory for intermediate files
+    cache_dir = participant_result_dir / "cache"
+    cache_dir.mkdir(exist_ok=True)
+
+    # Create dictionary of files to save
+    files_to_save = {
+        "aux_alignment_points_from_source": gui.aux_alignment_points_from_source,
+        "aux_alignment_points_from_target": gui.aux_alignment_points_from_target,
+        "sensor_alignment_points_from_source": gui.sensor_alignment_points_from_source,
+        "sensor_alignment_points_from_target": gui.sensor_alignment_points_from_target,
+        "head_alignment_points_from_source": gui.head_alignment_points_from_source,
+        "head_alignment_points_from_target": gui.head_alignment_points_from_target,
+    }
+
+    for name, points in files_to_save.items():
+        if file_to_save is not None and name != file_to_save:
+            continue
+        if points is not None and len(points) > 0:
+            np.save(cache_dir / f"{name}.npy", np.array(points))
+
+
+def load_cached_files(gui, cache_folder_path=None):
+    """Load marked points from cached files if they exist, and update the GUI state.
+    
+    Args:
+        gui: The GUI object to update with loaded points.
+        cache_folder_path: The path to the cache folder where intermediate files are saved (root_dir/results/participant_name/cache/).
+    """
+    if cache_folder_path is None:
+        gui.update_info("No cache folder path provided, cannot load cached files.")
+        return
+    
+    files_to_load = {
+        "aux_alignment_points_from_source": "Aux device alignment points (source)",
+        "aux_alignment_points_from_target": "Aux device alignment points (target)",
+        "sensor_alignment_points_from_source": "Sensor alignment points (source)",
+        "sensor_alignment_points_from_target": "Sensor alignment points (target)",
+        "head_alignment_points_from_source": "Head alignment points (source)",
+        "head_alignment_points_from_target": "Head alignment points (target)",
+    }
+
+    for name, description in files_to_load.items():
+        file_path = cache_folder_path / f"{name}.npy"
+        if file_path.exists():
+            points = np.load(file_path).tolist()
+            setattr(gui, name, points)
+            gui.update_info(f"Loaded cached {description} from {file_path}.")
+
+
+def load_transforms(gui, results_foler_path=None):
+    """Load computed transforms from cache if they exist, and update the GUI state.
+    
+    Args:
+        gui: The GUI object to update with loaded transforms.
+        results_foler_path: The path to the participant's results folder where transforms are saved.
+    """
+    if results_foler_path is None:
+        gui.update_info("No results folder path provided, cannot load transforms.")
+        return
+
+    transforms_to_load = {
+        "aux_dev_to_scan": "Aux device to scan transform",
+        "dev_to_scan": "Device to scan transform",
+        "head_to_scan": "Head to scan transform",
+        "head_to_mri": "Head to MRI transform",
+        "aux_to_device": "Aux device to device transform",
+        "dev_to_head": "Device to head transform",
+    }
+
+    for name, description in transforms_to_load.items():
+        # Find a file in the results folder that ends with "{name}_mm.npy"
+        file_path = None
+        for f in results_foler_path.glob(f"*{name}_mm.npy"):
+            file_path = f
+            break
+
+        # If such a file exists, load the transform and set it in the GUI
+        if file_path is not None and file_path.exists():
+            transform = np.load(file_path)
+            setattr(gui, name, transform)
+            gui.update_info(f"Loaded cached {description} from {file_path}.")
+
+
+def load_all_saved_data(gui):
+    """Load all saved data (marked points + computed transforms) from the results folder specified by the user."""
+    # Ask user to select the participant's results folder (root_dir/results/participant_name/)
+    folder_path = QFileDialog.getExistingDirectory(
+        gui, "Select participant's results folder", str(gui.results_dir)
+    )
+    if not folder_path:
+        gui.update_info("No folder selected, cancelled loading saved data.")
+        return
+    folder_path = Path(folder_path)
+
+    # Load computed transforms
+    load_transforms(gui, results_foler_path=folder_path)
+
+    # Load cached files (marked points)
+    load_cached_files(gui, cache_folder_path=folder_path / "cache")
+
+    gui.update_info("Loaded all saved data from selected results folder.")

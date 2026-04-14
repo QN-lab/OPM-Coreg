@@ -3,8 +3,8 @@
 # TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
 
-from datetime import datetime
 import logging
+from datetime import datetime
 
 import numpy as np
 import vtk
@@ -35,7 +35,7 @@ from src.display_helpers import (
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
-    save_generated_transforms,
+    load_all_saved_data,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
@@ -45,6 +45,7 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
+    save_generated_transforms,
 )
 from src.observer_helpers import (
     add_source_observer,
@@ -282,6 +283,11 @@ class OPMCoregGUI(QWidget):
         self.btn_save_all = QPushButton("Save All Available Transforms")
         self.btn_save_all.clicked.connect(lambda: save_generated_transforms(self))
         info_v.addWidget(self.btn_save_all)
+
+        self.btn_load_all = QPushButton("Load All Available Data")
+        self.btn_load_all.clicked.connect(lambda: load_all_saved_data(self))
+        info_v.addWidget(self.btn_load_all)
+
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
 
