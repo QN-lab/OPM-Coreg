@@ -13,12 +13,12 @@ from src.utils import (
 
 
 def merge_aux_dev_into_helmet(gui):
-    """Merge the auxiliary device STL into the helmet STL on the target window using the aux_dev_to_scan transform."""
-    if gui.aux_dev_polydata is None or gui.aux_dev_to_scan is None:
-        gui._update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
+    """Merge the auxiliary device STL into the helmet STL on the target window using the T_aux_dev_to_scan transform."""
+    if gui.aux_dev_polydata is None or gui.T_aux_dev_to_scan is None:
+        gui.update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
         return
     tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(gui.aux_dev_to_scan))
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_aux_dev_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
     tfilter.SetInputData(gui.aux_dev_polydata)
@@ -34,7 +34,7 @@ def merge_aux_dev_into_helmet(gui):
     gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
-    gui._update_info("Previewed auxiliary device on helmet.")
+    gui.update_info("Previewed auxiliary device on helmet.")
 
 
 def overlay_head_transformed(gui, T):
@@ -232,15 +232,15 @@ def preview_head_on_mri(gui, T):
 def preview_mri_on_scan(gui):
     """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the target window view."""
     if gui.T_head_to_mri is None:
-        gui._update_info("Compute Head→MRI (MRI ALignment step) first.")
+        gui.update_info("Compute Head→MRI (MRI ALignment step) first.")
         return
 
     if gui.T_head_to_scan is None:
-        gui._update_info("Need Head→Scan (Head Alignment step) first.")
+        gui.update_info("Need Head→Scan (Head Alignment step) first.")
         return
 
     if gui.mri_polydata is None:
-        gui._update_info("Load MRI mesh first.")
+        gui.update_info("Load MRI mesh first.")
         return
 
     # MRI is in MRI frame
@@ -280,4 +280,4 @@ def preview_mri_on_scan(gui):
     gui.ren_target.AddActor(gui.mri_actor_target_window)
     gui.vtk_target.GetRenderWindow().Render()
 
-    gui._update_info("Previewed MRI on master scan (target window).")
+    gui.update_info("Previewed MRI on master scan (target window).")

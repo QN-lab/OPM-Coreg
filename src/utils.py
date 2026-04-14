@@ -210,7 +210,7 @@ def save_transform(T, out_base):
 
     Args:
         T: 4x4 numpy array representing the transformation matrix.
-        out_base: Base path (without extension) for the output files.
+        out_base (Path): Base path (without extension) for the output files.
     """
-    np.save(out_base + ".npy", T)
-    np.savetxt(out_base + ".txt", T, fmt="%.8f")
+    np.save(str(out_base) + ".npy", T)
+    np.savetxt(str(out_base) + ".txt", T, fmt="%.8f")

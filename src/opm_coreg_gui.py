@@ -1,20 +1,21 @@
 # TODO : remove magic numbers, compile constants.
-# TODO : dont do any conversions for external reasons e.g. transform scaling to mm for MNE. Set one internal unit (mm).
 # TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
 # TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
 
+from datetime import datetime
+import logging
 
 import numpy as np
 import vtk
 from PyQt5.QtWidgets import (
     QCheckBox,
-    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -34,7 +35,7 @@ from src.display_helpers import (
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
-    auto_save_transform,
+    save_generated_transforms,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
@@ -44,7 +45,6 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
-    save_head_to_mri,
 )
 from src.observer_helpers import (
     add_source_observer,
@@ -53,6 +53,7 @@ from src.observer_helpers import (
     clear_target_renderer_keep_scan,
     remove_all_observers,
 )
+from src.project_paths import ProjectPaths
 from src.toggle_helpers import (
     toggle_aux_dev_overlay,
     toggle_head_overlay,
@@ -69,7 +70,7 @@ class OPMCoregGUI(QWidget):
     def __init__(self):
         """Initialize the main GUI window, VTK renderers, and shared state variables for the multi-step registration process."""
         super().__init__()
-        self.setWindowTitle("TMS-OPM Multi-step Registration (fixed)")
+        self.setWindowTitle("OPM Coregistration GUI")
         self.resize(1800, 1000)
         self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
@@ -109,7 +110,8 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pairs_src = []
         self.aux_dev_pairs_dst = []
         self.aux_dev_pick_index = 0
-        self.aux_dev_to_scan = None
+        self.T_aux_dev_to_scan = None
+        self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
 
         # Head alignment step
@@ -156,6 +158,15 @@ class OPMCoregGUI(QWidget):
         self.T_head_to_mri = None
         self.mri_actor_target_window = None
 
+        # Obtain required project paths
+        project_paths = ProjectPaths()
+        self.results_dir = project_paths.get_results_dir()
+        self.logs_dir = project_paths.get_logs_dir()
+
+        # Set up logging for this GUI instance
+        self.log_filepath = None
+        self.logger = self._setup_logger()
+
         # Build UI
         self._build_ui()
         # initialize
@@ -171,16 +182,39 @@ class OPMCoregGUI(QWidget):
         Bottom pane: controls that change based on step, plus info and toggles for overlays
         """
         main_layout = QVBoxLayout(self)
-        # two render windows
+
+        # two render windows with titles
         view_layout = QHBoxLayout()
-        view_layout.addWidget(self.vtk_source, 1)
-        view_layout.addWidget(self.vtk_target, 1)
+
+        # Source window with title
+        source_container = QVBoxLayout()
+        source_title = QLabel("Source Window")
+        source_title.setStyleSheet(
+            "font-weight: bold; background-color: #333; padding: 4px;"
+        )
+        source_container.addWidget(source_title)
+        source_container.addWidget(self.vtk_source, 1)
+
+        # Target window with title
+        target_container = QVBoxLayout()
+        target_title = QLabel("Target Window")
+        target_title.setStyleSheet(
+            "font-weight: bold; background-color: #333; padding: 4px;"
+        )
+        target_container.addWidget(target_title)
+        target_container.addWidget(self.vtk_target, 1)
+
+        view_layout.addLayout(source_container, 1)
+        view_layout.addLayout(target_container, 1)
         main_layout.addLayout(view_layout, stretch=8)
 
         # bottom controls
         ctrl_layout = QHBoxLayout()
         # steps list
         steps_box = QGroupBox("Steps")
+        steps_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         steps_v = QVBoxLayout()
         for button_label, mode in [
             ("Step 1: Aux device to scan", "align_aux"),
@@ -198,12 +232,18 @@ class OPMCoregGUI(QWidget):
 
         # dynamic step controls
         self.step_ctrl_box = QGroupBox("Step Controls")
+        self.step_ctrl_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         self.step_ctrl_layout = QGridLayout()
         self.step_ctrl_box.setLayout(self.step_ctrl_layout)
         ctrl_layout.addWidget(self.step_ctrl_box, stretch=1)
 
         # info box
-        info_box = QGroupBox("Info / Save")
+        info_box = QGroupBox("View / Save")
+        info_box.setStyleSheet(
+            "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
+        )
         info_v = QVBoxLayout()
         self.info_label = QLabel("Select layers to see:")
         self.info_label.setWordWrap(True)
@@ -239,28 +279,32 @@ class OPMCoregGUI(QWidget):
         )
         info_v.addWidget(self.cb_show_mri)
 
-        self.btn_save_all = QPushButton("Auto-save available transforms")
-        self.btn_save_all.clicked.connect(lambda: auto_save_transform(self))
+        self.btn_save_all = QPushButton("Save All Available Transforms")
+        self.btn_save_all.clicked.connect(lambda: save_generated_transforms(self))
         info_v.addWidget(self.btn_save_all)
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
 
-        main_layout.addLayout(ctrl_layout, stretch=2)
+        main_layout.addLayout(ctrl_layout, stretch=1)
 
-        bottom = QFrame()
-        bottom.setStyleSheet("background-color:#222;")
-        bottom_layout = QVBoxLayout(bottom)
-        self.bottom_instr = QLabel(
-            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
-        )
-        self.bottom_instr.setWordWrap(True)
-        bottom_layout.addWidget(self.bottom_instr)
-        main_layout.addWidget(bottom, stretch=1)
+        # Terminal output window (no title)
+        terminal_container = QVBoxLayout()
+        self.terminal_output = QTextEdit()
+        self.terminal_output.setReadOnly(True)
+        self.terminal_output.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                font-family: 'Courier New', monospace;
+                font-size: 11px;
+            }
+        """)
+        terminal_container.addWidget(self.terminal_output)
+        main_layout.addLayout(terminal_container, stretch=1)
 
-    def _update_info(self, txt):
-        """Update the info label at the bottom with new text."""
-        print(txt)
-        self.info_label.setText(txt)
+        # Log GUI start message
+        self.update_info("OPM Coregistration GUI started. Please select a step to begin.")
+        self.update_info(f"Log file for this session placed at: {self.log_filepath}")
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
@@ -291,19 +335,29 @@ class OPMCoregGUI(QWidget):
 
         elif selected_mode == "align_head":
             self._populate_head_alignment_step_controls()
-            add_source_observer(self, "LeftButtonPressEvent", self._source_click_head_alignment)
-            add_target_observer(self, "LeftButtonPressEvent", self._target_click_head_alignment)
+            add_source_observer(
+                self, "LeftButtonPressEvent", self._source_click_head_alignment
+            )
+            add_target_observer(
+                self, "LeftButtonPressEvent", self._target_click_head_alignment
+            )
 
         elif selected_mode == "align_sensors":
             self._populate_sensors_alignment_step_controls()
-            add_source_observer(self, "LeftButtonPressEvent", self._source_click_sensors_alignment)
-            add_target_observer(self, "LeftButtonPressEvent", self._target_click_sensors_alignment)
+            add_source_observer(
+                self, "LeftButtonPressEvent", self._source_click_sensors_alignment
+            )
+            add_target_observer(
+                self, "LeftButtonPressEvent", self._target_click_sensors_alignment
+            )
 
         elif selected_mode == "align_mri":
             self._populate_mri_alignment_step_controls()
-            add_source_observer(self, "LeftButtonPressEvent", self._source_click_mri_alignment)
+            add_source_observer(
+                self, "LeftButtonPressEvent", self._source_click_mri_alignment
+            )
 
-        self._update_info(f"Mode: {selected_mode}")
+        self.update_info(f"Mode: {selected_mode}")
 
     def _clear_step_controls(self):
         """Remove all widgets from the step controls layout."""
@@ -321,35 +375,35 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load 3D master scan (target window)",
-                "callback": lambda: load_master_scan(self)
+                "callback": lambda: load_master_scan(self),
             },
             {
                 "label": "Load aux device STL (source window)",
-                "callback": lambda: load_aux_dev_stl(self)
+                "callback": lambda: load_aux_dev_stl(self),
             },
             {
                 "label": "Load aux device landmarks CSV",
-                "callback": lambda: load_aux_dev_landmarks(self)
+                "callback": lambda: load_aux_dev_landmarks(self),
             },
             {
                 "label": "Start picking aux device landmarks in master scan",
-                "callback": self.start_aux_dev_landmark_pairs
+                "callback": self.start_aux_dev_landmark_pairs,
             },
             {
                 "label": "Undo last aux device pair",
-                "callback": self.undo_last_aux_dev_pair
+                "callback": self.undo_last_aux_dev_pair,
             },
             {
                 "label": "Compute aux device to master scan transform",
-                "callback": lambda: compute_aux_dev_to_scan(self)
+                "callback": lambda: compute_aux_dev_to_scan(self),
             },
             {
                 "label": "Preview aux device on master scan",
-                "callback": lambda: merge_aux_dev_into_helmet(self)
+                "callback": lambda: merge_aux_dev_into_helmet(self),
             },
             {
                 "label": "Restart Aux Alignment step",
-                "callback": self.restart_aux_alignment
+                "callback": self.restart_aux_alignment,
             },
         ]
 
@@ -383,16 +437,17 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pairs_src = []
         self.aux_dev_pairs_dst = []
         self.aux_dev_pick_index = 0
-        self.aux_dev_to_scan = None
+        self.T_aux_dev_to_scan = None
+        self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info("Aux Alignment restarted.")
+        self.update_info("Aux Alignment restarted.")
 
     def start_aux_dev_landmark_pairs(self):
         """Start the process of picking aux device landmark pairs on the master scan (target window) based on loaded aux device landmarks CSV."""
         if not self.aux_dev_landmarks or self.helmet_polydata is None:
-            self._update_info(
+            self.update_info(
                 "Need aux device landmarks and master scan (participant in helmet)."
             )
             return
@@ -401,7 +456,7 @@ class OPMCoregGUI(QWidget):
             lab
             for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
             if lab in self.aux_dev_landmarks
-        ]
+        ]  # TODO : make this more robust to different landmark naming conventions, or at least provide clear instructions on required format.
 
         if not ordered:
             ordered = list(self.aux_dev_landmarks.keys())
@@ -411,9 +466,12 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_pairs_dst = []
         self.aux_dev_pick_index = 0
 
-        self._update_info(
+        self.update_info(
             "Pick aux device landmarks in the target window in order: "
             + ", ".join(self.aux_dev_expected_labels)
+        )
+        self.update_info(
+            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
         )
 
         def handler(obj, event):
@@ -433,7 +491,7 @@ class OPMCoregGUI(QWidget):
 
             pick_success = picker.Pick(x, y, 0, self.ren_target)
             if not pick_success:
-                self._update_info("No pick on target window.")
+                self.update_info("No pick on target window.")
                 obj.OnLeftButtonDown()
                 return
 
@@ -445,7 +503,9 @@ class OPMCoregGUI(QWidget):
 
             selected_color = PAIR_COLORS[self.aux_dev_pick_index % len(PAIR_COLORS)]
 
-            self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+            self.ren_target.AddActor(
+                sphere_actor(pos, color=selected_color, radius=3.5)
+            )
 
             self.vtk_target.GetRenderWindow().Render()
 
@@ -457,9 +517,11 @@ class OPMCoregGUI(QWidget):
                 except Exception:
                     pass
 
-                self._update_info("All aux device pairs picked. Click 'Compute aux→helmet'.")
+                self.update_info(
+                    "All aux device pairs picked. Click 'Compute aux→helmet'."
+                )
             else:
-                self._update_info(
+                self.update_info(
                     f"Picked {lab}. Next: "
                     f"{self.aux_dev_expected_labels[self.aux_dev_pick_index]}"
                 )
@@ -473,7 +535,7 @@ class OPMCoregGUI(QWidget):
     def undo_last_aux_dev_pair(self):
         """Undo the last picked aux device landmark pair, removing the marker from the target renderer and updating state."""
         if not getattr(self, "aux_dev_pairs_src", []):
-            self._update_info("No aux device pairs to undo.")
+            self.update_info("No aux device pairs to undo.")
             return
         self.aux_dev_pairs_src.pop()
         self.aux_dev_pairs_dst.pop()
@@ -484,11 +546,13 @@ class OPMCoregGUI(QWidget):
             self.ren_target.AddActor(self.helmet_actor)
         for i, pos in enumerate(self.aux_dev_pairs_dst):
             selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
-            self.ren_target.AddActor(sphere_actor(pos, color=selected_color, radius=3.5))
+            self.ren_target.AddActor(
+                sphere_actor(pos, color=selected_color, radius=3.5)
+            )
         if self.aux_dev_actor_transformed is not None:
             self.ren_target.AddActor(self.aux_dev_actor_transformed)
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info("Undid last aux device pair.")
+        self.update_info("Undid last aux device pair.")
 
     # ---------------------------------------------------------------
     # ----------------- head alignment step (Outside -> Helmet) -----------------
@@ -502,35 +566,35 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load OUTSIDE head (source window)",
-                "callback": lambda: load_head_scan(self)
+                "callback": lambda: load_head_scan(self),
             },
             {
                 "label": "Load HELMET scan (target window)",
-                "callback": lambda: load_master_scan(self)
+                "callback": lambda: load_master_scan(self),
             },
             {
                 "label": "Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)",
-                "callback": self.start_fiducial_mode_for_head_alignment
+                "callback": self.start_fiducial_mode_for_head_alignment,
             },
             {
                 "label": "Undo last fiducial",
-                "callback": self.undo_last_fiducial_for_head_alignment
+                "callback": self.undo_last_fiducial_for_head_alignment,
             },
             {
                 "label": "Start pairwise mode (LEFT->RIGHT)",
-                "callback": self.start_pairs_for_head_alignment
+                "callback": self.start_pairs_for_head_alignment,
             },
             {
                 "label": "Undo last pair",
-                "callback": self.undo_last_pair_for_head_alignment
+                "callback": self.undo_last_pair_for_head_alignment,
             },
             {
                 "label": "Compute outside->helmet",
-                "callback": lambda: compute_head_to_scan(self)
+                "callback": lambda: compute_head_to_scan(self),
             },
             {
                 "label": "Restart Head Alignment",
-                "callback": self.restart_head_alignment
+                "callback": self.restart_head_alignment,
             },
         ]
 
@@ -543,14 +607,14 @@ class OPMCoregGUI(QWidget):
     def start_fiducial_mode_for_head_alignment(self):
         """Enable picking fiducials on the head scan (source window) in the order NAS, LPA, RPA, Nose, Chin."""
         self.picking_state = {"mode": "head_alignment_fiducials", "next": 0}
-        self._update_info(
+        self.update_info(
             "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (source window) (outside scan)."
         )
 
     def undo_last_fiducial_for_head_alignment(self):
         """Undo the last picked fiducial on the head scan (source window), removing the marker and updating state."""
         if not self.head_fiducials:
-            self._update_info("No fiducials to undo.")
+            self.update_info("No fiducials to undo.")
             return
         # remove last inserted fiducial (order NAS,LPA,RPA)
         order = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
@@ -567,19 +631,21 @@ class OPMCoregGUI(QWidget):
                 if lbl in self.head_fiducial_actors:
                     del self.head_fiducial_actors[lbl]
                 self.vtk_source.GetRenderWindow().Render()
-                self._update_info(f"Removed fiducial {lbl}.")
+                self.update_info(f"Removed fiducial {lbl}.")
                 return
 
     def start_pairs_for_head_alignment(self):
         """Enable picking pairwise points between the head scan (source window) and master scan (target window) for head alignment step."""
         if self.head_polydata is None or self.helmet_polydata is None:
-            self._update_info("Load head scan (source window) and master scan (target window) first.")
+            self.update_info(
+                "Load head scan (source window) and master scan (target window) first."
+            )
             return
         self.head_alignment_points_from_source = []
         self.head_alignment_points_from_target = []
         self._clear_head_alignment_pair_markers()
         self.picking_state = {"mode": "head_alignment_pairs", "await": "source"}
-        self._update_info(
+        self.update_info(
             "Pair mode: SHIFT+click source window (head scan) then SHIFT+click target window (master scan)."
         )
 
@@ -598,7 +664,7 @@ class OPMCoregGUI(QWidget):
             pick_success = picker.Pick(x, y, 0, self.ren_source)
 
             if not pick_success:
-                self._update_info("No pick on source window (fiducial).")
+                self.update_info("No pick on source window (fiducial).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -611,7 +677,7 @@ class OPMCoregGUI(QWidget):
                     next_lbl = lbl
                     break
             else:
-                self._update_info("All fiducials already set.")
+                self.update_info("All fiducials already set.")
                 obj.OnLeftButtonDown()
                 return
 
@@ -623,7 +689,7 @@ class OPMCoregGUI(QWidget):
             self.head_fiducial_actors[next_lbl] = actor
             self.vtk_source.GetRenderWindow().Render()
 
-            self._update_info(f"Set fiducial {next_lbl} at {np.round(pos, 2)}")
+            self.update_info(f"Set fiducial {next_lbl} at {np.round(pos, 2)}")
 
             obj.OnLeftButtonDown()
             return
@@ -635,7 +701,7 @@ class OPMCoregGUI(QWidget):
             pick_success = picker.Pick(x, y, 0, self.ren_source)
 
             if not pick_success:
-                self._update_info("No pick on source window (pair).")
+                self.update_info("No pick on source window (pair).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -645,7 +711,7 @@ class OPMCoregGUI(QWidget):
             ps["await"] = "target"
             self.picking_state = ps
 
-            self._update_info(
+            self.update_info(
                 "Picked source window pair point; now pick matching point on target window."
             )
 
@@ -668,7 +734,7 @@ class OPMCoregGUI(QWidget):
             pick_success = picker.Pick(x, y, 0, self.ren_target)
 
             if not pick_success:
-                self._update_info("No pick on target window (pair).")
+                self.update_info("No pick on target window (pair).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -676,7 +742,7 @@ class OPMCoregGUI(QWidget):
             pos_source = ps.get("source_pt")
 
             if pos_source is None:
-                self._update_info("No source window point stored.")
+                self.update_info("No source window point stored.")
                 obj.OnLeftButtonDown()
                 return
 
@@ -700,7 +766,7 @@ class OPMCoregGUI(QWidget):
 
             self.picking_state = {"mode": "head_alignment_pairs", "await": "source"}
 
-            self._update_info(f"Added head alignment pair #{idx + 1}.")
+            self.update_info(f"Added head alignment pair #{idx + 1}.")
 
             obj.OnLeftButtonDown()
             return
@@ -710,7 +776,7 @@ class OPMCoregGUI(QWidget):
     def undo_last_pair_for_head_alignment(self):
         """Undo the last picked pairwise point between the head scan and master scan in head alignment step, removing the markers from both renderers and updating state."""
         if not self.head_alignment_points_from_source:
-            self._update_info("No head alignment pairs to undo.")
+            self.update_info("No head alignment pairs to undo.")
             return
         self.head_alignment_points_from_source.pop()
         self.head_alignment_points_from_target.pop()
@@ -722,7 +788,7 @@ class OPMCoregGUI(QWidget):
             self.ren_target.RemoveActor(actor)
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info(
+        self.update_info(
             f"Undid last head alignment pair. {len(self.head_alignment_points_from_source)} remain."
         )
 
@@ -779,7 +845,7 @@ class OPMCoregGUI(QWidget):
         self.T_head_to_scan = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info("Restarted Head Alignment (fiducials & pairs cleared).")
+        self.update_info("Restarted Head Alignment (fiducials & pairs cleared).")
 
     # -------------------------------------------------------------------
     # ------------------ sensor alignment step (Sensors & STL -> scan) -----------------
@@ -787,40 +853,40 @@ class OPMCoregGUI(QWidget):
     def _populate_sensors_alignment_step_controls(self):
         """Set up the controls for sensor alignment step: helmet STL and sensor positions to master scan registration using pairwise points."""
         self._clear_step_controls()
-        
+
         # Define data structure for buttons required in the current step
         buttons = [
             {
                 "label": "Load helmet STL (source window)",
-                "callback": lambda: load_helmet_cad(self)
+                "callback": lambda: load_helmet_cad(self),
             },
             {
                 "label": "Load sensor locations CSV (plot on source window)",
-                "callback": lambda: load_sensor_csv(self)
+                "callback": lambda: load_sensor_csv(self),
             },
             {
                 "label": "Load helmet landmarks CSV (plot on source window) (Optional)",
-                "callback": lambda: load_helmet_landmark_csv(self)
+                "callback": lambda: load_helmet_landmark_csv(self),
             },
             {
                 "label": "Load master scan (target window)",
-                "callback": lambda: load_master_scan(self)
+                "callback": lambda: load_master_scan(self),
             },
             {
                 "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
-                "callback": self.start_pairs_for_sensor_alignment
+                "callback": self.start_pairs_for_sensor_alignment,
             },
             {
                 "label": "Undo last pair",
-                "callback": self.undo_last_pair_from_sensor_alignment_step
+                "callback": self.undo_last_pair_from_sensor_alignment_step,
             },
             {
                 "label": "Compute transform & save sensors",
-                "callback": lambda: compute_sensors_transform(self)
+                "callback": lambda: compute_sensors_transform(self),
             },
             {
                 "label": "Restart Sensor Alignment",
-                "callback": self.restart_sensors_alignment
+                "callback": self.restart_sensors_alignment,
             },
         ]
 
@@ -878,14 +944,16 @@ class OPMCoregGUI(QWidget):
         self.T_dev_to_scan = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        self._update_info("Restarted Sensor Alignment.")
+        self.update_info("Restarted Sensor Alignment.")
 
     def start_pairs_for_sensor_alignment(self):
         """Enable picking pairwise points between the helmet STL/helmet landmark list (source window) and master scan (target window) for sensor alignment.
 
         Requires that both the helmet STL (or helmet landmark CSV) and master scan are loaded first."""
-        if self.helmet_polydata is None or (self.helmet_stl_raw is None and self.helmet_landmark_positions is None):
-            self._update_info(
+        if self.helmet_polydata is None or (
+            self.helmet_stl_raw is None and self.helmet_landmark_positions is None
+        ):
+            self.update_info(
                 "Need helmet STL/helmet ladmark list (source window) and participant in the helmet scan (target window) loaded."
             )
             return
@@ -893,7 +961,7 @@ class OPMCoregGUI(QWidget):
         self.ref_point_pairs_scan = []
         self._clear_sensor_alignment_pair_markers()
         self.picking_state = {"mode": "sensor_alignment_pairs", "await": "source"}
-        self._update_info(
+        self.update_info(
             "sensor alignment step: SHIFT+click helmet STL on source window then matching point on target window (scan)."
         )
 
@@ -911,7 +979,7 @@ class OPMCoregGUI(QWidget):
 
             pick_success = picker.Pick(x, y, 0, self.ren_source)
             if not pick_success:
-                self._update_info("No pick on source window (STL).")
+                self.update_info("No pick on source window (STL).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -920,7 +988,7 @@ class OPMCoregGUI(QWidget):
             self.picking_state["source_pt"] = pos
             self.picking_state["await"] = "target"
 
-            self._update_info(
+            self.update_info(
                 "Selected point on the helmet; now SHIFT+click matching point on target window."
             )
 
@@ -943,7 +1011,7 @@ class OPMCoregGUI(QWidget):
 
             pick_success = picker.Pick(x, y, 0, self.ren_target)
             if not pick_success:
-                self._update_info("No pick on target window (scan).")
+                self.update_info("No pick on target window (scan).")
                 obj.OnLeftButtonDown()
                 return
 
@@ -951,7 +1019,7 @@ class OPMCoregGUI(QWidget):
             pos_source = ps.get("source_pt")
 
             if pos_source is None:
-                self._update_info("No source window point stored.")
+                self.update_info("No source window point stored.")
                 obj.OnLeftButtonDown()
                 return
 
@@ -975,7 +1043,7 @@ class OPMCoregGUI(QWidget):
 
             self.picking_state = {"mode": "sensor_alignment_pairs", "await": "source"}
 
-            self._update_info(f"Added sensor alignment pair #{idx + 1}.")
+            self.update_info(f"Added sensor alignment pair #{idx + 1}.")
 
             obj.OnLeftButtonDown()
             return
@@ -985,7 +1053,7 @@ class OPMCoregGUI(QWidget):
     def undo_last_pair_from_sensor_alignment_step(self):
         """Undo the last picked pairwise point between the helmet STL and master scan in sensor alignment step, removing the markers from both renderers and updating state."""
         if not self.ref_point_pairs_helmet_stl:
-            self._update_info("No sensor alignment pairs to undo.")
+            self.update_info("No sensor alignment pairs to undo.")
             return
         self.ref_point_pairs_helmet_stl.pop()
         self.ref_point_pairs_scan.pop()
@@ -1000,7 +1068,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_target.GetRenderWindow().Render()
         if self.T_dev_to_scan is not None:
             overlay_helmet_sensors_transformed(self, self.T_dev_to_scan)
-        self._update_info("Undid last sensor alignment pair.")
+        self.update_info("Undid last sensor alignment pair.")
 
     def _clear_sensor_alignment_pair_markers(self):
         """Remove all pairwise point markers from both renderers in sensor alignment step."""
@@ -1035,27 +1103,23 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load MRI mesh (source window)",
-                "callback": lambda: load_mri_mesh(self)
+                "callback": lambda: load_mri_mesh(self),
             },
             {
                 "label": "Load MRI fiducials (.fif)",
-                "callback": lambda: load_mri_fiducials(self)
+                "callback": lambda: load_mri_fiducials(self),
             },
             {
                 "label": "Compute initial Head→MRI (base on head alignment step fiducials)",
-                "callback": lambda: compute_head_to_mri_initial(self)
+                "callback": lambda: compute_head_to_mri_initial(self),
             },
             {
                 "label": "Run ICP refinement",
-                "callback": lambda: run_icp_head_to_mri(self)
+                "callback": lambda: run_icp_head_to_mri(self),
             },
             {
                 "label": "Preview MRI on master scan (target window)",
-                "callback": lambda: preview_mri_on_scan(self)
-            },
-            {
-                "label": "Save Head→MRI",
-                "callback": lambda: save_head_to_mri(self)
+                "callback": lambda: preview_mri_on_scan(self),
             },
         ]
 
@@ -1082,7 +1146,7 @@ class OPMCoregGUI(QWidget):
 
         pick_success = picker.Pick(x, y, 0, self.ren_source)
         if not pick_success:
-            self._update_info("No pick on source window (MRI).")
+            self.update_info("No pick on source window (MRI).")
             obj.OnLeftButtonDown()  # allow normal interaction
             return
 
@@ -1099,10 +1163,71 @@ class OPMCoregGUI(QWidget):
 
                 self.vtk_source.GetRenderWindow().Render()
 
-                self._update_info(f"Picked MRI fiducial {lbl} at {np.round(pos, 2)}")
+                self.update_info(f"Picked MRI fiducial {lbl} at {np.round(pos, 2)}")
 
                 obj.OnLeftButtonDown()  # allow camera interaction
                 return
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
+
+    # ---- loggging and info updates ----
+    def _setup_logger(self):
+        """Create instance logger with timestamped log file."""
+        # Create unique log filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
+            :-3
+        ]  # YYYYMMDD_HHMMSS_milliseconds
+        log_filename = f"opm_gui_log_{timestamp}.txt"
+        log_filepath = self.logs_dir / log_filename
+        self.log_filepath = log_filepath
+
+        # Create logger for this instance
+        logger = logging.getLogger(f"{__name__}.{id(self)}")
+        logger.setLevel(logging.INFO)
+
+        # Remove any existing handlers to avoid duplicates
+        if logger.handlers:
+            logger.handlers.clear()
+
+        # File handler for this specific log file
+        file_handler = logging.FileHandler(log_filepath, mode="w", encoding="utf-8")
+        file_handler.setLevel(logging.INFO)
+
+        # Create formatter
+        formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        file_handler.setFormatter(formatter)
+
+        # Add handlers
+        logger.addHandler(file_handler)
+
+        # Log initial info
+        logger.info(
+            f"Log file created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+        return logger
+
+    def _log_to_terminal(self, txt):
+        """Add a message to the terminal output window."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.terminal_output.append(f"[{timestamp}] {txt}")
+
+        # Auto-scroll to bottom
+        scrollbar = self.terminal_output.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+    def update_info(self, txt):
+        """Log the provided message in the terminal and logfile.
+
+        Args:
+            txt (str): The message to log.
+        """
+        # Log the info in the terminal
+        self._log_to_terminal(txt)
+
+        # Log the info in the log file with timestamp
+        if hasattr(self, "logger"):
+            self.logger.info(txt)

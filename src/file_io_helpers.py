@@ -1,12 +1,16 @@
 """Helper functions to load files based on GUI actions, and update the GUI state accordingly."""
 
 import csv
-import mne
-from mne.transforms import Transform
 import os
+from pathlib import Path
 
+import mne
 import numpy as np
 import pandas as pd
+import vtk
+from mne.io import read_fiducials
+from mne.io.constants import FIFF
+from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
 from src.const import PAIR_COLORS
@@ -16,14 +20,11 @@ from src.display_helpers import (
 )
 from src.utils import (
     actor_from_polydata,
-    load_mesh_to_polydata,
-    sphere_actor,
-    save_transform,
     create_text_actor,
+    load_mesh_to_polydata,
+    save_transform,
+    sphere_actor,
 )
-from mne.io import read_fiducials
-import vtk
-from mne.io.constants import FIFF
 
 
 def load_master_scan(gui):
@@ -49,7 +50,7 @@ def load_master_scan(gui):
     gui.ren_target.AddActor(gui.helmet_actor)
     gui.ren_target.ResetCamera()
     gui.vtk_target.GetRenderWindow().Render()
-    gui._update_info(f"Loaded master scan: {gui.helmet_filename}")
+    gui.update_info(f"Loaded master scan: {gui.helmet_filename}")
 
 
 def load_aux_dev_stl(gui):
@@ -71,7 +72,7 @@ def load_aux_dev_stl(gui):
     gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info("Loaded auxiliary device STL (source window).")
+    gui.update_info("Loaded auxiliary device STL (source window).")
 
 
 def load_aux_dev_landmarks(gui):
@@ -108,13 +109,16 @@ def load_aux_dev_landmarks(gui):
         gui.ren_source.AddActor(actor)
         gui.aux_dev_landmark_actors_source_window.append(actor)
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(f"Loaded {len(gui.aux_dev_landmarks)} auxiliary device landmarks.")
+    gui.update_info(f"Loaded {len(gui.aux_dev_landmarks)} auxiliary device landmarks.")
 
 
 def load_head_scan(gui):
     """Load head scan (without helmet) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Select OUTSIDE head scan (source window)", "", "PLY/STL Files (*.ply *.stl)"
+        gui,
+        "Select OUTSIDE head scan (source window)",
+        "",
+        "PLY/STL Files (*.ply *.stl)",
     )
     if not filepath:
         return
@@ -130,7 +134,7 @@ def load_head_scan(gui):
     gui.ren_source.AddActor(gui.head_actor)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
+    gui.update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
 
 
 def load_helmet_cad(gui):
@@ -152,7 +156,7 @@ def load_helmet_cad(gui):
     gui.ren_source.AddActor(gui.helmet_stl_actor_source)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
+    gui.update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
 
 
 def load_sensor_csv(gui):
@@ -179,7 +183,7 @@ def load_sensor_csv(gui):
     ]
     for column in cols:
         if column not in df.columns:
-            gui._update_info(f"CSV missing column: {column}")
+            gui.update_info(f"CSV missing column: {column}")
             return
     gui.sensor_df = df.copy()
     gui.sensor_csv_path = filepath
@@ -203,7 +207,7 @@ def load_sensor_csv(gui):
     draw_sensor_vectors_source_window(gui)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(
+    gui.update_info(
         f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
     )
 
@@ -223,14 +227,16 @@ def load_helmet_landmark_csv(gui):
     ]
     for column in cols:
         if column not in df.columns:
-            gui._update_info(f"CSV missing column: {column}")
+            gui.update_info(f"CSV missing column: {column}")
             return
     gui.helmet_landamrk_csv_path = filepath
     gui.helmet_landmark_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
 
     # Get labels if they exist, otherwise use index
     has_labels = "Label" in df.columns
-    labels = df["Label"].tolist() if has_labels else [f"L{i+1}" for i in range(len(df))]
+    labels = (
+        df["Label"].tolist() if has_labels else [f"L{i + 1}" for i in range(len(df))]
+    )
 
     # Clear existing actors
     for actor in gui.helmet_landmark_actors_source_window:
@@ -239,7 +245,7 @@ def load_helmet_landmark_csv(gui):
         except Exception:
             pass
     gui.helmet_landmark_actors_source_window = []
-    
+
     # Clear existing text actors
     for actor in gui.helmet_landmark_text_actors_source_window:
         try:
@@ -254,17 +260,17 @@ def load_helmet_landmark_csv(gui):
         sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
         gui.ren_source.AddActor(sphere)
         gui.helmet_landmark_actors_source_window.append(sphere)
-        
+
         # Text label
-        text_actor = create_text_actor(label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2))
+        text_actor = create_text_actor(
+            label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2)
+        )
         gui.ren_source.AddActor(text_actor)
         gui.helmet_landmark_text_actors_source_window.append(text_actor)
 
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui._update_info(
-        f"Loaded helmet landmark CSV: {os.path.basename(filepath)}."
-    )
+    gui.update_info(f"Loaded helmet landmark CSV: {os.path.basename(filepath)}.")
 
 
 def load_mri_mesh(gui):
@@ -316,7 +322,7 @@ def load_mri_mesh(gui):
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
 
-    gui._update_info("Loaded MRI mesh (source window).")
+    gui.update_info("Loaded MRI mesh (source window).")
 
 
 def load_mri_fiducials(gui):
@@ -346,19 +352,26 @@ def load_mri_fiducials(gui):
     print("Loaded MRI fiducials:", gui.mri_fiducials)
 
     if len(gui.mri_fiducials) != 3:
-        gui._update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
+        gui.update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
         return
     draw_mri_fiducials(gui)
 
-    gui._update_info("Loaded MRI fiducials from FIF.")
+    gui.update_info("Loaded MRI fiducials from FIF.")
 
 
-def save_transformed_sensors_csv(gui, T, base):
+def save_transformed_sensors_csv(gui):
     """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
     if gui.sensor_positions is None:
         return
-    rotation = T[:3, :3]
-    translation = T[:3, 3]
+    if gui.T_dev_to_scan is None:
+        gui.update_info(
+            "No device→scan transform available, cannot save transformed sensors."
+        )
+        return
+
+    # Transforming sensor positions from device space to master scan space
+    rotation = gui.T_dev_to_scan[:3, :3]
+    translation = gui.T_dev_to_scan[:3, 3]
     pts_t = (rotation @ gui.sensor_positions.T).T + translation
     df_out = gui.sensor_df.copy()
     df_out[["X", "Y", "Z"]] = pts_t
@@ -375,52 +388,114 @@ def save_transformed_sensors_csv(gui, T, base):
         df_out["z_i"] = axes_t[:, 2, 0]
         df_out["z_j"] = axes_t[:, 2, 1]
         df_out["z_k"] = axes_t[:, 2, 2]
-    out_dir = (
-        os.path.dirname(gui.sensor_csv_path)
-        if getattr(gui, "sensor_csv_path", None)
-        else os.getcwd()
+
+    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    master_scan_basename = os.path.splitext(
+        gui.helmet_filename or "master_scan_missing"
+    )[0]
+
+    # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    participant_result_dir = Path(gui.results_dir) / master_scan_basename
+    participant_result_dir.mkdir(exist_ok=True)
+
+    out_path = (
+        participant_result_dir
+        / f"{master_scan_basename}_sensors_to_scan_transformed.csv"
     )
-    out_path = os.path.join(out_dir, base + "_sensors_to_scan_transformed.csv")
     df_out.to_csv(out_path, index=False)
-    gui._update_info(f"Saved transformed sensors CSV: {out_path}")
+    gui.update_info(f"Saved transformed sensors CSV: {out_path}")
 
 
-def save_head_to_mri(gui):
-    """Save the computed head to MRI transform to disk.
+def save_head_to_mri_mne_fif(head_to_mri_transform_mm, out_base):
+    """Save the head-to-MRI transform in MNE FIF format, converting from mm (internal) to m (FIF) units.
 
-    Transforms are saved in custom format and MNE's .fif format, converting units as needed for compatibility."""
-    if gui.T_head_to_mri is None:
-        return
+    The output file will be named {out_base}-trans.fif.
+    This allows compatibility with MNE-Python for downstream processing such as source localization.
 
-    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+    Args:
+        head_to_mri_transform_mm: 4x4 numpy array representing the head-to-MRI transform in mm units.
+        out_base (Path): Base path (without extension) for the output FIF file.
+    """
+    # Convert from mm (internal) to m (MNE FIF)
+    head_to_mri_transform_m = head_to_mri_transform_mm.copy()
+    head_to_mri_transform_m[:3, 3] /= 1000.0
 
-    # --- Convert mm → meters for MNE ---
-    T_m = gui.T_head_to_mri.copy()
-    T_m[:3, 3] /= 1000.0
-
-    save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
-
-    trans = Transform("head", "mri", T_m)
-
-    mne.write_trans(base + "-trans.fif", trans, overwrite=True)
-
-    gui._update_info("Saved Head→MRI transform (mm internally, m in trans.fif).")
+    # Create MNE Transform object and save to FIF
+    trans = Transform("head", "mri", head_to_mri_transform_m)
+    mne.write_trans(str(out_base) + "-trans.fif", trans, overwrite=True)
 
 
-def auto_save_transform(gui):
-    """Automatically save any available transforms to disk in mm units, using the helmet filename as a base for naming."""
-    base = os.path.splitext(gui.helmet_filename or "helmet")[0]
+def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
+    """Save the device-to-head transform in MNE compatible format, converting from mm (internal) to m (FIF) units.
+    
+    Args:
+        dev_to_head_transform_mm: 4x4 numpy array representing the device-to-head transform in mm units.
+        out_base (Path): Base path (without extension) for the output FIF file.
+    """
+    # Convert from mm (internal) to m (MNE FIF)
+    dev_to_head_transform_m = dev_to_head_transform_mm.copy()
+    dev_to_head_transform_m[:3, 3] /= 1000.0
 
-    if gui.aux_dev_to_scan is not None:
-        save_transform(gui.aux_dev_to_scan, base + "_aux_dev_to_scan_mm")
+    # Save the device_to_head transform without "mm" to signify it is directly usable in MNE
+    save_transform(dev_to_head_transform_m, out_base)
 
-    if gui.T_head_to_scan is not None:
-        save_transform(gui.T_head_to_scan, base + "_head_to_scan_mm")
 
-    if gui.T_dev_to_scan is not None:
-        save_transform(gui.T_dev_to_scan, base + "_dev_to_scan_mm")
+def save_generated_transforms(gui, trans_to_save=None):
+    """Save specified transforms to disk in mm units, using the helmet filename as a base for naming.
 
-    if gui.T_head_to_mri is not None:
-        save_transform(gui.T_head_to_mri, base + "_head_to_mri_mm")
+    This function is called after computing any transform, to ensure results are saved without requiring extra user action.
+    The info box is not updated for each individual transform save, but the logfile is updated normally.
+    
+    Args:
+        gui: The GUI object containing the transforms and state.
+        trans_to_save: The name of the transform to save (e.g., "dev_to_scan"). If None, all available transforms are saved.
+    """
+    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    master_scan_basename = os.path.splitext(
+        gui.helmet_filename or "master_scan_missing"
+    )[0]
 
-    gui._update_info("Auto-saved available transforms (mm).")
+    # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    participant_result_dir = Path(gui.results_dir) / master_scan_basename
+    participant_result_dir.mkdir(exist_ok=True)
+
+    # Create a dictionary of available transforms for easy iteration
+    available_transforms = {
+        "aux_dev_to_scan": gui.T_aux_dev_to_scan,
+        "dev_to_scan": gui.T_dev_to_scan,
+        "head_to_scan": gui.T_head_to_scan,
+        "head_to_mri": gui.T_head_to_mri,
+        "aux_to_device": gui.T_aux_to_device,
+        "dev_to_head": gui.T_dev_to_head,
+    }
+
+    for transform_name, transform in available_transforms.items():
+        # If a specific transform is specified to save, skip others
+        if trans_to_save is not None and trans_to_save != transform_name:
+            continue
+
+        # Only save if the transform is available (not None)
+        if transform is not None:
+            save_transform(
+                transform,
+                participant_result_dir / f"{master_scan_basename}_{transform_name}_mm",
+            )
+            gui.update_info(
+                f"Saved {transform_name} transform. Translation components are in mm units."
+            )
+
+            if transform_name == "head_to_mri":
+                save_head_to_mri_mne_fif(
+                    transform, participant_result_dir / f"{master_scan_basename}"
+                )
+                gui.update_info(
+                    "Saved Head→MRI transform (Directly usable by MNE-Python for forward modeling)."
+                )
+
+            if transform_name == "dev_to_head":
+                save_dev_to_head_for_mne(
+                    transform, participant_result_dir / f"{master_scan_basename}_{transform_name}"
+                )
+                gui.update_info(
+                    "Saved Device→Head transform (Directly usable by MNE-Python for forward modeling)."
+                )
