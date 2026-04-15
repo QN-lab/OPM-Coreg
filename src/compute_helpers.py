@@ -430,5 +430,77 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     return roi_poly
 
 
+def compute_mri_to_template_mri(gui):
+    """Compute MRI to template MRI transform by matching fiducials."""
+    required = ["NAS", "LPA", "RPA"]
+
+    if not all(fid in gui.mri_fiducials for fid in required):
+        gui.update_info("MRI fiducials missing.")
+        return
+
+    if not all(fid in gui.template_mri_fiducials for fid in required):
+        gui.update_info("Template MRI fiducials missing.")
+        return
+
+    src = np.array(
+        [
+            gui.mri_fiducials["NAS"],
+            gui.mri_fiducials["LPA"],
+            gui.mri_fiducials["RPA"],
+        ]
+    )
+
+    dst = np.array(
+        [
+            gui.template_mri_fiducials["NAS"],
+            gui.template_mri_fiducials["LPA"],
+            gui.template_mri_fiducials["RPA"],
+        ]
+    )
+
+    T, rms, errs = compute_rigid_transform(src, dst)
+
+    gui.T_mri_to_template_mri = T
+
+
 def compute_head_to_template_mri(gui):
-    pass
+    """Compute head to template MRI transform.
+    
+    Case 1: For participant with MRI, compute head→template_mri by chaining head→mri + mri→template_mri.
+    Case 2: For participant without MRI, match manually marked fiducials on head scan to template MRI fiducials.
+    """
+    # Case 1: chain transforms
+    if gui.T_head_to_mri is not None and gui.T_mri_to_template_mri is not None:
+        T_head_to_template = gui.T_mri_to_template_mri @ gui.T_head_to_mri
+        gui.T_head_to_template_mri = T_head_to_template
+    
+    # Case 2: direct head→template_mri using marked fiducials
+    elif gui.marked_fiducials_on_head_scan and gui.template_mri_fiducials:
+        required = ["NAS", "LPA", "RPA"]
+        if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
+            gui.update_info("Head fiducials missing (incomplete head alignment step).")
+            return
+
+        if not all(fid in gui.template_mri_fiducials for fid in required):
+            gui.update_info("Template MRI fiducials missing.")
+            return
+
+        src = np.array(
+            [
+                gui.marked_fiducials_on_head_scan["NAS"],
+                gui.marked_fiducials_on_head_scan["LPA"],
+                gui.marked_fiducials_on_head_scan["RPA"],
+            ]
+        )
+
+        dst = np.array(
+            [
+                gui.template_mri_fiducials["NAS"],
+                gui.template_mri_fiducials["LPA"],
+                gui.template_mri_fiducials["RPA"],
+            ]
+        )
+
+        T, rms, errs = compute_rigid_transform(src, dst)
+
+        gui.T_head_to_template_mri = T
