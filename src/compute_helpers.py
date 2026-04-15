@@ -463,44 +463,64 @@ def compute_mri_to_template_mri(gui):
     gui.T_mri_to_template_mri = T
 
 
+def compute_head_to_template_mri_via_mri(gui):
+    """Compute head to template MRI transform by chaining head→MRI and MRI→template MRI."""
+    if gui.T_head_to_mri is None:
+        gui.update_info("Head to MRI transform missing.")
+        return
+
+    if gui.T_mri_to_template_mri is None:
+        gui.update_info("MRI to template MRI transform missing.")
+        return
+
+    T_head_to_template = gui.T_mri_to_template_mri @ gui.T_head_to_mri
+    gui.T_head_to_template_mri = T_head_to_template
+
+
+def compute_head_to_template_mri_via_marked_fiducials(gui):
+    """Compute head to template MRI transform by matching marked fiducials on head scan to template MRI fiducials."""
+    required = ["NAS", "LPA", "RPA"]
+    if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
+        gui.update_info("Head fiducials missing (incomplete head alignment step).")
+        return
+
+    if not all(fid in gui.template_mri_fiducials for fid in required):
+        gui.update_info("Template MRI fiducials missing.")
+        return
+
+    src = np.array(
+        [
+            gui.marked_fiducials_on_head_scan["NAS"],
+            gui.marked_fiducials_on_head_scan["LPA"],
+            gui.marked_fiducials_on_head_scan["RPA"],
+        ]
+    )
+
+    dst = np.array(
+        [
+            gui.template_mri_fiducials["NAS"],
+            gui.template_mri_fiducials["LPA"],
+            gui.template_mri_fiducials["RPA"],
+        ]
+    )
+
+    T, rms, errs = compute_rigid_transform(src, dst)
+
+    gui.T_head_to_template_mri = T
+
+
 def compute_head_to_template_mri(gui):
     """Compute head to template MRI transform.
     
     Case 1: For participant with MRI, compute head→template_mri by chaining head→mri + mri→template_mri.
     Case 2: For participant without MRI, match manually marked fiducials on head scan to template MRI fiducials.
     """
-    # Case 1: chain transforms
-    if gui.T_head_to_mri is not None and gui.T_mri_to_template_mri is not None:
-        T_head_to_template = gui.T_mri_to_template_mri @ gui.T_head_to_mri
-        gui.T_head_to_template_mri = T_head_to_template
-    
-    # Case 2: direct head→template_mri using marked fiducials
-    elif gui.marked_fiducials_on_head_scan and gui.template_mri_fiducials:
-        required = ["NAS", "LPA", "RPA"]
-        if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
-            gui.update_info("Head fiducials missing (incomplete head alignment step).")
-            return
-
-        if not all(fid in gui.template_mri_fiducials for fid in required):
-            gui.update_info("Template MRI fiducials missing.")
-            return
-
-        src = np.array(
-            [
-                gui.marked_fiducials_on_head_scan["NAS"],
-                gui.marked_fiducials_on_head_scan["LPA"],
-                gui.marked_fiducials_on_head_scan["RPA"],
-            ]
-        )
-
-        dst = np.array(
-            [
-                gui.template_mri_fiducials["NAS"],
-                gui.template_mri_fiducials["LPA"],
-                gui.template_mri_fiducials["RPA"],
-            ]
-        )
-
-        T, rms, errs = compute_rigid_transform(src, dst)
-
-        gui.T_head_to_template_mri = T
+    # Case 1: Participant with MRI
+    if gui.T_head_to_mri is not None:
+        compute_mri_to_template_mri(gui)
+        compute_head_to_template_mri_via_mri(gui)
+        gui.update_info("Computed head to template MRI transform via individual MRI.")
+    # Case 2: Participant without MRI
+    else:
+        compute_head_to_template_mri_via_marked_fiducials(gui)
+        gui.update_info("Computed head to template MRI transform via marked fiducials on head scan.")
