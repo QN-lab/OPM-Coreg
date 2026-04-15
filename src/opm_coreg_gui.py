@@ -223,6 +223,7 @@ class OPMCoregGUI(QWidget):
             ("Step 2: Head to scan", "align_head"),
             ("Step 3: Sensors to scan", "align_sensors"),
             ("Step 4: Head to MRI", "align_mri"),
+            ("Step 5: Head to template MRI","align_template_mri"),
         ]:
             button = QPushButton(button_label)
             button.clicked.connect(
@@ -372,6 +373,9 @@ class OPMCoregGUI(QWidget):
             add_source_observer(
                 self, "LeftButtonPressEvent", self._source_click_mri_alignment
             )
+        
+        elif selected_mode == "align_template_mri":
+            self._populate_template_mri_alignment_step_controls()
 
         self.update_info(f"Mode: {selected_mode}")
 
@@ -1186,6 +1190,43 @@ class OPMCoregGUI(QWidget):
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
+    
+    def _populate_template_mri_alignment_step_controls(self):
+        """Setup the controls for template MRI alignment step.
+
+        Handles following cases to generate transforms needed for group level analyses.
+        Case 1: for participants with MRI scan, match the real scalp surface to the template scalp.
+        Case 2: for participants without MRI scan, match the head scan scalp surface to the template scalp.
+        """
+        self._clear_step_controls()
+
+        buttons = [
+            {
+                "label": "Load template MRI scalp mesh (source window)",
+                "callback": lambda: load_template_mri_scalp(self),
+            },
+            {
+                "label": "Load master scan (target window)",
+                "callback": lambda: load_master_scan(self),
+            },
+            {
+                "label": "Load template MRI fiducials (.fif)",
+                "callback": lambda: load_template_mri_fiducials(self),
+            },
+            {
+                "label": "Compute Head→TemplateMRI",
+                "callback": lambda: compute_head_to_template_mri(self),
+            },
+            {
+                "label": "Preview template MRI on master scan (target window)",
+                "callback": lambda: preview_template_mri_on_scan(self),
+            },
+        ]
+
+        for r, btn in enumerate(buttons):
+            b = QPushButton(btn["label"])
+            b.clicked.connect(btn["callback"])
+            self.step_ctrl_layout.addWidget(b, r, 0)
 
     # ---- loggging and info updates ----
     def _setup_logger(self):
