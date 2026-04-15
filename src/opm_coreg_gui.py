@@ -170,6 +170,7 @@ class OPMCoregGUI(QWidget):
         self.template_mri_fiducial_actors = {}
         self.T_mri_to_template_mri = None
         self.T_head_to_template_mri = None
+        self.template_mri_actor_target_window = None
 
         # Obtain required project paths
         project_paths = ProjectPaths()
