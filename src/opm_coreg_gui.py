@@ -164,6 +164,13 @@ class OPMCoregGUI(QWidget):
         self.T_head_to_mri = None
         self.mri_actor_target_window = None
 
+        # Template MRI alignment step
+        self.template_mri_polydata = None
+        self.template_mri_fiducials = {}
+        self.template_mri_fiducial_actors = {}
+        self.T_mri_to_template_mri = None
+        self.T_head_to_template_mri = None
+
         # Obtain required project paths
         project_paths = ProjectPaths()
         self.results_dir = project_paths.get_results_dir()
