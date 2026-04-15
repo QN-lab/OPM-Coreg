@@ -25,6 +25,7 @@ from src.compute_helpers import (
     compute_aux_dev_to_scan,
     compute_head_to_mri_initial,
     compute_head_to_scan,
+    compute_head_to_template_mri,
     compute_sensors_transform,
     run_icp_head_to_mri,
 )
@@ -33,6 +34,7 @@ from src.display_helpers import (
     merge_aux_dev_into_helmet,
     overlay_helmet_sensors_transformed,
     preview_mri_on_scan,
+    preview_template_mri_on_scan,
 )
 from src.file_io_helpers import (
     load_all_saved_data,
@@ -45,6 +47,8 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
+    load_template_mri_scalp,
+    load_template_mri_fiducials,
     save_generated_transforms,
 )
 from src.observer_helpers import (

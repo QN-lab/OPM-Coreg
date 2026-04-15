@@ -431,3 +431,7 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
 
     print("ROI points:", roi_poly.GetNumberOfPoints())
     return roi_poly
+
+
+def compute_head_to_template_mri(gui):
+    pass

@@ -17,6 +17,7 @@ from src.const import PAIR_COLORS
 from src.display_helpers import (
     draw_mri_fiducials,
     draw_sensor_vectors_source_window,
+    draw_template_mri_fiducials,
 )
 from src.utils import (
     actor_from_polydata,
@@ -325,6 +326,29 @@ def load_mri_mesh(gui):
     gui.update_info("Loaded MRI mesh (source window).")
 
 
+def load_template_mri_scalp(gui):
+    """Load template MRI scalp mesh on the source window."""
+    filepath, _ = QFileDialog.getOpenFileName(
+        gui, "Load template MRI scalp mesh", "", "PLY/STL Files (*.ply *.stl)"
+    )
+    if not filepath:
+        return
+
+    gui.template_mri_polydata = load_mesh_to_polydata(filepath)
+
+    actor = actor_from_polydata(
+        gui.template_mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
+    )
+
+    gui.ren_source.RemoveAllViewProps()
+    gui.ren_source.AddActor(actor)
+
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+    gui.update_info("Loaded template MRI scalp mesh (source window).")
+
+
 def load_mri_fiducials(gui):
     """Load MRI fiducials from FIF, display on source window."""
     path = QFileDialog.getOpenFileName(
@@ -357,6 +381,34 @@ def load_mri_fiducials(gui):
     draw_mri_fiducials(gui)
 
     gui.update_info("Loaded MRI fiducials from FIF.")
+
+
+def load_template_mri_fiducials(gui):
+    """Load template MRI fiducials from CSV, display on source window."""
+    filepath, _ = QFileDialog.getOpenFileName(
+        gui, "Load template MRI fiducials CSV", "", "CSV Files (*.csv)"
+    )
+    if not filepath:
+        return
+    df = pd.read_csv(filepath)
+    cols = ["Label", "X", "Y", "Z"]
+    for column in cols:
+        if column not in df.columns:
+            gui.update_info(f"CSV missing column: {column}")
+            return
+    gui.template_mri_fiducials = {}
+    for _, row in df.iterrows():
+        label = row["Label"].strip()
+        coord_mm = np.array([row["X"], row["Y"], row["Z"]], dtype=float)
+        gui.template_mri_fiducials[label] = coord_mm
+    print("Loaded template MRI fiducials:", gui.template_mri_fiducials)
+    if len(gui.template_mri_fiducials) != 3:
+        gui.update_info(
+            f"Incomplete template MRI fiducials: {list(gui.template_mri_fiducials.keys())}"
+        )
+        return
+    draw_template_mri_fiducials(gui)
+    gui.update_info("Loaded template MRI fiducials from CSV.")
 
 
 def save_transformed_sensors_csv(gui):

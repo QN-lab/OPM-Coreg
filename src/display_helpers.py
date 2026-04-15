@@ -205,6 +205,29 @@ def draw_mri_fiducials(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
+def draw_template_mri_fiducials(gui):
+    """Draw template MRI fiducials on the source window in MRI frame.
+
+    This is called after loading template MRI fiducials, and also after computing head→MRI transform to update the transformed head fiducials."""
+    # Remove old actors
+    if hasattr(gui, "template_mri_fiducial_actors"):
+        for actor in gui.template_mri_fiducial_actors.values():
+            try:
+                gui.ren_source.RemoveActor(actor)
+            except Exception:
+                pass
+
+    gui.template_mri_fiducial_actors = {}
+
+    for lbl, pos in gui.template_mri_fiducials.items():
+        actor = sphere_actor(pos, color=FIDUCIAL_COLORS.get(lbl, (0, 1, 1)), radius=3.5)
+
+        gui.ren_source.AddActor(actor)
+        gui.template_mri_fiducial_actors[lbl] = actor
+
+    gui.vtk_source.GetRenderWindow().Render()
+
+
 def preview_head_on_mri(gui, T):
     """Preview the head scan transformed by T overlaid on the MRI in the source window.
 
@@ -281,3 +304,7 @@ def preview_mri_on_scan(gui):
     gui.vtk_target.GetRenderWindow().Render()
 
     gui.update_info("Previewed MRI on master scan (target window).")
+
+
+def preview_template_mri_on_scan(gui):
+    pass
