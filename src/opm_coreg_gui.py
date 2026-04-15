@@ -47,8 +47,8 @@ from src.file_io_helpers import (
     load_mri_fiducials,
     load_mri_mesh,
     load_sensor_csv,
-    load_template_mri_scalp,
     load_template_mri_fiducials,
+    load_template_mri_scalp,
     save_generated_transforms,
 )
 from src.observer_helpers import (
@@ -65,6 +65,7 @@ from src.toggle_helpers import (
     toggle_helmet_overlay,
     toggle_master_scan_overlay,
     toggle_mri_overlay,
+    toggle_template_mri_overlay,
     toggle_vectors,
 )
 from src.utils import (
@@ -235,7 +236,7 @@ class OPMCoregGUI(QWidget):
             ("Step 2: Head to scan", "align_head"),
             ("Step 3: Sensors to scan", "align_sensors"),
             ("Step 4: Head to MRI", "align_mri"),
-            ("Step 5: Head to template MRI","align_template_mri"),
+            ("Step 5: Head to template MRI", "align_template_mri"),
         ]:
             button = QPushButton(button_label)
             button.clicked.connect(
@@ -294,12 +295,19 @@ class OPMCoregGUI(QWidget):
         self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
         info_v.addWidget(self.cb_vec)
 
-        self.cb_show_mri = QCheckBox("MRI")
+        self.cb_show_mri = QCheckBox("MRI (scalp)")
         self.cb_show_mri.setChecked(True)
         self.cb_show_mri.stateChanged.connect(
             lambda state: toggle_mri_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_mri)
+
+        self.cb_show_template_mri = QCheckBox("Template MRI (scalp)")
+        self.cb_show_template_mri.setChecked(True)
+        self.cb_show_template_mri.stateChanged.connect(
+            lambda state: toggle_template_mri_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_template_mri)
 
         self.btn_save_all = QPushButton("Save All Available Transforms")
         self.btn_save_all.clicked.connect(lambda: save_generated_transforms(self))
@@ -385,7 +393,7 @@ class OPMCoregGUI(QWidget):
             add_source_observer(
                 self, "LeftButtonPressEvent", self._source_click_mri_alignment
             )
-        
+
         elif selected_mode == "align_template_mri":
             self._populate_template_mri_alignment_step_controls()
 
@@ -1202,7 +1210,7 @@ class OPMCoregGUI(QWidget):
 
         # If all fiducials already picked → still forward
         obj.OnLeftButtonDown()
-    
+
     def _populate_template_mri_alignment_step_controls(self):
         """Setup the controls for template MRI alignment step.
 
