@@ -506,7 +506,7 @@ def save_marked_points_in_cache(gui, file_to_save=None):
     """Save marked points in all steps as cached files.
 
     Cache directory is specific to each participant, and is located at root_dir/results/participant_name/cache/.
-    
+
     Args:
         gui: The GUI object containing the points and state.
         file_to_save: The name of the specific points to save (e.g., "sensor_alignment_points_from_source"). If None, all available points are saved.
@@ -547,7 +547,7 @@ def save_marked_points_in_cache(gui, file_to_save=None):
 
 def load_cached_files(gui, cache_folder_path=None):
     """Load marked points from cached files if they exist, and update the GUI state.
-    
+
     Args:
         gui: The GUI object to update with loaded points.
         cache_folder_path: The path to the cache folder where intermediate files are saved (root_dir/results/participant_name/cache/).
@@ -555,7 +555,7 @@ def load_cached_files(gui, cache_folder_path=None):
     if cache_folder_path is None:
         gui.update_info("No cache folder path provided, cannot load cached files.")
         return
-    
+
     files_to_load = {
         "aux_alignment_points_from_source": "Aux device alignment points (source)",
         "aux_alignment_points_from_target": "Aux device alignment points (target)",
@@ -569,14 +569,16 @@ def load_cached_files(gui, cache_folder_path=None):
     for name, description in files_to_load.items():
         file_path = cache_folder_path / f"{name}.npy"
         if file_path.exists():
-            points = np.load(file_path).tolist()
+            points = np.load(
+                file_path, allow_pickle=True
+            ).tolist()  # Use allow_pickle for loading dicts (e.g., marked_fiducials_on_head_scan)
             setattr(gui, name, points)
             gui.update_info(f"Loaded cached {description} from {file_path}.")
 
 
 def load_transforms(gui, results_foler_path=None):
     """Load computed transforms from cache if they exist, and update the GUI state.
-    
+
     Args:
         gui: The GUI object to update with loaded transforms.
         results_foler_path: The path to the participant's results folder where transforms are saved.
@@ -604,7 +606,9 @@ def load_transforms(gui, results_foler_path=None):
         # If such a file exists, load the transform and set it in the GUI
         if file_path is not None and file_path.exists():
             transform = np.load(file_path)
-            setattr(gui, f"T_{name}", transform) # Set the transform in the GUI (e.g., T_dev_to_scan)
+            setattr(
+                gui, f"T_{name}", transform
+            )  # Set the transform in the GUI (e.g., T_dev_to_scan)
             gui.update_info(f"Loaded cached {description} from {file_path}.")
 
 
