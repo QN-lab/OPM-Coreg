@@ -290,11 +290,11 @@ def load_mri_mesh(gui):
     bounds = gui.mri_polydata.GetBounds()
     max_abs = max(abs(b) for b in bounds)
 
-    print("MRI bounds before scaling:", bounds)
+    gui.update_info(f"MRI bounds before scaling: {bounds}")
 
     # If values look like meters (~0.1), scale to mm
     if max_abs < 1.0:
-        print("MRI appears to be in meters → scaling to mm")
+        gui.update_info("MRI appears to be in meters → scaling to mm")
 
         scale_tf = vtk.vtkTransform()
         scale_tf.Scale(1000.0, 1000.0, 1000.0)
@@ -307,10 +307,10 @@ def load_mri_mesh(gui):
         gui.mri_polydata = tf_filter.GetOutput()
 
         bounds_after = gui.mri_polydata.GetBounds()
-        print("MRI bounds after scaling:", bounds_after)
+        gui.update_info(f"MRI bounds after scaling: {bounds_after}")
 
     else:
-        print("MRI appears already in mm")
+        gui.update_info("MRI appears already in mm")
 
     # -------------------------------------------------
     # Display on source window
@@ -373,8 +373,7 @@ def load_mri_fiducials(gui):
         elif ident == FIFF.FIFFV_POINT_RPA:
             gui.mri_fiducials["RPA"] = coord_mm
 
-    print("Loaded MRI fiducials:", gui.mri_fiducials)
-
+    gui.update_info(f"Loaded MRI fiducials: {gui.mri_fiducials}")
     if len(gui.mri_fiducials) != 3:
         gui.update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
         return
@@ -404,7 +403,7 @@ def load_template_mri_fiducials(gui):
         elif ident == FIFF.FIFFV_POINT_RPA:
             gui.template_mri_fiducials["RPA"] = coord_mm
     
-    print("Loaded template MRI fiducials:", gui.template_mri_fiducials)
+    gui.update_info(f"Loaded template MRI fiducials: {gui.template_mri_fiducials}")
     if len(gui.template_mri_fiducials) != 3:
         gui.update_info(
             f"Incomplete template MRI fiducials: {list(gui.template_mri_fiducials.keys())}"

@@ -204,9 +204,6 @@ def compute_head_to_mri_initial(gui):
     gui.head_to_mri_rms = rms
     gui.head_to_mri_errors = errs
 
-    print("Head→MRI RMS:", rms)
-    print("Errors per fiducial:", errs)
-
     gui.update_info(
         f"Head→MRI RMS = {rms:.2f} mm | "
         f"NAS={errs[0]:.2f}, "
@@ -259,7 +256,7 @@ def run_icp_head_to_mri(gui):
     # --------------------------------------------------
     # 1) Extract ROI in HEAD space
     # --------------------------------------------------
-    roi_head_native = extract_face_roi(gui.head_polydata, gui.marked_fiducials_on_head_scan)
+    roi_head_native = extract_face_roi(gui, gui.head_polydata, gui.marked_fiducials_on_head_scan)
 
     if roi_head_native is None:
         gui.update_info("ROI extraction failed.")
@@ -345,11 +342,11 @@ def run_icp_head_to_mri(gui):
     preview_head_on_mri(gui, gui.T_head_to_mri)
 
 
-def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
+def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     """Extract a region of interest (ROI) from the head scan polydata based on fiducials defining the face area, and return the subset polydata for registration to MRI."""
     required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
     if not all(fid in fid_dict for fid in required):
-        print("ROI extraction: missing fiducials")
+        gui.update_info("ROI extraction: missing fiducials")
         return None
 
     nas = fid_dict["NAS"]
@@ -404,7 +401,7 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
         ids.InsertNextValue(i)
 
     if ids.GetNumberOfTuples() < 500:
-        print("ROI too small — returning None")
+        gui.update_info("ROI too small — returning None")
         return None
 
     # --------------------------------------------------
@@ -429,7 +426,7 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
 
     roi_poly = geo.GetOutput()
 
-    print("ROI points:", roi_poly.GetNumberOfPoints())
+    gui.update_info(f"ROI points: {roi_poly.GetNumberOfPoints()}")
     return roi_poly
 
 
