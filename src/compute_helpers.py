@@ -462,6 +462,14 @@ def compute_mri_to_template_mri(gui):
 
     gui.T_mri_to_template_mri = T
 
+    gui.update_info(
+        f"MRI→Template MRI RMS = {rms:.2f} mm | "
+        f"NAS={errs[0]:.2f}, "
+        f"LPA={errs[1]:.2f}, "
+        f"RPA={errs[2]:.2f}"
+    )
+    save_generated_transforms(gui, trans_to_save="mri_to_template_mri")
+
 
 def compute_head_to_template_mri_via_mri(gui):
     """Compute head to template MRI transform by chaining head→MRI and MRI→template MRI."""
@@ -475,6 +483,9 @@ def compute_head_to_template_mri_via_mri(gui):
 
     T_head_to_template = gui.T_mri_to_template_mri @ gui.T_head_to_mri
     gui.T_head_to_template_mri = T_head_to_template
+
+    gui.update_info("Computed head to template MRI transform via participant MRI.")
+    save_generated_transforms(gui, trans_to_save="head_to_template_mri")
 
 
 def compute_head_to_template_mri_via_marked_fiducials(gui):
@@ -508,6 +519,9 @@ def compute_head_to_template_mri_via_marked_fiducials(gui):
 
     gui.T_head_to_template_mri = T
 
+    gui.update_info("Computed head to template MRI transform via marked fiducials on head scan.")
+    save_generated_transforms(gui, trans_to_save="head_to_template_mri")
+
 
 def compute_head_to_template_mri(gui):
     """Compute head to template MRI transform.
@@ -519,8 +533,6 @@ def compute_head_to_template_mri(gui):
     if gui.T_head_to_mri is not None:
         compute_mri_to_template_mri(gui)
         compute_head_to_template_mri_via_mri(gui)
-        gui.update_info("Computed head to template MRI transform via individual MRI.")
     # Case 2: Participant without MRI
     else:
         compute_head_to_template_mri_via_marked_fiducials(gui)
-        gui.update_info("Computed head to template MRI transform via marked fiducials on head scan.")

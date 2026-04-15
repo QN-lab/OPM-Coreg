@@ -497,7 +497,6 @@ def save_generated_transforms(gui, trans_to_save=None):
     """Save specified transforms to disk in mm units, using the helmet filename as a base for naming.
 
     This function is called after computing any transform, to ensure results are saved without requiring extra user action.
-    The info box is not updated for each individual transform save, but the logfile is updated normally.
 
     Args:
         gui: The GUI object containing the transforms and state.
@@ -520,6 +519,8 @@ def save_generated_transforms(gui, trans_to_save=None):
         "head_to_mri": gui.T_head_to_mri,
         "aux_to_device": gui.T_aux_to_device,
         "dev_to_head": gui.T_dev_to_head,
+        "head_to_template_mri": gui.T_head_to_template_mri,
+        "mri_to_template_mri": gui.T_mri_to_template_mri,
     }
 
     for transform_name, transform in available_transforms.items():
@@ -647,6 +648,8 @@ def load_transforms(gui, results_foler_path=None):
         "head_to_mri": "Head to MRI transform",
         "aux_to_device": "Aux device to device transform",
         "dev_to_head": "Device to head transform",
+        "head_to_template_mri": "Head to template MRI transform",
+        "mri_to_template_mri": "MRI to template MRI transform",
     }
 
     for name, description in transforms_to_load.items():
