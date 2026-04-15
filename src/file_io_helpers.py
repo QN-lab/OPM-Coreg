@@ -380,27 +380,30 @@ def load_mri_fiducials(gui):
         return
     draw_mri_fiducials(gui)
 
-    gui.update_info("Loaded MRI fiducials from FIF.")
-
 
 def load_template_mri_fiducials(gui):
-    """Load template MRI fiducials from CSV, display on source window."""
-    filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Load template MRI fiducials CSV", "", "CSV Files (*.csv)"
-    )
-    if not filepath:
+    """Load template MRI fiducials from FIF, display on source window."""
+    path = QFileDialog.getOpenFileName(
+        gui, "Load template MRI Fiducials (.fif)", "", "FIF files (*.fif)"
+    )[0]
+
+    if not path:
         return
-    df = pd.read_csv(filepath)
-    cols = ["Label", "X", "Y", "Z"]
-    for column in cols:
-        if column not in df.columns:
-            gui.update_info(f"CSV missing column: {column}")
-            return
+    
+    fid, coord_frame = read_fiducials(path)
     gui.template_mri_fiducials = {}
-    for _, row in df.iterrows():
-        label = row["Label"].strip()
-        coord_mm = np.array([row["X"], row["Y"], row["Z"]], dtype=float)
-        gui.template_mri_fiducials[label] = coord_mm
+
+    for f in fid:
+        ident = f["ident"]
+        coord_mm = f["r"] * 1000.0  # meters → mm
+
+        if ident == FIFF.FIFFV_POINT_NASION:
+            gui.template_mri_fiducials["NAS"] = coord_mm
+        elif ident == FIFF.FIFFV_POINT_LPA:
+            gui.template_mri_fiducials["LPA"] = coord_mm
+        elif ident == FIFF.FIFFV_POINT_RPA:
+            gui.template_mri_fiducials["RPA"] = coord_mm
+    
     print("Loaded template MRI fiducials:", gui.template_mri_fiducials)
     if len(gui.template_mri_fiducials) != 3:
         gui.update_info(
@@ -408,7 +411,6 @@ def load_template_mri_fiducials(gui):
         )
         return
     draw_template_mri_fiducials(gui)
-    gui.update_info("Loaded template MRI fiducials from CSV.")
 
 
 def save_transformed_sensors_csv(gui):
