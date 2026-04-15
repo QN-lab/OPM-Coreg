@@ -390,9 +390,6 @@ class OPMCoregGUI(QWidget):
 
         elif selected_mode == "align_mri":
             self._populate_mri_alignment_step_controls()
-            add_source_observer(
-                self, "LeftButtonPressEvent", self._source_click_mri_alignment
-            )
 
         elif selected_mode == "align_template_mri":
             self._populate_template_mri_alignment_step_controls()
@@ -406,7 +403,7 @@ class OPMCoregGUI(QWidget):
             if w:
                 w.setParent(None)
 
-    # ----------------- Auxiliary device alignment step -------------------
+    # ----------------- Auxiliary device alignment step (aux -> master scan) -------------------
     def _populate_aux_alignment_step_controls(self):
         """Set up the controls for Aux Alignment step: auxiliary device to master scan registration."""
         self._clear_step_controls()
@@ -594,9 +591,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_target.GetRenderWindow().Render()
         self.update_info("Undid last aux device pair.")
 
-    # ---------------------------------------------------------------
-    # ----------------- head alignment step (Outside -> Helmet) -----------------
-    # ---------------------------------------------------------------
+    # ----------------- head alignment step (head scan -> master scan) -----------------
 
     def _populate_head_alignment_step_controls(self):
         """Set up the controls for head alignment step: head scan to master scan registration using fiducials and pairwise points."""
@@ -887,9 +882,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_target.GetRenderWindow().Render()
         self.update_info("Restarted Head Alignment (fiducials & pairs cleared).")
 
-    # -------------------------------------------------------------------
-    # ------------------ sensor alignment step (Sensors & STL -> scan) -----------------
-    # -------------------------------------------------------------------
+    # ------------------ sensor alignment step (Sensors & device STL -> master scan) -----------------
     def _populate_sensors_alignment_step_controls(self):
         """Set up the controls for sensor alignment step: helmet STL and sensor positions to master scan registration using pairwise points."""
         self._clear_step_controls()
@@ -1132,9 +1125,7 @@ class OPMCoregGUI(QWidget):
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
 
-    # ---------------------------------------------------------
-    # ----------------- mri alignment step (head -> MRI) -----------------
-    # ---------------------------------------------------------
+    # ----------------- mri alignment step (head scan -> participant MRI) -----------------
     def _populate_mri_alignment_step_controls(self):
         """Set up the controls for mri alignment step: head scan to MRI registration using fiducials and ICP refinement, with options to load MRI data and preview results."""
         self._clear_step_controls()
@@ -1168,49 +1159,8 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
-
-    def _source_click_mri_alignment(self, obj, event):
-        """Handle left clicks in mri alignment step mode for picking fiducials on the MRI mesh (source window) that correspond to head scan fiducials."""
-        # If not SHIFT → forward to Trackball (rotate)
-        if not self.iren_source.GetShiftKey():
-            obj.OnLeftButtonDown()
-            return
-
-        # Safety: wrong mode → still forward
-        if self.mode != "align_mri":
-            obj.OnLeftButtonDown()
-            return
-
-        x, y = self.iren_source.GetEventPosition()
-        picker = vtk.vtkPropPicker()
-
-        pick_success = picker.Pick(x, y, 0, self.ren_source)
-        if not pick_success:
-            self.update_info("No pick on source window (MRI).")
-            obj.OnLeftButtonDown()  # allow normal interaction
-            return
-
-        pos = np.array(picker.GetPickPosition(), dtype=float)
-
-        for lbl in ["NAS", "LPA", "RPA"]:
-            if lbl not in self.mri_fiducials:
-                self.mri_fiducials[lbl] = pos
-
-                actor = sphere_actor(pos, color=FIDUCIAL_COLORS[lbl], radius=3.5)
-
-                self.ren_source.AddActor(actor)
-                self.mri_fiducial_actors[lbl] = actor
-
-                self.vtk_source.GetRenderWindow().Render()
-
-                self.update_info(f"Picked MRI fiducial {lbl} at {np.round(pos, 2)}")
-
-                obj.OnLeftButtonDown()  # allow camera interaction
-                return
-
-        # If all fiducials already picked → still forward
-        obj.OnLeftButtonDown()
-
+    
+    # ----------------- template MRI alignment step (head scan -> template MRI) -----------------
     def _populate_template_mri_alignment_step_controls(self):
         """Setup the controls for template MRI alignment step.
 
