@@ -388,7 +388,7 @@ def load_template_mri_fiducials(gui):
 
     if not path:
         return
-    
+
     fid, coord_frame = read_fiducials(path)
     gui.template_mri_fiducials = {}
 
@@ -402,7 +402,7 @@ def load_template_mri_fiducials(gui):
             gui.template_mri_fiducials["LPA"] = coord_mm
         elif ident == FIFF.FIFFV_POINT_RPA:
             gui.template_mri_fiducials["RPA"] = coord_mm
-    
+
     gui.update_info(f"Loaded template MRI fiducials: {gui.template_mri_fiducials}")
     if len(gui.template_mri_fiducials) != 3:
         gui.update_info(
@@ -508,6 +508,7 @@ def save_generated_transforms(gui, trans_to_save=None):
     )[0]
 
     # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
+    # NOTE : do not create a new subdirectory for every new run of the GUI, as multiple participants could be processed in one run.
     participant_result_dir = Path(gui.results_dir) / master_scan_basename
     participant_result_dir.mkdir(exist_ok=True)
 
