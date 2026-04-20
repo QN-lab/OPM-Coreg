@@ -644,6 +644,7 @@ class OPMCoregGUI(QWidget):
         self.update_info(
             "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (source window) (outside scan)."
         )
+        self.marked_fiducials_on_head_scan = {} # reset any previously marked fiducials when starting fiducial mode
 
     def undo_last_fiducial_for_head_alignment(self):
         """Undo the last picked fiducial on the head scan (source window), removing the marker and updating state."""
