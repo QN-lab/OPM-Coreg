@@ -521,7 +521,6 @@ def save_generated_transforms(gui, trans_to_save=None):
         "aux_to_device": gui.T_aux_to_device,
         "dev_to_head": gui.T_dev_to_head,
         "head_to_template_mri": gui.T_head_to_template_mri,
-        "mri_to_template_mri": gui.T_mri_to_template_mri,
     }
 
     for transform_name, transform in available_transforms.items():
@@ -650,7 +649,6 @@ def load_transforms(gui, results_foler_path=None):
         "aux_to_device": "Aux device to device transform",
         "dev_to_head": "Device to head transform",
         "head_to_template_mri": "Head to template MRI transform",
-        "mri_to_template_mri": "MRI to template MRI transform",
     }
 
     for name, description in transforms_to_load.items():

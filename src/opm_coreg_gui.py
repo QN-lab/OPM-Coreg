@@ -169,7 +169,6 @@ class OPMCoregGUI(QWidget):
         self.template_mri_polydata = None
         self.template_mri_fiducials = {}
         self.template_mri_fiducial_actors = {}
-        self.T_mri_to_template_mri = None
         self.T_head_to_template_mri = None
         self.template_mri_actor_target_window = None
 
@@ -1162,12 +1161,7 @@ class OPMCoregGUI(QWidget):
     
     # ----------------- template MRI alignment step (head scan -> template MRI) -----------------
     def _populate_template_mri_alignment_step_controls(self):
-        """Setup the controls for template MRI alignment step.
-
-        Handles following cases to generate transforms needed for group level analyses.
-        Case 1: for participants with MRI scan, match the real scalp surface to the template scalp.
-        Case 2: for participants without MRI scan, match the head scan scalp surface to the template scalp.
-        """
+        """Setup the controls for template MRI alignment step."""
         self._clear_step_controls()
 
         buttons = [

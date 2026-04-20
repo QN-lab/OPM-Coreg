@@ -430,65 +430,7 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     return roi_poly
 
 
-def compute_mri_to_template_mri(gui):
-    """Compute MRI to template MRI transform by matching fiducials."""
-    required = ["NAS", "LPA", "RPA"]
-
-    if not all(fid in gui.mri_fiducials for fid in required):
-        gui.update_info("MRI fiducials missing.")
-        return
-
-    if not all(fid in gui.template_mri_fiducials for fid in required):
-        gui.update_info("Template MRI fiducials missing.")
-        return
-
-    src = np.array(
-        [
-            gui.mri_fiducials["NAS"],
-            gui.mri_fiducials["LPA"],
-            gui.mri_fiducials["RPA"],
-        ]
-    )
-
-    dst = np.array(
-        [
-            gui.template_mri_fiducials["NAS"],
-            gui.template_mri_fiducials["LPA"],
-            gui.template_mri_fiducials["RPA"],
-        ]
-    )
-
-    T, rms, errs = compute_rigid_transform(src, dst)
-
-    gui.T_mri_to_template_mri = T
-
-    gui.update_info(
-        f"MRI→Template MRI RMS = {rms:.2f} mm | "
-        f"NAS={errs[0]:.2f}, "
-        f"LPA={errs[1]:.2f}, "
-        f"RPA={errs[2]:.2f}"
-    )
-    save_generated_transforms(gui, trans_to_save="mri_to_template_mri")
-
-
-def compute_head_to_template_mri_via_mri(gui):
-    """Compute head to template MRI transform by chaining head→MRI and MRI→template MRI."""
-    if gui.T_head_to_mri is None:
-        gui.update_info("Head to MRI transform missing.")
-        return
-
-    if gui.T_mri_to_template_mri is None:
-        gui.update_info("MRI to template MRI transform missing.")
-        return
-
-    T_head_to_template = gui.T_mri_to_template_mri @ gui.T_head_to_mri
-    gui.T_head_to_template_mri = T_head_to_template
-
-    gui.update_info("Computed head to template MRI transform via participant MRI.")
-    save_generated_transforms(gui, trans_to_save="head_to_template_mri")
-
-
-def compute_head_to_template_mri_via_marked_fiducials(gui):
+def compute_head_to_template_mri(gui):
     """Compute head to template MRI transform by matching marked fiducials on head scan to template MRI fiducials."""
     required = ["NAS", "LPA", "RPA"]
     if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
@@ -521,18 +463,3 @@ def compute_head_to_template_mri_via_marked_fiducials(gui):
 
     gui.update_info("Computed head to template MRI transform via marked fiducials on head scan.")
     save_generated_transforms(gui, trans_to_save="head_to_template_mri")
-
-
-def compute_head_to_template_mri(gui):
-    """Compute head to template MRI transform.
-    
-    Case 1: For participant with MRI, compute head→template_mri by chaining head→mri + mri→template_mri.
-    Case 2: For participant without MRI, match manually marked fiducials on head scan to template MRI fiducials.
-    """
-    # Case 1: Participant with MRI
-    if gui.T_head_to_mri is not None:
-        compute_mri_to_template_mri(gui)
-        compute_head_to_template_mri_via_mri(gui)
-    # Case 2: Participant without MRI
-    else:
-        compute_head_to_template_mri_via_marked_fiducials(gui)
