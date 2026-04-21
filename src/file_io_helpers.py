@@ -315,10 +315,17 @@ def load_mri_mesh(gui):
     # -------------------------------------------------
     # Display on source window
     # -------------------------------------------------
-    actor = actor_from_polydata(gui.mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7)
+    try:
+        if gui.mri_actor_source_window is not None:
+            gui.ren_source.RemoveActor(gui.mri_actor_source_window)
+    except Exception:
+        pass
+    gui.mri_actor_source_window = actor_from_polydata(
+        gui.mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
+    )
 
     gui.ren_source.RemoveAllViewProps()
-    gui.ren_source.AddActor(actor)
+    gui.ren_source.AddActor(gui.mri_actor_source_window)
 
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
@@ -336,12 +343,18 @@ def load_template_mri_scalp(gui):
 
     gui.template_mri_polydata = load_mesh_to_polydata(filepath)
 
-    actor = actor_from_polydata(
+    # Dispaly on source window
+    try:
+        if gui.template_mri_actor_source_window is not None:
+            gui.ren_source.RemoveActor(gui.template_mri_actor_source_window)
+    except Exception:
+        pass
+    gui.template_mri_actor_source_window = actor_from_polydata(
         gui.template_mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
     )
 
     gui.ren_source.RemoveAllViewProps()
-    gui.ren_source.AddActor(actor)
+    gui.ren_source.AddActor(gui.template_mri_actor_source_window)
 
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()

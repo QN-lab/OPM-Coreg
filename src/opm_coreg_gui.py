@@ -2,6 +2,7 @@
 # TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
 # TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
+# TODO : gui.xx_actor initialized to None or empty list, make more consistent.
 
 import logging
 from datetime import datetime
@@ -159,17 +160,21 @@ class OPMCoregGUI(QWidget):
         self.pair_actors_target = []
 
         # MRI alignment step
+        self.head_on_mri_actor_source_window = None
         self.mri_polydata = None
         self.mri_fiducials = {}
         self.mri_fiducial_actors = {}
         self.T_head_to_mri = None
+        self.mri_actor_source_window = None
         self.mri_actor_target_window = None
+        self.roi_on_mri_actor_source_window = None
 
         # Template MRI alignment step
         self.template_mri_polydata = None
         self.template_mri_fiducials = {}
         self.template_mri_fiducial_actors = {}
         self.T_head_to_template_mri = None
+        self.template_mri_actor_source_window = None
         self.template_mri_actor_target_window = None
 
         # Obtain required project paths
@@ -231,11 +236,14 @@ class OPMCoregGUI(QWidget):
         )
         steps_v = QVBoxLayout()
         for button_label, mode in [
+            ("Load Available Data", "load_data"),
             ("Step 1: Aux device to scan", "align_aux"),
             ("Step 2: Head to scan", "align_head"),
             ("Step 3: Sensors to scan", "align_sensors"),
             ("Step 4: Head to MRI", "align_mri"),
             ("Step 5: Head to template MRI", "align_template_mri"),
+            ("Save Generated Transforms", "save_transforms"),
+            ("Clear all and restart", "restart"),
         ]:
             button = QPushButton(button_label)
             button.clicked.connect(
@@ -255,7 +263,7 @@ class OPMCoregGUI(QWidget):
         ctrl_layout.addWidget(self.step_ctrl_box, stretch=1)
 
         # info box
-        info_box = QGroupBox("View / Save")
+        info_box = QGroupBox("View Options")
         info_box.setStyleSheet(
             "QGroupBox { font-weight: bold; background-color: #333; padding-top: 10px; }"
         )
@@ -307,14 +315,6 @@ class OPMCoregGUI(QWidget):
             lambda state: toggle_template_mri_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_template_mri)
-
-        self.btn_save_all = QPushButton("Save All Available Transforms")
-        self.btn_save_all.clicked.connect(lambda: save_generated_transforms(self))
-        info_v.addWidget(self.btn_save_all)
-
-        self.btn_load_all = QPushButton("Load All Available Data")
-        self.btn_load_all.clicked.connect(lambda: load_all_saved_data(self))
-        info_v.addWidget(self.btn_load_all)
 
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
@@ -392,6 +392,20 @@ class OPMCoregGUI(QWidget):
 
         elif selected_mode == "align_template_mri":
             self._populate_template_mri_alignment_step_controls()
+
+        elif selected_mode == "save_transforms":
+            save_generated_transforms(self)
+
+        elif selected_mode == "load_data":
+            load_all_saved_data(self)
+
+        elif selected_mode == "restart":
+            self.restart_aux_alignment()
+            self.restart_head_alignment()
+            self.restart_sensors_alignment()
+            self.restart_mri_alignment()
+            self.restart_template_mri_alignment()
+            self.update_info("All steps restarted. Please select a step to begin.")
 
         self.update_info(f"Mode: {selected_mode}")
 
@@ -644,7 +658,7 @@ class OPMCoregGUI(QWidget):
         self.update_info(
             "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (source window) (outside scan)."
         )
-        self.marked_fiducials_on_head_scan = {} # reset any previously marked fiducials when starting fiducial mode
+        self.marked_fiducials_on_head_scan = {}  # reset any previously marked fiducials when starting fiducial mode
 
     def undo_last_fiducial_for_head_alignment(self):
         """Undo the last picked fiducial on the head scan (source window), removing the marker and updating state."""
@@ -1141,6 +1155,10 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: load_mri_fiducials(self),
             },
             {
+                "label": "Load master scan (target window)",
+                "callback": lambda: load_master_scan(self),
+            },
+            {
                 "label": "Compute initial Head→MRI (base on head alignment step fiducials)",
                 "callback": lambda: compute_head_to_mri_initial(self),
             },
@@ -1152,6 +1170,10 @@ class OPMCoregGUI(QWidget):
                 "label": "Preview MRI on master scan (target window)",
                 "callback": lambda: preview_mri_on_scan(self),
             },
+            {
+                "label": "Restart MRI Alignment",
+                "callback": self.restart_mri_alignment,
+            },
         ]
 
         # Place all the buttons in step controls window
@@ -1159,7 +1181,48 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
-    
+
+    def restart_mri_alignment(self):
+        """Reset all MRI Alignment related state and UI elements, including MRI mesh, fiducials, transformed actors, and any pairwise points."""
+        # Remove mri_fiducial_actors from source window
+        for actor in self.mri_fiducial_actors.values():
+            try:
+                self.ren_source.RemoveActor(actor)
+            except Exception:
+                pass
+        # Remove head_on_mri_actor from source window
+        try:
+            if self.head_on_mri_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.head_on_mri_actor_source_window)
+        except Exception:
+            pass
+        # Remove mri_actor_source_window from source window
+        try:
+            if self.mri_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.mri_actor_source_window)
+        except Exception:
+            pass
+        # Remove mri_actor_target_window from target window
+        try:
+            if self.mri_actor_target_window is not None:
+                self.ren_target.RemoveActor(self.mri_actor_target_window)
+        except Exception:
+            pass
+        # Remove ROI actors from source window (roi_on_mri_actor_source_window)
+        try:
+            if self.roi_on_mri_actor_source_window is not None:
+                self.ren_target.RemoveActor(self.roi_on_mri_actor_source_window)
+        except Exception:
+            pass
+        self.head_on_mri_actor_source_window = None
+        self.mri_polydata = None
+        self.mri_fiducials = {}
+        self.mri_fiducial_actors = {}
+        self.T_head_to_mri = None
+        self.mri_actor_source_window = None
+        self.mri_actor_target_window = None
+        self.roi_on_mri_actor_source_window = None
+
     # ----------------- template MRI alignment step (head scan -> template MRI) -----------------
     def _populate_template_mri_alignment_step_controls(self):
         """Setup the controls for template MRI alignment step."""
@@ -1186,12 +1249,43 @@ class OPMCoregGUI(QWidget):
                 "label": "Preview template MRI on master scan (target window)",
                 "callback": lambda: preview_template_mri_on_scan(self),
             },
+            {
+                "label": "Restart Template MRI Alignment",
+                "callback": self.restart_template_mri_alignment,
+            },
         ]
 
         for r, btn in enumerate(buttons):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def restart_template_mri_alignment(self):
+        """Reset all Template MRI Alignment related state and UI elements, including template MRI mesh, fiducials, transformed actors"""
+        # Remove template_mri_fiducial_actors from source window
+        for actor in self.template_mri_fiducial_actors.values():
+            try:
+                self.ren_source.RemoveActor(actor)
+            except Exception:
+                pass
+        # Remove template_mri_actor_source_window from source window
+        try:
+            if self.template_mri_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.template_mri_actor_source_window)
+        except Exception:
+            pass
+        # Remove template_mri_actor_target_window from target window
+        try:
+            if self.template_mri_actor_target_window is not None:
+                self.ren_target.RemoveActor(self.template_mri_actor_target_window)
+        except Exception:
+            pass
+        self.template_mri_polydata = None
+        self.template_mri_fiducials = {}
+        self.template_mri_fiducial_actors = {}
+        self.T_head_to_template_mri = None
+        self.template_mri_actor_source_window = None
+        self.template_mri_actor_target_window = None
 
     # ---- loggging and info updates ----
     def _setup_logger(self):

@@ -246,9 +246,44 @@ def preview_head_on_mri(gui, T):
     filt.SetInputData(gui.head_polydata)
     filt.Update()
 
-    actor = actor_from_polydata(filt.GetOutput(), color=(0.3, 0.6, 1.0), opacity=0.5)
+    try:
+        if (
+            hasattr(gui, "head_on_mri_actor_source_window")
+            and gui.head_on_mri_actor_source_window is not None
+        ):
+            gui.ren_source.RemoveActor(gui.head_on_mri_actor_source_window)
+    except Exception:
+        pass
+    gui.head_on_mri_actor_source_window = actor_from_polydata(
+        filt.GetOutput(), color=(0.3, 0.6, 1.0), opacity=0.5
+    )
 
-    gui.ren_source.AddActor(actor)
+    gui.ren_source.AddActor(gui.head_on_mri_actor_source_window)
+    gui.vtk_source.GetRenderWindow().Render()
+
+
+def preview_roi_on_mri(gui, roi):
+    """Preview the ROI surface overlaid on the MRI in the source window.
+    
+    Args:
+        gui: The main GUI object containing the VTK renderers and data.
+        roi: A vtkPolyData object representing the ROI surface to overlay on the MRI.
+    """
+    if (
+        hasattr(gui, "roi_on_mri_actor_source_window")
+        and gui.roi_on_mri_actor_source_window is not None
+    ):
+        try:
+            gui.ren_source.RemoveActor(gui.roi_on_mri_actor_source_window)
+        except Exception:
+            pass
+
+    # Show ROI on MRI in source window (light red)
+    gui.roi_on_mri_actor_source_window = actor_from_polydata(
+        roi, color=(1.0, 0.5, 0.5), opacity=0.6
+    )
+
+    gui.ren_source.AddActor(gui.roi_on_mri_actor_source_window)
     gui.vtk_source.GetRenderWindow().Render()
 
 

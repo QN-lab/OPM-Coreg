@@ -7,16 +7,16 @@ from src.display_helpers import (
     overlay_head_transformed,
     overlay_helmet_sensors_transformed,
     preview_head_on_mri,
-)
-from src.utils import (
-    actor_from_polydata,
-    compute_rigid_transform,
-    vtk_matrix_from_numpy,
+    preview_roi_on_mri,
 )
 from src.file_io_helpers import (
-    save_transformed_sensors_csv,
     save_generated_transforms,
     save_marked_points_in_cache,
+    save_transformed_sensors_csv,
+)
+from src.utils import (
+    compute_rigid_transform,
+    vtk_matrix_from_numpy,
 )
 
 
@@ -248,57 +248,46 @@ def run_icp_head_to_mri(gui):
         return
 
     if not all(
-        fid in gui.marked_fiducials_on_head_scan for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+        fid in gui.marked_fiducials_on_head_scan
+        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
     ):
         gui.update_info("Need 5 head fiducials.")
         return
 
     # --------------------------------------------------
-    # 1) Extract ROI in HEAD space
+    # Extract ROI in HEAD space
     # --------------------------------------------------
-    roi_head_native = extract_face_roi(gui, gui.head_polydata, gui.marked_fiducials_on_head_scan)
+    roi_in_head_space = extract_face_roi(
+        gui, gui.head_polydata, gui.marked_fiducials_on_head_scan
+    )
 
-    if roi_head_native is None:
+    if roi_in_head_space is None:
         gui.update_info("ROI extraction failed.")
         return
 
     # --------------------------------------------------
-    # 2) Transform ROI to MRI space
+    # Transform ROI to MRI space
     # --------------------------------------------------
     tf = vtk.vtkTransform()
     tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
 
     tf_filter = vtk.vtkTransformPolyDataFilter()
     tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(roi_head_native)
+    tf_filter.SetInputData(roi_in_head_space)
     tf_filter.Update()
 
-    roi_head = tf_filter.GetOutput()
+    roi_in_mri_space = tf_filter.GetOutput()
 
     # --------------------------------------------------
-    # 3) Show ROI in source window (red)
+    # Initial RMS
     # --------------------------------------------------
-    if hasattr(gui, "_roi_actor") and gui._roi_actor is not None:
-        try:
-            gui.ren_source.RemoveActor(gui._roi_actor)
-        except Exception:
-            pass
-
-    gui._roi_actor = actor_from_polydata(roi_head, color=(1, 0, 0), opacity=0.7)
-
-    gui.ren_source.AddActor(gui._roi_actor)
-    gui.vtk_source.GetRenderWindow().Render()
+    initial_rms = compute_surface_rms(roi_in_mri_space, gui.mri_polydata)
 
     # --------------------------------------------------
-    # 4) Initial RMS
-    # --------------------------------------------------
-    initial_rms = compute_surface_rms(roi_head, gui.mri_polydata)
-
-    # --------------------------------------------------
-    # 5) ICP
+    # ICP
     # --------------------------------------------------
     icp = vtk.vtkIterativeClosestPointTransform()
-    icp.SetSource(roi_head)
+    icp.SetSource(roi_in_mri_space)
     icp.SetTarget(gui.mri_polydata)
     icp.GetLandmarkTransform().SetModeToRigidBody()
     icp.SetMaximumNumberOfIterations(50)
@@ -320,26 +309,27 @@ def run_icp_head_to_mri(gui):
     save_generated_transforms(gui, trans_to_save="head_to_mri")
 
     # --------------------------------------------------
-    # 6) Recompute RMS after ICP
+    # Recompute RMS after ICP
     # --------------------------------------------------
     tf2 = vtk.vtkTransform()
     tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
 
     tf_filter2 = vtk.vtkTransformPolyDataFilter()
     tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(roi_head_native)
+    tf_filter2.SetInputData(roi_in_head_space)
     tf_filter2.Update()
 
-    roi_refined = tf_filter2.GetOutput()
+    roi_refined_in_mri_space = tf_filter2.GetOutput()
 
-    final_rms = compute_surface_rms(roi_refined, gui.mri_polydata)
+    final_rms = compute_surface_rms(roi_refined_in_mri_space, gui.mri_polydata)
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
     # --------------------------------------------------
-    # 7) Preview full head
+    # Preview full head
     # --------------------------------------------------
     preview_head_on_mri(gui, gui.T_head_to_mri)
+    preview_roi_on_mri(gui, roi_refined_in_mri_space)
 
 
 def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
@@ -461,5 +451,7 @@ def compute_head_to_template_mri(gui):
 
     gui.T_head_to_template_mri = T
 
-    gui.update_info("Computed head to template MRI transform via marked fiducials on head scan.")
+    gui.update_info(
+        "Computed head to template MRI transform via marked fiducials on head scan."
+    )
     save_generated_transforms(gui, trans_to_save="head_to_template_mri")
