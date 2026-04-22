@@ -2,6 +2,7 @@
 
 import numpy as np
 import vtk
+from scipy.spatial import Delaunay
 
 from src.display_helpers import (
     overlay_head_transformed,
@@ -260,6 +261,11 @@ def run_icp_head_to_mri(gui):
     roi_in_head_space = extract_face_roi(
         gui, gui.head_polydata, gui.marked_fiducials_on_head_scan
     )
+    # # Create a list of marked points from the head fiducials
+    # marked_points = list(gui.marked_fiducials_on_head_scan.values())
+    # roi_in_head_space = extract_convex_hull_roi(
+    #     gui.head_polydata, marked_points, expansion_factor=1.5
+    # )
 
     if roi_in_head_space is None:
         gui.update_info("ROI extraction failed.")
@@ -352,7 +358,9 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     roi_center = np.mean(fiducial_points, axis=0)
 
     max_dist = np.max(np.linalg.norm(fiducial_points - roi_center, axis=1))
-    roi_radius = 2.2 * max_dist  # larger radius to include LPA/RPA fully
+    roi_radius = (
+        2.2 * max_dist
+    )  # larger radius to include LPA/RPA fully # TODO : magic number used
 
     # --------------------------------------------------
     # 2) Define fiducial plane (NAS–LPA–RPA)
@@ -418,6 +426,71 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
 
     gui.update_info(f"ROI points: {roi_poly.GetNumberOfPoints()}")
     return roi_poly
+
+
+def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
+    """
+    Extract ROI containing all points inside the convex hull volume of user-marked points.
+
+    Args:
+        polydata: vtkPolyData of the full head surface
+        marked_points: List of (x, y, z) points marked by user (N ≥ 4)
+        expansion_factor: Factor to expand the hull outward (default 1.5)
+
+    Returns:
+        roi_poly: Extracted region as vtkPolyData, or None if too small
+    """
+    points_array = np.array(marked_points)
+
+    if len(points_array) < 4:
+        return None
+
+    # 1. Compute center and expand points outward
+    center = np.mean(points_array, axis=0)
+    expanded_points = center + expansion_factor * (points_array - center)
+
+    # 2. Build Delaunay triangulation for inside/outside test
+    try:
+        tri = Delaunay(expanded_points)
+    except Exception:
+        return None
+
+    # 3. Test every point in polydata for inclusion in hull
+    vtk_points = polydata.GetPoints()
+    n_pts = vtk_points.GetNumberOfPoints()
+
+    ids = vtk.vtkIdTypeArray()
+
+    for i in range(n_pts):
+        p = np.array(vtk_points.GetPoint(i))
+
+        # Check if point is inside the convex hull
+        simplex = tri.find_simplex(p)
+        if simplex >= 0:
+            ids.InsertNextValue(i)
+
+    if ids.GetNumberOfTuples() < 100:
+        return None
+
+    # 4. Extract selected points
+    selection_node = vtk.vtkSelectionNode()
+    selection_node.SetFieldType(vtk.vtkSelectionNode.POINT)
+    selection_node.SetContentType(vtk.vtkSelectionNode.INDICES)
+    selection_node.SetSelectionList(ids)
+
+    selection = vtk.vtkSelection()
+    selection.AddNode(selection_node)
+
+    extract = vtk.vtkExtractSelection()
+    extract.SetInputData(0, polydata)
+    extract.SetInputData(1, selection)
+    extract.Update()
+
+    geo = vtk.vtkGeometryFilter()
+    geo.SetInputConnection(extract.GetOutputPort())
+    geo.Update()
+
+    return geo.GetOutput()
 
 
 def compute_head_to_template_mri(gui):

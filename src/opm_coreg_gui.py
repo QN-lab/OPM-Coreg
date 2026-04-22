@@ -1211,7 +1211,7 @@ class OPMCoregGUI(QWidget):
         # Remove ROI actors from source window (roi_on_mri_actor_source_window)
         try:
             if self.roi_on_mri_actor_source_window is not None:
-                self.ren_target.RemoveActor(self.roi_on_mri_actor_source_window)
+                self.ren_source.RemoveActor(self.roi_on_mri_actor_source_window)
         except Exception:
             pass
         self.head_on_mri_actor_source_window = None
@@ -1222,6 +1222,7 @@ class OPMCoregGUI(QWidget):
         self.mri_actor_source_window = None
         self.mri_actor_target_window = None
         self.roi_on_mri_actor_source_window = None
+        self.update_info("Restarted MRI Alignment (fiducials, actors, and pairs cleared).")
 
     # ----------------- template MRI alignment step (head scan -> template MRI) -----------------
     def _populate_template_mri_alignment_step_controls(self):
