@@ -345,6 +345,10 @@ class OPMCoregGUI(QWidget):
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
         """Switch to a different step/mode, resetting state and UI as needed."""
+        # No action if same mode selected again
+        if selected_mode == self.mode:
+            return
+
         # 1. Remove old observers
         remove_all_observers(self)
 
@@ -1222,7 +1226,9 @@ class OPMCoregGUI(QWidget):
         self.mri_actor_source_window = None
         self.mri_actor_target_window = None
         self.roi_on_mri_actor_source_window = None
-        self.update_info("Restarted MRI Alignment (fiducials, actors, and pairs cleared).")
+        self.update_info(
+            "Restarted MRI Alignment (fiducials, actors, and pairs cleared)."
+        )
 
     # ----------------- template MRI alignment step (head scan -> template MRI) -----------------
     def _populate_template_mri_alignment_step_controls(self):
