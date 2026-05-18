@@ -337,96 +337,61 @@ def run_icp_head_to_mri(gui):
     preview_head_on_mri(gui, gui.T_head_to_mri)
     preview_roi_on_mri(gui, roi_refined_in_mri_space)
 
-
 def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
-    """Extract a region of interest (ROI) from the head scan polydata based on fiducials defining the face area, and return the subset polydata for registration to MRI."""
-    required = ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    """Extract face ROI using robust surface clipping."""
+    
+    import pyvista as pv
+
+    required = ["NAS", "LPA", "RPA"]
     if not all(fid in fid_dict for fid in required):
         gui.update_info("ROI extraction: missing fiducials")
         return None
 
-    nas = fid_dict["NAS"]
-    lpa = fid_dict["LPA"]
-    rpa = fid_dict["RPA"]
-    nose = fid_dict["NOSE"]
-    chin = fid_dict["CHIN"]
+    nas  = fid_dict["NAS"]
+    lpa  = fid_dict["LPA"]
+    rpa  = fid_dict["RPA"]
+    nose = fid_dict.get("NOSE", nas)
+    chin = fid_dict.get("CHIN", nas)
 
-    # --------------------------------------------------
-    # 1) ROI center (face region)
-    # --------------------------------------------------
-    fiducial_points = np.vstack([nas, lpa, rpa, nose, chin])
-    roi_center = np.mean(fiducial_points, axis=0)
+    # ---- convert VTK → PyVista
+    head_mesh = pv.wrap(polydata)
 
-    max_dist = np.max(np.linalg.norm(fiducial_points - roi_center, axis=1))
-    roi_radius = (
-        2.2 * max_dist
-    )  # larger radius to include LPA/RPA fully # TODO : magic number used
+    pts = np.vstack([nas, lpa, rpa, nose])
+    center = pts.mean(axis=0)
 
-    # --------------------------------------------------
-    # 2) Define fiducial plane (NAS–LPA–RPA)
-    # --------------------------------------------------
-    v1 = lpa - nas
-    v2 = rpa - nas
-    plane_normal = np.cross(v1, v2)
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+    radius = 0.75 * np.max(np.linalg.norm(pts - center, axis=1))
 
-    # Make sure normal points upward (towards top of head)
-    if np.dot(plane_normal, chin - nas) > 0:
-        plane_normal = -plane_normal
+    normal = np.cross(lpa - nas, rpa - nas)
+    normal /= np.linalg.norm(normal)
 
-    # Shift plane upward
-    plane_point = nas + plane_offset_mm * plane_normal
+    if np.dot(normal, chin - nas) > 0:
+        normal *= -1
 
-    # --------------------------------------------------
-    # 3) Select points
-    # --------------------------------------------------
-    points = polydata.GetPoints()
-    n_pts = points.GetNumberOfPoints()
+    plane_origin = nas + plane_offset_mm * normal
 
-    ids = vtk.vtkIdTypeArray()
+    sphere = pv.Sphere(radius=radius, center=center)
+    roi = head_mesh.clip_surface(sphere)
 
-    for i in range(n_pts):
-        p = np.array(points.GetPoint(i))
-
-        # radial constraint
-        if np.linalg.norm(p - roi_center) > roi_radius:
-            continue
-
-        # chop-off plane: keep only points BELOW shifted plane
-        if np.dot(p - plane_point, plane_normal) > 0:
-            continue
-
-        ids.InsertNextValue(i)
-
-    if ids.GetNumberOfTuples() < 500:
+    if roi.n_cells == 0:
         gui.update_info("ROI too small — returning None")
         return None
 
-    # --------------------------------------------------
-    # 4) Extract subset
-    # --------------------------------------------------
-    selection_node = vtk.vtkSelectionNode()
-    selection_node.SetFieldType(vtk.vtkSelectionNode.POINT)
-    selection_node.SetContentType(vtk.vtkSelectionNode.INDICES)
-    selection_node.SetSelectionList(ids)
+    side = float(np.dot(nose - plane_origin, normal))
+    invert = True if side < 0.0 else False
 
-    selection = vtk.vtkSelection()
-    selection.AddNode(selection_node)
+    roi = roi.clip(
+        normal=list(normal),
+        origin=list(plane_origin),
+        invert=invert
+    )
 
-    extract = vtk.vtkExtractSelection()
-    extract.SetInputData(0, polydata)
-    extract.SetInputData(1, selection)
-    extract.Update()
+    if roi.n_cells < 500:
+        gui.update_info("ROI too small — returning None")
+        return None
 
-    geo = vtk.vtkGeometryFilter()
-    geo.SetInputConnection(extract.GetOutputPort())
-    geo.Update()
+    gui.update_info(f"ROI points: {roi.n_points}")
 
-    roi_poly = geo.GetOutput()
-
-    gui.update_info(f"ROI points: {roi_poly.GetNumberOfPoints()}")
-    return roi_poly
-
+    return roi
 
 def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
     """
