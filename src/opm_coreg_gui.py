@@ -165,7 +165,15 @@ class OPMCoregGUI(QWidget):
         self.roi_on_mri_actor_source_window = None
 
         # Obtain required project paths
-        project_paths = ProjectPaths()
+        try:
+            project_paths = ProjectPaths()
+        except Exception:
+            # If the root directory cannot be created, show an error message and exit the application
+            error_message = (
+                "Failed to initialize project paths. Please check permissions and available disk space for the default directories. "
+                "You can also set a custom root directory by defining the OPM_COREG_GUI_ROOT_DIR environment variable pointing to a valid directory."
+            )
+            raise Exception(error_message)
         self.results_dir = project_paths.get_results_dir()
         self.logs_dir = project_paths.get_logs_dir()
 

@@ -4,21 +4,23 @@ import os
 
 class ProjectPaths:
     def __init__(self):
-        # Priority: env var > marker-based > fallback
-        self.root_dir = Path(
-            os.environ.get("OPM_GUI_PROJECT_ROOT", self._find_root_with_marker())
-        )
-
-    @staticmethod
-    def _find_root_with_marker():
-        """Find root by looking for common markers."""
-        current = Path(__file__).parent
-        for parent in [current] + list(current.parents):
-            if (parent / ".project_root").exists():  # your custom marker
-                return parent
-            if (parent / ".git").exists():
-                return parent
-        return current.parent  # fallback
+        # Priority: env var > Path.home()/Documents/opm-coreg-gui > Path.home()/opm-coreg-gui > empty string
+        env_root = os.environ.get("OPM_COREG_GUI_ROOT_DIR", "")
+        if env_root:
+            self.root_dir = Path(env_root)
+        else:
+            print("OPM_COREG_GUI_ROOT_DIR environment variable not set. Using Home/Documents/opm-coreg-gui or Home/opm-coreg-gui as fallback.")
+            if (Path.home() / "Documents").exists():
+                self.root_dir = Path.home() / "Documents" / "opm-coreg-gui"
+            else:
+                self.root_dir = Path.home() / "opm-coreg-gui"
+            try:
+                self.root_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                # Raise an exception and close the application if the directory cannot be created
+                raise Exception(
+                    f"Failed to create root directory at {self.root_dir}. Please check permissions and available disk space. Error: {e}"
+                )
 
     def get_results_dir(self):
         """Create and get results directory."""
