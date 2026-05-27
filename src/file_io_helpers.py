@@ -17,7 +17,6 @@ from src.const import PAIR_COLORS
 from src.display_helpers import (
     draw_mri_fiducials,
     draw_sensor_vectors_source_window,
-    draw_template_mri_fiducials,
 )
 from src.utils import (
     actor_from_polydata,
@@ -333,35 +332,6 @@ def load_mri_mesh(gui):
     gui.update_info("Loaded MRI mesh (source window).")
 
 
-def load_template_mri_scalp(gui):
-    """Load template MRI scalp mesh on the source window."""
-    filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Load template MRI scalp mesh", "", "PLY/STL Files (*.ply *.stl)"
-    )
-    if not filepath:
-        return
-
-    gui.template_mri_polydata = load_mesh_to_polydata(filepath)
-
-    # Dispaly on source window
-    try:
-        if gui.template_mri_actor_source_window is not None:
-            gui.ren_source.RemoveActor(gui.template_mri_actor_source_window)
-    except Exception:
-        pass
-    gui.template_mri_actor_source_window = actor_from_polydata(
-        gui.template_mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
-    )
-
-    gui.ren_source.RemoveAllViewProps()
-    gui.ren_source.AddActor(gui.template_mri_actor_source_window)
-
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
-
-    gui.update_info("Loaded template MRI scalp mesh (source window).")
-
-
 def load_mri_fiducials(gui):
     """Load MRI fiducials from FIF, display on source window."""
     path = QFileDialog.getOpenFileName(
@@ -391,38 +361,6 @@ def load_mri_fiducials(gui):
         gui.update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
         return
     draw_mri_fiducials(gui)
-
-
-def load_template_mri_fiducials(gui):
-    """Load template MRI fiducials from FIF, display on source window."""
-    path = QFileDialog.getOpenFileName(
-        gui, "Load template MRI Fiducials (.fif)", "", "FIF files (*.fif)"
-    )[0]
-
-    if not path:
-        return
-
-    fid, coord_frame = read_fiducials(path)
-    gui.template_mri_fiducials = {}
-
-    for f in fid:
-        ident = f["ident"]
-        coord_mm = f["r"] * 1000.0  # meters → mm
-
-        if ident == FIFF.FIFFV_POINT_NASION:
-            gui.template_mri_fiducials["NAS"] = coord_mm
-        elif ident == FIFF.FIFFV_POINT_LPA:
-            gui.template_mri_fiducials["LPA"] = coord_mm
-        elif ident == FIFF.FIFFV_POINT_RPA:
-            gui.template_mri_fiducials["RPA"] = coord_mm
-
-    gui.update_info(f"Loaded template MRI fiducials: {gui.template_mri_fiducials}")
-    if len(gui.template_mri_fiducials) != 3:
-        gui.update_info(
-            f"Incomplete template MRI fiducials: {list(gui.template_mri_fiducials.keys())}"
-        )
-        return
-    draw_template_mri_fiducials(gui)
 
 
 def save_transformed_sensors_csv(gui):
@@ -533,7 +471,6 @@ def save_generated_transforms(gui, trans_to_save=None):
         "head_to_mri": gui.T_head_to_mri,
         "aux_to_device": gui.T_aux_to_device,
         "dev_to_head": gui.T_dev_to_head,
-        "head_to_template_mri": gui.T_head_to_template_mri,
     }
 
     for transform_name, transform in available_transforms.items():
@@ -661,7 +598,6 @@ def load_transforms(gui, results_foler_path=None):
         "head_to_mri": "Head to MRI transform",
         "aux_to_device": "Aux device to device transform",
         "dev_to_head": "Device to head transform",
-        "head_to_template_mri": "Head to template MRI transform",
     }
 
     for name, description in transforms_to_load.items():

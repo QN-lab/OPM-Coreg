@@ -205,29 +205,6 @@ def draw_mri_fiducials(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
-def draw_template_mri_fiducials(gui):
-    """Draw template MRI fiducials on the source window in MRI frame.
-
-    This is called after loading template MRI fiducials, and also after computing head→MRI transform to update the transformed head fiducials."""
-    # Remove old actors
-    if hasattr(gui, "template_mri_fiducial_actors"):
-        for actor in gui.template_mri_fiducial_actors.values():
-            try:
-                gui.ren_source.RemoveActor(actor)
-            except Exception:
-                pass
-
-    gui.template_mri_fiducial_actors = {}
-
-    for lbl, pos in gui.template_mri_fiducials.items():
-        actor = sphere_actor(pos, color=FIDUCIAL_COLORS.get(lbl, (0, 1, 1)), radius=3.5)
-
-        gui.ren_source.AddActor(actor)
-        gui.template_mri_fiducial_actors[lbl] = actor
-
-    gui.vtk_source.GetRenderWindow().Render()
-
-
 def preview_head_on_mri(gui, T):
     """Preview the head scan transformed by T overlaid on the MRI in the source window.
 
@@ -339,57 +316,3 @@ def preview_mri_on_scan(gui):
     gui.vtk_target.GetRenderWindow().Render()
 
     gui.update_info("Previewed MRI on master scan (target window).")
-
-
-def preview_template_mri_on_scan(gui):
-    """Preview the template MRI scalp surface transformed to the master scan frame in the target window view."""
-    if gui.T_head_to_template_mri is None:
-        gui.update_info("Compute Head→Template MRI first.")
-        return
-
-    if gui.T_head_to_scan is None:
-        gui.update_info("Need Head→Scan (Head Alignment step) first.")
-        return
-
-    if gui.template_mri_polydata is None:
-        gui.update_info("Load template MRI scalp mesh first.")
-        return
-
-    # Template MRI is in template MRI frame
-    # We want it in SCAN frame (target window)
-
-    # head -> template mri  = T_head_to_template_mri
-    # head -> scan = T_head_to_scan
-    # So:
-
-    # template mri -> head
-    T_template_mri_to_head = np.linalg.inv(gui.T_head_to_template_mri)
-
-    # head -> scan
-    T_head_to_scan = gui.T_head_to_scan
-
-    # template mri -> scan
-    T_template_mri_to_scan = T_head_to_scan @ T_template_mri_to_head
-
-    tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(T_template_mri_to_scan))
-
-    filt = vtk.vtkTransformPolyDataFilter()
-    filt.SetTransform(tf)
-    filt.SetInputData(gui.template_mri_polydata)
-    filt.Update()
-
-    # remove old if exists
-    if gui.template_mri_actor_target_window is not None:
-        gui.ren_target.RemoveActor(gui.template_mri_actor_target_window)
-
-    gui.template_mri_actor_target_window = actor_from_polydata(
-        filt.GetOutput(),
-        color=(0.8, 1.0, 0.6),  # light green
-        opacity=0.4,
-    )
-
-    gui.ren_target.AddActor(gui.template_mri_actor_target_window)
-    gui.vtk_target.GetRenderWindow().Render()
-
-    gui.update_info("Previewed template MRI on master scan (target window).")
