@@ -4,3 +4,6 @@ results/*
 !results/.gitkeep
 logs/*
 !logs/.gitkeep
+*.egg-info/*
+dist/*
+build/*

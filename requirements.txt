@@ -1,6 +1,0 @@
-numpy
-pandas
-PyQt5
-vtk
-mne
-pyvista

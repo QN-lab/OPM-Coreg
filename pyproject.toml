@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opm-coreg-gui"
+version = "1.0.0"
+description = "OPM Coregistration GUI - A GUI application for co-registering OPM sensors to anatomical MRI"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Anna Kowalczyk"},
+    {name = "Kiran Phalke"},
+]
+keywords = ["opm", "coregistration", "gui", "neuroimaging"]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "PyQt5",
+    "vtk",
+    "mne",
+    "pyvista",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+opm-coreg-gui = "src.main:main"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.setuptools.package-data]
+src = ["**/*.py"]
