@@ -266,30 +266,31 @@ class OPMCoregGUI(QWidget):
         info_v.addWidget(self.cb_show_master_scan)
 
         self.cb_show_aux_dev = QCheckBox("Aux device")
-        self.cb_show_aux_dev.setChecked(True)
+        self.cb_show_aux_dev.setChecked(False)
         self.cb_show_aux_dev.stateChanged.connect(
             lambda state: toggle_aux_dev_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_aux_dev)
 
         self.cb_show_head = QCheckBox("Head scan")
-        self.cb_show_head.setChecked(True)
+        self.cb_show_head.setChecked(False)
         self.cb_show_head.stateChanged.connect(
             lambda state: toggle_head_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_head)
         self.cb_stl = QCheckBox("Sensors")
-        self.cb_stl.setChecked(True)
+        self.cb_stl.setChecked(False)
         self.cb_stl.stateChanged.connect(
             lambda state: toggle_helmet_overlay(self, state)
         )
         info_v.addWidget(self.cb_stl)
         self.cb_vec = QCheckBox("Unit vectors")
+        self.cb_vec.setChecked(False)
         self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
         info_v.addWidget(self.cb_vec)
 
         self.cb_show_mri = QCheckBox("MRI (scalp)")
-        self.cb_show_mri.setChecked(True)
+        self.cb_show_mri.setChecked(False)
         self.cb_show_mri.stateChanged.connect(
             lambda state: toggle_mri_overlay(self, state)
         )
