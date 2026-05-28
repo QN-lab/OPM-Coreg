@@ -31,26 +31,26 @@ def load_master_scan(gui):
     """Load master scan (with participant in the helmet) on the target window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui,
-        "Select master scan (with participant in the helmet)",
+        "Select master scan file (with participant in the helmet)",
         "",
         "PLY/STL Files (*.ply *.stl)",
     )
     if not filepath:
         return
-    gui.helmet_polydata = load_mesh_to_polydata(filepath)
-    gui.helmet_filename = os.path.basename(filepath)
+    gui.master_scan_polydata = load_mesh_to_polydata(filepath)
+    gui.master_scan_filename = os.path.basename(filepath)
     if gui.master_scan_actor is not None:
         try:
             gui.ren_target.RemoveActor(gui.master_scan_actor)
         except Exception:
             pass
     gui.master_scan_actor = actor_from_polydata(
-        gui.helmet_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
+        gui.master_scan_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
     )
     gui.ren_target.AddActor(gui.master_scan_actor)
     gui.ren_target.ResetCamera()
     gui.vtk_target.GetRenderWindow().Render()
-    gui.update_info(f"Loaded master scan: {gui.helmet_filename}")
+    gui.update_info(f"Loaded master scan: {gui.master_scan_filename}")
 
 
 def load_aux_dev_stl(gui):
@@ -116,7 +116,7 @@ def load_head_scan(gui):
     """Load head scan (without helmet) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui,
-        "Select OUTSIDE head scan (source window)",
+        "Select head scan file (source window)",
         "",
         "PLY/STL Files (*.ply *.stl)",
     )
@@ -134,13 +134,13 @@ def load_head_scan(gui):
     gui.ren_source.AddActor(gui.head_actor)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
-    gui.update_info(f"Loaded outside head scan: {os.path.basename(filepath)}")
+    gui.update_info(f"Loaded head scan: {os.path.basename(filepath)}")
 
 
 def load_helmet_cad(gui):
-    """Load helmet CAD (STL) on the source window."""
+    """Load helmet design file (STL) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Load helmet STL", "", "STL/PLY Files (*.stl *.ply)"
+        gui, "Load helmet design file (STL)", "", "STL/PLY Files (*.stl *.ply)"
     )
     if not filepath:
         return
@@ -229,7 +229,6 @@ def load_helmet_landmark_csv(gui):
         if column not in df.columns:
             gui.update_info(f"CSV missing column: {column}")
             return
-    gui.helmet_landamrk_csv_path = filepath
     gui.helmet_landmark_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
 
     # Get labels if they exist, otherwise use index
@@ -373,7 +372,7 @@ def save_transformed_sensors_csv(gui):
         )
         return
 
-    # Transforming sensor positions from device space to master scan space
+    # Transforming sensor positions from device frame to master scan frame
     rotation = gui.T_dev_to_scan[:3, :3]
     translation = gui.T_dev_to_scan[:3, 3]
     pts_t = (rotation @ gui.sensor_positions.T).T + translation
@@ -393,9 +392,9 @@ def save_transformed_sensors_csv(gui):
         df_out["z_j"] = axes_t[:, 2, 1]
         df_out["z_k"] = axes_t[:, 2, 2]
 
-    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    # Use master scan filename as base for naming, or default to "master_scan_missing" if not available
     master_scan_basename = os.path.splitext(
-        gui.helmet_filename or "master_scan_missing"
+        gui.master_scan_filename or "master_scan_missing"
     )[0]
 
     # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
@@ -445,7 +444,7 @@ def save_dev_to_head_for_mne(dev_to_head_transform_mm, out_base):
 
 
 def save_generated_transforms(gui, trans_to_save=None):
-    """Save specified transforms to disk in mm units, using the helmet filename as a base for naming.
+    """Save specified transforms to disk in mm units, using the master scan filename as a base for naming.
 
     This function is called after computing any transform, to ensure results are saved without requiring extra user action.
 
@@ -453,9 +452,9 @@ def save_generated_transforms(gui, trans_to_save=None):
         gui: The GUI object containing the transforms and state.
         trans_to_save: The name of the transform to save (e.g., "dev_to_scan"). If None, all available transforms are saved.
     """
-    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    # Use master scan filename as base for naming, or default to "master_scan_missing" if not available
     master_scan_basename = os.path.splitext(
-        gui.helmet_filename or "master_scan_missing"
+        gui.master_scan_filename or "master_scan_missing"
     )[0]
 
     # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)
@@ -515,9 +514,9 @@ def save_marked_points_in_cache(gui, file_to_save=None):
         gui: The GUI object containing the points and state.
         file_to_save: The name of the specific points to save (e.g., "sensor_alignment_points_from_source"). If None, all available points are saved.
     """
-    # Use helmet filename as base for naming, or default to "master_scan_missing" if not available
+    # Use master scan filename as base for naming, or default to "master_scan_missing" if not available
     master_scan_basename = os.path.splitext(
-        gui.helmet_filename or "master_scan_missing"
+        gui.master_scan_filename or "master_scan_missing"
     )[0]
 
     # Create a participant subdirectory in results if it doesn't exist (root_dir/results/participant_name/)

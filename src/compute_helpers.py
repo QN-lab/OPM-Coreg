@@ -256,44 +256,38 @@ def run_icp_head_to_mri(gui):
         return
 
     # --------------------------------------------------
-    # Extract ROI in HEAD space
+    # Extract ROI in HEAD frame
     # --------------------------------------------------
-    roi_in_head_space = extract_face_roi(
+    roi_in_head_frame = extract_face_roi(
         gui, gui.head_polydata, gui.marked_fiducials_on_head_scan
     )
-    # # Create a list of marked points from the head fiducials
-    # marked_points = list(gui.marked_fiducials_on_head_scan.values())
-    # roi_in_head_space = extract_convex_hull_roi(
-    #     gui.head_polydata, marked_points, expansion_factor=1.5
-    # )
-
-    if roi_in_head_space is None:
+    if roi_in_head_frame is None:
         gui.update_info("ROI extraction failed.")
         return
 
     # --------------------------------------------------
-    # Transform ROI to MRI space
+    # Transform ROI to MRI frame
     # --------------------------------------------------
     tf = vtk.vtkTransform()
     tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
 
     tf_filter = vtk.vtkTransformPolyDataFilter()
     tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(roi_in_head_space)
+    tf_filter.SetInputData(roi_in_head_frame)
     tf_filter.Update()
 
-    roi_in_mri_space = tf_filter.GetOutput()
+    roi_in_mri_frame = tf_filter.GetOutput()
 
     # --------------------------------------------------
     # Initial RMS
     # --------------------------------------------------
-    initial_rms = compute_surface_rms(roi_in_mri_space, gui.mri_polydata)
+    initial_rms = compute_surface_rms(roi_in_mri_frame, gui.mri_polydata)
 
     # --------------------------------------------------
     # ICP
     # --------------------------------------------------
     icp = vtk.vtkIterativeClosestPointTransform()
-    icp.SetSource(roi_in_mri_space)
+    icp.SetSource(roi_in_mri_frame)
     icp.SetTarget(gui.mri_polydata)
     icp.GetLandmarkTransform().SetModeToRigidBody()
     icp.SetMaximumNumberOfIterations(50)
@@ -322,12 +316,12 @@ def run_icp_head_to_mri(gui):
 
     tf_filter2 = vtk.vtkTransformPolyDataFilter()
     tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(roi_in_head_space)
+    tf_filter2.SetInputData(roi_in_head_frame)
     tf_filter2.Update()
 
-    roi_refined_in_mri_space = tf_filter2.GetOutput()
+    roi_refined_in_mri_frame = tf_filter2.GetOutput()
 
-    final_rms = compute_surface_rms(roi_refined_in_mri_space, gui.mri_polydata)
+    final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
@@ -335,7 +329,7 @@ def run_icp_head_to_mri(gui):
     # Preview full head
     # --------------------------------------------------
     preview_head_on_mri(gui, gui.T_head_to_mri)
-    preview_roi_on_mri(gui, roi_refined_in_mri_space)
+    preview_roi_on_mri(gui, roi_refined_in_mri_frame)
 
 def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     """Extract face ROI using robust surface clipping."""

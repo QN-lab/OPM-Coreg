@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "opm-coreg-gui"
 version = "1.0.0"
-description = "OPM Coregistration GUI - A GUI application for co-registering OPM sensors to anatomical MRI"
+description = "OPM Coregistration GUI - A GUI application for co-registering OPM sensors and auxiliary devices to anatomical MRI"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [

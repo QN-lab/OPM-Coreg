@@ -12,8 +12,8 @@ from src.utils import (
 )
 
 
-def merge_aux_dev_into_helmet(gui):
-    """Merge the auxiliary device STL into the helmet STL on the target window using the T_aux_dev_to_scan transform."""
+def merge_aux_dev_into_master_scan(gui):
+    """Merge the auxiliary device STL into the master scan on the target window using the T_aux_dev_to_scan transform."""
     if gui.aux_dev_polydata is None or gui.T_aux_dev_to_scan is None:
         gui.update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
         return
@@ -34,7 +34,7 @@ def merge_aux_dev_into_helmet(gui):
     gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
-    gui.update_info("Previewed auxiliary device on helmet.")
+    gui.update_info("Previewed auxiliary device on master scan.")
 
 
 def overlay_head_transformed(gui, T):

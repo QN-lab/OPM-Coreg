@@ -3,6 +3,7 @@
 import numpy as np
 import vtk
 
+# TODO: Write appropriate comments wherever necessary.
 
 def compute_rigid_transform(src_pts, dst_pts):
     """Compute the rigid transformation that best aligns src_pts to dst_pts.

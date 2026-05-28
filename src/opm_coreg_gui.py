@@ -1,6 +1,4 @@
 # TODO : remove magic numbers, compile constants.
-# TODO : helmet/scan words are used interchangeably for 3D master scan, choose one.
-# TODO : rethink about the button order and button labels on each step screen.
 # TODO : make display messages consistent.
 # TODO : gui.xx_actor initialized to None or empty list, make more consistent.
 
@@ -31,7 +29,7 @@ from src.compute_helpers import (
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
-    merge_aux_dev_into_helmet,
+    merge_aux_dev_into_master_scan,
     overlay_helmet_sensors_transformed,
     preview_mri_on_scan,
 )
@@ -102,9 +100,9 @@ class OPMCoregGUI(QWidget):
         self.picking_state = {}
 
         # Auxiliary device alignment step
-        self.helmet_polydata = None
+        self.master_scan_polydata = None
         self.master_scan_actor = None
-        self.helmet_filename = None
+        self.master_scan_filename = None
         self.aux_dev_polydata = None
         self.aux_dev_actor_source_window = None
         self.aux_dev_landmarks = {}
@@ -232,10 +230,10 @@ class OPMCoregGUI(QWidget):
         steps_v = QVBoxLayout()
         for button_label, mode in [
             ("Load Available Data", "load_data"),
-            ("Step 1: Aux device to scan", "align_aux"),
-            ("Step 2: Head to scan", "align_head"),
-            ("Step 3: Sensors to scan", "align_sensors"),
-            ("Step 4: Head to MRI", "align_mri"),
+            ("Align Aux Device to Master Scan", "align_aux"),
+            ("Align Head Scan to Master Scan", "align_head"),
+            ("Align Helmet to Master Scan", "align_sensors"),
+            ("Align Head Scan to Scalp(MRI)", "align_mri"),
             ("Save Generated Transforms", "save_transforms"),
             ("Clear all and restart", "restart"),
         ]:
@@ -412,32 +410,32 @@ class OPMCoregGUI(QWidget):
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load 3D master scan (target window)",
-                "callback": lambda: load_master_scan(self),
-            },
-            {
-                "label": "Load aux device STL (source window)",
+                "label": "Load Aux Device Model (Source Window)",
                 "callback": lambda: load_aux_dev_stl(self),
             },
             {
-                "label": "Load aux device landmarks CSV",
+                "label": "Load Aux Device Landmarks CSV (Source Window)",
                 "callback": lambda: load_aux_dev_landmarks(self),
             },
             {
-                "label": "Start picking aux device landmarks in master scan",
+                "label": "Load Master Scan (Target Window)",
+                "callback": lambda: load_master_scan(self),
+            },
+            {
+                "label": "Mark Aux Device Landmarks on Master Scan (Target Window)",
                 "callback": self.start_aux_dev_landmark_pairs,
             },
             {
-                "label": "Undo last aux device pair",
+                "label": "Undo Last Marked Landmark",
                 "callback": self.undo_last_aux_dev_pair,
             },
             {
-                "label": "Compute aux device to master scan transform",
+                "label": "Compute Transform : Aux Device to Master Scan",
                 "callback": lambda: compute_aux_dev_to_scan(self),
             },
             {
-                "label": "Preview aux device on master scan",
-                "callback": lambda: merge_aux_dev_into_helmet(self),
+                "label": "Preview Aux Device on Master Scan",
+                "callback": lambda: merge_aux_dev_into_master_scan(self),
             },
             {
                 "label": "Restart Aux Alignment step",
@@ -484,7 +482,7 @@ class OPMCoregGUI(QWidget):
 
     def start_aux_dev_landmark_pairs(self):
         """Start the process of picking aux device landmark pairs on the master scan (target window) based on loaded aux device landmarks CSV."""
-        if not self.aux_dev_landmarks or self.helmet_polydata is None:
+        if not self.aux_dev_landmarks or self.master_scan_polydata is None:
             self.update_info(
                 "Need aux device landmarks and master scan (participant in helmet)."
             )
@@ -514,12 +512,12 @@ class OPMCoregGUI(QWidget):
 
         def handler(obj, event):
 
-            # 🔹 If not SHIFT → let VTK rotate normally
+            # If not SHIFT → let VTK rotate normally
             if not self.iren_target.GetShiftKey():
                 obj.OnLeftButtonDown()
                 return
 
-            # 🔹 If done picking → let VTK rotate
+            # If done picking → let VTK rotate
             if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
                 obj.OnLeftButtonDown()
                 return
@@ -556,7 +554,7 @@ class OPMCoregGUI(QWidget):
                     pass
 
                 self.update_info(
-                    "All aux device pairs picked. Click 'Compute aux→helmet'."
+                    "All aux device pairs picked."
                 )
             else:
                 self.update_info(
@@ -564,7 +562,7 @@ class OPMCoregGUI(QWidget):
                     f"{self.aux_dev_expected_labels[self.aux_dev_pick_index]}"
                 )
 
-            # 🔹 IMPORTANT: After handling SHIFT pick,
+            # IMPORTANT: After handling SHIFT pick,
             # still forward event so camera doesn't freeze
             obj.OnLeftButtonDown()
 
@@ -578,7 +576,7 @@ class OPMCoregGUI(QWidget):
         self.aux_alignment_points_from_source.pop()
         self.aux_alignment_points_from_target.pop()
         self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
-        # redraw target window: helmet + placed aux device pair spheres + transformed aux device if present
+        # redraw target window: master scan + placed aux device pair spheres + transformed aux device if present
         self.ren_target.RemoveAllViewProps()
         if self.master_scan_actor is not None:
             self.ren_target.AddActor(self.master_scan_actor)
@@ -601,31 +599,31 @@ class OPMCoregGUI(QWidget):
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load OUTSIDE head (source window)",
+                "label": "Load Head Scan (Source Window)",
                 "callback": lambda: load_head_scan(self),
             },
             {
-                "label": "Load HELMET scan (target window)",
+                "label": "Load Master Scan (Target Window)",
                 "callback": lambda: load_master_scan(self),
             },
             {
-                "label": "Start fiducial mode (pick NAS,LPA,RPA, Nose, Chin)",
+                "label": "Mark Fiducials on Head Scan (NAS->LPA->RPA->Nose->Chin)",
                 "callback": self.start_fiducial_mode_for_head_alignment,
             },
             {
-                "label": "Undo last fiducial",
+                "label": "Undo Last Marked Fiducial",
                 "callback": self.undo_last_fiducial_for_head_alignment,
             },
             {
-                "label": "Start pairwise mode (LEFT->RIGHT)",
+                "label": "Start Pairwise Mode (Head Scan to Master Scan)",
                 "callback": self.start_pairs_for_head_alignment,
             },
             {
-                "label": "Undo last pair",
+                "label": "Undo Last Picked Pair",
                 "callback": self.undo_last_pair_for_head_alignment,
             },
             {
-                "label": "Compute outside->helmet",
+                "label": "Compute Transform : Head Scan to Master Scan",
                 "callback": lambda: compute_head_to_scan(self),
             },
             {
@@ -644,7 +642,7 @@ class OPMCoregGUI(QWidget):
         """Enable picking fiducials on the head scan (source window) in the order NAS, LPA, RPA, Nose, Chin."""
         self.picking_state = {"mode": "head_alignment_fiducials", "next": 0}
         self.update_info(
-            "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN (source window) (outside scan)."
+            "Fiducial mode: SHIFT+click NAS → LPA → RPA → NOSE → CHIN on head scan (source window)."
         )
         self.marked_fiducials_on_head_scan = {}  # reset any previously marked fiducials when starting fiducial mode
 
@@ -673,7 +671,7 @@ class OPMCoregGUI(QWidget):
 
     def start_pairs_for_head_alignment(self):
         """Enable picking pairwise points between the head scan (source window) and master scan (target window) for head alignment step."""
-        if self.head_polydata is None or self.helmet_polydata is None:
+        if self.head_polydata is None or self.master_scan_polydata is None:
             self.update_info(
                 "Load head scan (source window) and master scan (target window) first."
             )
@@ -892,31 +890,31 @@ class OPMCoregGUI(QWidget):
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load helmet STL (source window)",
+                "label": "Load Helmet Model (Source Window)",
                 "callback": lambda: load_helmet_cad(self),
             },
             {
-                "label": "Load sensor locations CSV (plot on source window)",
+                "label": "Load Sensor Locations CSV (Source Window)",
                 "callback": lambda: load_sensor_csv(self),
             },
             {
-                "label": "Load helmet landmarks CSV (plot on source window) (Optional)",
+                "label": "Load Helmet Landmarks CSV (Source Window) (Optional)",
                 "callback": lambda: load_helmet_landmark_csv(self),
             },
             {
-                "label": "Load master scan (target window)",
+                "label": "Load Master Scan (Target Window)",
                 "callback": lambda: load_master_scan(self),
             },
             {
-                "label": "Start helmet to master scan pair mode (LEFT->RIGHT)",
+                "label": "Start Pairwise Mode (Sensor Helmet to Master Scan)",
                 "callback": self.start_pairs_for_sensor_alignment,
             },
             {
-                "label": "Undo last pair",
+                "label": "Undo Last Picked Pair",
                 "callback": self.undo_last_pair_from_sensor_alignment_step,
             },
             {
-                "label": "Compute transform & save sensors",
+                "label": "Compute Transform : Sensors to Master Scan",
                 "callback": lambda: compute_sensors_transform(self),
             },
             {
@@ -985,11 +983,11 @@ class OPMCoregGUI(QWidget):
         """Enable picking pairwise points between the helmet STL/helmet landmark list (source window) and master scan (target window) for sensor alignment.
 
         Requires that both the helmet STL (or helmet landmark CSV) and master scan are loaded first."""
-        if self.helmet_polydata is None or (
+        if self.master_scan_polydata is None or (
             self.helmet_stl_raw is None and self.helmet_landmark_positions is None
         ):
             self.update_info(
-                "Need helmet STL/helmet ladmark list (source window) and participant in the helmet scan (target window) loaded."
+                "Need helmet STL/helmet ladmark list (source window) and the master scan (target window) loaded."
             )
             return
         self.sensor_alignment_points_from_source = []
@@ -1001,7 +999,7 @@ class OPMCoregGUI(QWidget):
         )
 
     def _source_click_sensors_alignment(self, obj, event):
-        """Handle left clicks in sensor alignment step mode for picking points on the helmet STL (source window) that correspond to points on the master scan (target window) for device registration."""
+        """Handle left clicks in sensor alignment step mode for picking points on the helmet STL that correspond to points on the master scan."""
         if not self.iren_source.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -1033,7 +1031,7 @@ class OPMCoregGUI(QWidget):
         obj.OnLeftButtonDown()
 
     def _target_click_sensors_alignment(self, obj, event):
-        """Handle left clicks in sensor alignment step mode for picking points on the master scan (target window) that correspond to previously picked points on the helmet STL (source window) for device registration."""
+        """Handle left clicks in sensor alignment step mode for picking points on the master scan that correspond to previously picked points on the helmet STL."""
         if not self.iren_target.GetShiftKey():
             obj.OnLeftButtonDown()
             return
@@ -1135,27 +1133,27 @@ class OPMCoregGUI(QWidget):
         # Define data structure for buttons required in the current step
         buttons = [
             {
-                "label": "Load MRI mesh (source window)",
+                "label": "Load Skin Surface (Source Window)",
                 "callback": lambda: load_mri_mesh(self),
             },
             {
-                "label": "Load MRI fiducials (.fif)",
+                "label": "Load Estimated Fiducials (Source Window)",
                 "callback": lambda: load_mri_fiducials(self),
             },
             {
-                "label": "Load master scan (target window)",
+                "label": "Load Master Scan (Target Window)",
                 "callback": lambda: load_master_scan(self),
             },
             {
-                "label": "Compute initial Head→MRI (base on head alignment step fiducials)",
+                "label": "Compute Transform : Head Scan to MRI using Fiducials",
                 "callback": lambda: compute_head_to_mri_initial(self),
             },
             {
-                "label": "Run ICP refinement",
+                "label": "Refine Transform : Head Scan to MRI using ICP",
                 "callback": lambda: run_icp_head_to_mri(self),
             },
             {
-                "label": "Preview MRI on master scan (target window)",
+                "label": "Preview Skin Surface on Master Scan",
                 "callback": lambda: preview_mri_on_scan(self),
             },
             {
@@ -1221,7 +1219,7 @@ class OPMCoregGUI(QWidget):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
             :-3
         ]  # YYYYMMDD_HHMMSS_milliseconds
-        log_filename = f"opm_gui_log_{timestamp}.txt"
+        log_filename = f"opm_coreg_gui_log_{timestamp}.txt"
         log_filepath = self.logs_dir / log_filename
         self.log_filepath = log_filepath
 
