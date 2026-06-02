@@ -12,7 +12,7 @@ from src.utils import (
 )
 
 
-def merge_aux_dev_into_master_scan(gui):
+def preview_aux_dev_on_master_scan(gui):
     """Merge the auxiliary device STL into the master scan on the target window using the T_aux_dev_to_scan transform."""
     if gui.aux_dev_polydata is None or gui.T_aux_dev_to_scan is None:
         gui.update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
@@ -31,19 +31,16 @@ def merge_aux_dev_into_master_scan(gui):
     gui.aux_dev_actor_transformed = actor_from_polydata(
         tfilter.GetOutput(), color=(0.7, 1.0, 0.2), opacity=0.45
     )
-    gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
-    gui.ren_target.ResetCameraClippingRange()
-    gui.vtk_target.GetRenderWindow().Render()
-    gui.update_info("Previewed auxiliary device on master scan.")
+
+    if gui.cb_show_aux_dev.isChecked():
+        gui.ren_target.AddActor(gui.aux_dev_actor_transformed)
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed auxiliary device on master scan.")
 
 
-def overlay_head_transformed(gui, T):
-    """Overlay the head scan transformed by T onto the target window, along with transformed fiducials.
-
-    Args:
-        gui: The main GUI object containing the VTK renderers and data.
-        T: A 4x4 numpy array representing the rigid transform to apply to the head scan and fiducials.
-    """
+def preview_head_scan_on_master_scan(gui):
+    """Overlay the head scan transformed by T onto the target window, along with transformed fiducials."""
     # remove old transformed head scan if any
     try:
         if (
@@ -54,9 +51,13 @@ def overlay_head_transformed(gui, T):
     except Exception:
         pass
     if gui.head_polydata is None:
+        gui.update_info("Load head scan STL and compute T_head_to_scan (Head Alignment step) first.")
+        return
+    if gui.T_head_to_scan is None:
+        gui.update_info("Compute T_head_to_scan (Head Alignment step) first.")
         return
     tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(T))
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
     tfilter.SetInputData(gui.head_polydata)
@@ -68,31 +69,15 @@ def overlay_head_transformed(gui, T):
     actor.GetProperty().SetColor(1.0, 0.6, 0.3)
     actor.GetProperty().SetOpacity(0.45)
     gui.head_actor_transformed = actor
-    gui.ren_target.AddActor(actor)
-    # transform fiducials too and plot on target window
-    rotation = T[:3, :3]
-    translation = T[:3, 3]
-    for lbl, p in gui.marked_fiducials_on_head_scan.items():
-        p_hel = rotation @ p + translation
-        try:
-            # if existing fid actor on target window, remove it first
-            if (
-                hasattr(gui, "head_fiducial_actors_target_window")
-                and lbl in gui.head_fiducial_actors_target_window
-            ):
-                gui.ren_target.RemoveActor(gui.head_fiducial_actors_target_window[lbl])
-        except Exception:
-            pass
-        actor = sphere_actor(p_hel, color=FIDUCIAL_COLORS[lbl], radius=3.5)
-        if not hasattr(gui, "head_fiducial_actors_target_window"):
-            gui.head_fiducial_actors_target_window = {}
+
+    if gui.cb_show_head.isChecked():
         gui.ren_target.AddActor(actor)
-        gui.head_fiducial_actors_target_window[lbl] = actor
-    gui.ren_target.ResetCameraClippingRange()
-    gui.vtk_target.GetRenderWindow().Render()
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed head scan on master scan.")
 
 
-def overlay_transformed_helmet_stl(gui, T):
+def preview_helmet_stl_on_master_scan(gui, T):
     """Overlay the helmet STL transformed by T onto the target window.
     
     Args:
@@ -121,13 +106,15 @@ def overlay_transformed_helmet_stl(gui, T):
         color=(0.3, 0.8, 1.0),
         opacity=0.4,
     )
-    gui.ren_target.AddActor(gui.helmet_stl_actor_target)
 
-    gui.ren_target.ResetCameraClippingRange()
-    gui.vtk_target.GetRenderWindow().Render()
+    if gui.cb_show_helmet.isChecked():
+        gui.ren_target.AddActor(gui.helmet_stl_actor_target)
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed helmet STL on master scan.")
 
 
-def overlay_transformed_sensor_positions(gui, T):
+def preview_sensors_on_master_scan(gui, T):
     """Overlay the sensor positions transformed by T onto the target window.
     
     Args:
@@ -156,15 +143,17 @@ def overlay_transformed_sensor_positions(gui, T):
             color=(0.6, 0.0, 0.6),
             radius=3.2,
         )
-
-        gui.ren_target.AddActor(actor)
         gui.transformed_sensor_actors.append(actor)
+    
+    if gui.cb_show_sensors.isChecked():
+        for actor in gui.transformed_sensor_actors:
+            gui.ren_target.AddActor(actor)
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed sensor positions on master scan.")
 
-    gui.ren_target.ResetCameraClippingRange()
-    gui.vtk_target.GetRenderWindow().Render()
 
-
-def overlay_transformed_sensor_vectors(gui, T):
+def preview_sensor_unit_vectors_on_master_scan(gui, T):
     """Overlay unit vectors for each sensor transformed by T on the target window, if sensor axes are available.
     
     Args:
@@ -209,11 +198,25 @@ def overlay_transformed_sensor_vectors(gui, T):
             )
 
             if ar is not None:
-                gui.ren_target.AddActor(ar)
                 gui.transformed_vector_actors.append(ar)
+    
+    if gui.cb_show_unit_vectors.isChecked():
+        for actor in gui.transformed_vector_actors:
+            gui.ren_target.AddActor(actor)
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed sensor unit vectors on master scan.")
 
-    gui.ren_target.ResetCameraClippingRange()
-    gui.vtk_target.GetRenderWindow().Render()
+
+def preview_helmet_sensor_unit_vectors_on_master_scan(gui):
+    """Preview the helmet STL, sensor positions, and unit vectors all together on the master scan in the target window."""
+    if gui.T_dev_to_scan is None:
+        gui.update_info("Need Device→Scan (Sensor Alignment step) first.")
+        return
+
+    preview_helmet_stl_on_master_scan(gui, gui.T_dev_to_scan)
+    preview_sensors_on_master_scan(gui, gui.T_dev_to_scan)
+    preview_sensor_unit_vectors_on_master_scan(gui, gui.T_dev_to_scan)
 
 
 def draw_sensor_vectors_source_window(gui):
@@ -324,7 +327,7 @@ def preview_roi_on_mri(gui, roi):
     gui.vtk_source.GetRenderWindow().Render()
 
 
-def preview_mri_on_scan(gui):
+def preview_mri_on_master_scan(gui):
     """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the target window view."""
     if gui.T_head_to_mri is None:
         gui.update_info("Compute Head→MRI (MRI ALignment step) first.")
@@ -372,27 +375,8 @@ def preview_mri_on_scan(gui):
         opacity=0.4,
     )
 
-    gui.ren_target.AddActor(gui.mri_actor_target_window)
-    gui.vtk_target.GetRenderWindow().Render()
-
-    gui.update_info("Previewed MRI on master scan (target window).")
-
-
-def preview_all_surfaces_on_scan(gui):
-    """Preview all available surfaces based on the checkbox states overlaid on the master scan in the target window view."""
-    if gui.cb_show_head.isChecked() and (gui.T_head_to_scan is not None):
-        overlay_head_transformed(gui, gui.T_head_to_scan)
-    if gui.cb_show_aux_dev.isChecked() and (gui.T_aux_dev_to_scan is not None):
-        merge_aux_dev_into_master_scan(gui)
-    if (
-        gui.cb_show_mri.isChecked
-        and (gui.T_head_to_mri is not None)
-        and (gui.T_head_to_scan is not None)
-    ):
-        preview_mri_on_scan(gui)
-    if gui.cb_show_sensors.isChecked() and (gui.T_dev_to_scan is not None):
-        overlay_transformed_sensor_positions(gui, gui.T_dev_to_scan)
-    if gui.cb_show_unit_vectors.isChecked() and (gui.T_dev_to_scan is not None):
-        overlay_transformed_sensor_vectors(gui, gui.T_dev_to_scan)
-    if gui.cb_show_helmet.isChecked() and (gui.T_dev_to_scan is not None):
-        overlay_transformed_helmet_stl(gui, gui.T_dev_to_scan)
+    if gui.cb_show_mri.isChecked():
+        gui.ren_target.AddActor(gui.mri_actor_target_window)
+        gui.ren_target.ResetCameraClippingRange()
+        gui.vtk_target.GetRenderWindow().Render()
+        gui.update_info("Previewed MRI on master scan (target window).")

@@ -1,6 +1,5 @@
 # TODO : remove magic numbers, compile constants.
 # TODO : make display messages consistent.
-# TODO : gui.xx_actor initialized to None or empty list, make more consistent.
 
 import logging
 from datetime import datetime
@@ -29,8 +28,10 @@ from src.compute_helpers import (
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
-    merge_aux_dev_into_master_scan,
-    preview_mri_on_scan,
+    preview_aux_dev_on_master_scan,
+    preview_head_scan_on_master_scan,
+    preview_helmet_sensor_unit_vectors_on_master_scan,
+    preview_mri_on_master_scan,
 )
 from src.file_io_helpers import (
     load_all_saved_data,
@@ -444,7 +445,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Preview Aux Device on Master Scan",
-                "callback": lambda: merge_aux_dev_into_master_scan(self),
+                "callback": lambda: preview_aux_dev_on_master_scan(self),
             },
             {
                 "label": "Restart Aux Alignment step",
@@ -632,6 +633,10 @@ class OPMCoregGUI(QWidget):
             {
                 "label": "Compute Transform : Head Scan to Master Scan",
                 "callback": lambda: compute_head_to_scan(self),
+            },
+            {
+                "label": "Preview Head Scan on Master Scan",
+                "callback": lambda: preview_head_scan_on_master_scan(self),
             },
             {
                 "label": "Restart Head Alignment",
@@ -925,6 +930,12 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: compute_sensors_transform(self),
             },
             {
+                "label": "Preview Device/Sensors/Unit Vectors on Master Scan",
+                "callback": lambda: preview_helmet_sensor_unit_vectors_on_master_scan(
+                    self
+                ),
+            },
+            {
                 "label": "Restart Sensor Alignment",
                 "callback": self.restart_sensors_alignment,
             },
@@ -1158,8 +1169,8 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: run_icp_head_to_mri(self),
             },
             {
-                "label": "Preview Skin Surface on Master Scan",
-                "callback": lambda: preview_mri_on_scan(self),
+                "label": "Preview Scalp(MRI) on Master Scan",
+                "callback": lambda: preview_mri_on_master_scan(self),
             },
             {
                 "label": "Restart MRI Alignment",

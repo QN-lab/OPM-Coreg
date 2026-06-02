@@ -5,8 +5,6 @@ import vtk
 from scipy.spatial import Delaunay
 
 from src.display_helpers import (
-    overlay_head_transformed,
-    overlay_helmet_sensors_transformed,
     preview_head_on_mri,
     preview_roi_on_mri,
 )
@@ -81,8 +79,6 @@ def compute_head_to_scan(gui):
     gui.update_info(
         f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
     )
-    # overlay transformed head scan on target window (light orange)
-    overlay_head_transformed(gui, T)
 
     # Save generated transform
     save_generated_transforms(gui, trans_to_save="head_to_scan")
@@ -163,9 +159,6 @@ def compute_sensors_transform(gui):
     compute_aux_to_device(gui)
     # Compute device -> head if head transform exists
     compute_device_to_head(gui)
-
-    # overlay transformed STL + transformed sensors
-    overlay_helmet_sensors_transformed(gui, gui.T_dev_to_scan)
 
     # save transformed sensors csv
     save_transformed_sensors_csv(gui)
