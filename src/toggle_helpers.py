@@ -1,23 +1,25 @@
 """Contains helper functions for toggling the visibility of various elements in the GUI."""
 
-from src.display_helpers import (
-    draw_sensor_vectors_source_window,
-    overlay_helmet_sensors_transformed,
-)
 
-
-def toggle_vectors(gui, state):
-    """Toggle the visibility of the unit vectors in the source window.
+def toggle_unit_vectors_overlay(gui, state):
+    """Toggle the visibility of the unit vectors in the target window.
 
     Args:
         gui: The main GUI object.
         state: The state of the checkbox.
     """
-    gui.show_vectors = bool(state)
-    # redraw source window vectors and transformed vectors if transform exists
-    draw_sensor_vectors_source_window(gui)
-    if gui.T_dev_to_scan is not None:
-        overlay_helmet_sensors_transformed(gui, gui.T_dev_to_scan)
+    if gui.transformed_vector_actors == []:
+        return
+    if state:
+        for actor in gui.transformed_vector_actors:
+            gui.ren_target.AddActor(actor)
+    else:
+        for actor in gui.transformed_vector_actors:
+            try:
+                gui.ren_target.RemoveActor(actor)
+            except Exception:
+                pass
+    gui.vtk_target.GetRenderWindow().Render()
 
 
 def toggle_helmet_overlay(gui, state):
@@ -29,13 +31,34 @@ def toggle_helmet_overlay(gui, state):
     """
     if gui.helmet_stl_actor_target is None:
         return
-    if gui.cb_stl.isChecked():
+    if state:
         gui.ren_target.AddActor(gui.helmet_stl_actor_target)
     else:
         try:
             gui.ren_target.RemoveActor(gui.helmet_stl_actor_target)
         except Exception:
             pass
+    gui.vtk_target.GetRenderWindow().Render()
+
+
+def toggle_sensors_overlay(gui, state):
+    """Toggle the visibility of the sensor positions overlay in the target window.
+
+    Args:
+        gui: The main GUI object.
+        state: The state of the checkbox.
+    """
+    if gui.transformed_sensor_actors == []:
+        return
+    if state:
+        for actor in gui.transformed_sensor_actors:
+            gui.ren_target.AddActor(actor)
+    else:
+        for actor in gui.transformed_sensor_actors:
+            try:
+                gui.ren_target.RemoveActor(actor)
+            except Exception:
+                pass
     gui.vtk_target.GetRenderWindow().Render()
 
 

@@ -59,7 +59,8 @@ from src.toggle_helpers import (
     toggle_helmet_overlay,
     toggle_master_scan_overlay,
     toggle_mri_overlay,
-    toggle_vectors,
+    toggle_sensors_overlay,
+    toggle_unit_vectors_overlay,
 )
 from src.utils import (
     sphere_actor,
@@ -292,14 +293,14 @@ class OPMCoregGUI(QWidget):
         self.cb_show_sensors = QCheckBox("Sensors")
         self.cb_show_sensors.setChecked(True)
         self.cb_show_sensors.stateChanged.connect(
-            lambda state: toggle_helmet_overlay(self, state)
+            lambda state: toggle_sensors_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_sensors)
 
         self.cb_show_unit_vectors = QCheckBox("Unit vectors")
         self.cb_show_unit_vectors.setChecked(True)
         self.cb_show_unit_vectors.stateChanged.connect(
-            lambda state: toggle_vectors(self, state)
+            lambda state: toggle_unit_vectors_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_unit_vectors)
 
