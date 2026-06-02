@@ -92,66 +92,126 @@ def overlay_head_transformed(gui, T):
     gui.vtk_target.GetRenderWindow().Render()
 
 
-def overlay_helmet_sensors_transformed(gui, T):
-    """Overlay the helmet STL and sensors transformed by T onto the target window view.
-
+def overlay_transformed_helmet_stl(gui, T):
+    """Overlay the helmet STL transformed by T onto the target window.
+    
     Args:
         gui: The main GUI object containing the VTK renderers and data.
-        T: A 4x4 numpy array representing the rigid transform to apply to the helmet STL and sensor positions.
+        T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
     """
-    # transformed STL preview on target window
-    rotation = T[:3, :3]
-    translation = T[:3, 3]
     try:
         if gui.helmet_stl_actor_target is not None:
             gui.ren_target.RemoveActor(gui.helmet_stl_actor_target)
     except Exception:
         pass
-    if gui.helmet_stl_raw is not None:
-        tf = vtk.vtkTransform()
-        tf.SetMatrix(vtk_matrix_from_numpy(T))
-        tfilter = vtk.vtkTransformPolyDataFilter()
-        tfilter.SetTransform(tf)
-        tfilter.SetInputData(gui.helmet_stl_raw)
-        tfilter.Update()
-        gui.helmet_stl_actor_target = actor_from_polydata(
-            tfilter.GetOutput(), color=(0.3, 0.8, 1.0), opacity=0.4
-        )
-        if gui.cb_stl.isChecked():
-            gui.ren_target.AddActor(gui.helmet_stl_actor_target)
-    # transformed sensors on target window
+
+    if gui.helmet_stl_raw is None:
+        return
+
+    tf = vtk.vtkTransform()
+    tf.SetMatrix(vtk_matrix_from_numpy(T))
+
+    tfilter = vtk.vtkTransformPolyDataFilter()
+    tfilter.SetTransform(tf)
+    tfilter.SetInputData(gui.helmet_stl_raw)
+    tfilter.Update()
+
+    gui.helmet_stl_actor_target = actor_from_polydata(
+        tfilter.GetOutput(),
+        color=(0.3, 0.8, 1.0),
+        opacity=0.4,
+    )
+    gui.ren_target.AddActor(gui.helmet_stl_actor_target)
+
+    gui.ren_target.ResetCameraClippingRange()
+    gui.vtk_target.GetRenderWindow().Render()
+
+
+def overlay_transformed_sensor_positions(gui, T):
+    """Overlay the sensor positions transformed by T onto the target window.
+    
+    Args:
+        gui: The main GUI object containing the VTK renderers and data.
+        T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
+    """
+    rotation = T[:3, :3]
+    translation = T[:3, 3]
+
     for actor in gui.transformed_sensor_actors:
         try:
             gui.ren_target.RemoveActor(actor)
         except Exception:
             pass
+
+    gui.transformed_sensor_actors = []
+
+    if gui.sensor_positions is None:
+        return
+
+    pts_t = (rotation @ gui.sensor_positions.T).T + translation
+
+    for p in pts_t:
+        actor = sphere_actor(
+            p,
+            color=(0.6, 0.0, 0.6),
+            radius=3.2,
+        )
+
+        gui.ren_target.AddActor(actor)
+        gui.transformed_sensor_actors.append(actor)
+
+    gui.ren_target.ResetCameraClippingRange()
+    gui.vtk_target.GetRenderWindow().Render()
+
+
+def overlay_transformed_sensor_vectors(gui, T):
+    """Overlay unit vectors for each sensor transformed by T on the target window, if sensor axes are available.
+    
+    Args:
+        gui: The main GUI object containing the VTK renderers and data.
+        T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
+    """
+    rotation = T[:3, :3]
+    translation = T[:3, 3]
+
     for actor in gui.transformed_vector_actors:
         try:
             gui.ren_target.RemoveActor(actor)
         except Exception:
             pass
-    gui.transformed_sensor_actors = []
+
     gui.transformed_vector_actors = []
-    if gui.sensor_positions is not None:
-        pts_t = (rotation @ gui.sensor_positions.T).T + translation
-        for p in pts_t:
-            actor = sphere_actor(p, color=(0.6, 0.0, 0.6), radius=3.2)
-            gui.ren_target.AddActor(actor)
-            gui.transformed_sensor_actors.append(actor)
-        if gui.cb_vec.isChecked() and (gui.sensor_axes is not None):
-            axes_t = np.empty_like(gui.sensor_axes)
-            for i in range(3):
-                axes_t[:, i, :] = (rotation @ gui.sensor_axes[:, i, :].T).T
-            for p, vecs in zip(pts_t, axes_t):
-                for vec, color in [
-                    (vecs[0], (1, 0, 0)),
-                    (vecs[1], (0, 1, 0)),
-                    (vecs[2], (0, 0, 1)),
-                ]:
-                    ar = arrow_actor(p, vec, scale=10.0, color=color)
-                    if ar is not None:
-                        gui.ren_target.AddActor(ar)
-                        gui.transformed_vector_actors.append(ar)
+
+    if gui.sensor_positions is None:
+        return
+
+    if gui.sensor_axes is None:
+        return
+
+    pts_t = (rotation @ gui.sensor_positions.T).T + translation
+
+    axes_t = np.empty_like(gui.sensor_axes)
+
+    for i in range(3):
+        axes_t[:, i, :] = (rotation @ gui.sensor_axes[:, i, :].T).T
+
+    for p, vecs in zip(pts_t, axes_t):
+        for vec, color in [
+            (vecs[0], (1, 0, 0)),
+            (vecs[1], (0, 1, 0)),
+            (vecs[2], (0, 0, 1)),
+        ]:
+            ar = arrow_actor(
+                p,
+                vec,
+                scale=10.0,
+                color=color,
+            )
+
+            if ar is not None:
+                gui.ren_target.AddActor(ar)
+                gui.transformed_vector_actors.append(ar)
+
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
 
@@ -168,7 +228,7 @@ def draw_sensor_vectors_source_window(gui):
             actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
             gui.ren_source.AddActor(actor)
             gui.sensor_actors_source_window.append(actor)
-    if gui.cb_vec.isChecked() and (gui.sensor_axes is not None):
+    if gui.cb_show_unit_vectors.isChecked() and (gui.sensor_axes is not None):
         for p, vecs in zip(gui.sensor_positions, gui.sensor_axes):
             for vec, color in [
                 (vecs[0], (1, 0, 0)),
@@ -241,7 +301,7 @@ def preview_head_on_mri(gui, T):
 
 def preview_roi_on_mri(gui, roi):
     """Preview the ROI surface overlaid on the MRI in the source window.
-    
+
     Args:
         gui: The main GUI object containing the VTK renderers and data.
         roi: A vtkPolyData object representing the ROI surface to overlay on the MRI.
@@ -316,3 +376,23 @@ def preview_mri_on_scan(gui):
     gui.vtk_target.GetRenderWindow().Render()
 
     gui.update_info("Previewed MRI on master scan (target window).")
+
+
+def preview_all_surfaces_on_scan(gui):
+    """Preview all available surfaces based on the checkbox states overlaid on the master scan in the target window view."""
+    if gui.cb_show_head.isChecked() and (gui.T_head_to_scan is not None):
+        overlay_head_transformed(gui, gui.T_head_to_scan)
+    if gui.cb_show_aux_dev.isChecked() and (gui.T_aux_dev_to_scan is not None):
+        merge_aux_dev_into_master_scan(gui)
+    if (
+        gui.cb_show_mri.isChecked
+        and (gui.T_head_to_mri is not None)
+        and (gui.T_head_to_scan is not None)
+    ):
+        preview_mri_on_scan(gui)
+    if gui.cb_show_sensors.isChecked() and (gui.T_dev_to_scan is not None):
+        overlay_transformed_sensor_positions(gui, gui.T_dev_to_scan)
+    if gui.cb_show_unit_vectors.isChecked() and (gui.T_dev_to_scan is not None):
+        overlay_transformed_sensor_vectors(gui, gui.T_dev_to_scan)
+    if gui.cb_show_helmet.isChecked() and (gui.T_dev_to_scan is not None):
+        overlay_transformed_helmet_stl(gui, gui.T_dev_to_scan)

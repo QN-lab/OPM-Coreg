@@ -30,7 +30,6 @@ from src.compute_helpers import (
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     merge_aux_dev_into_master_scan,
-    overlay_helmet_sensors_transformed,
     preview_mri_on_scan,
 )
 from src.file_io_helpers import (
@@ -144,8 +143,6 @@ class OPMCoregGUI(QWidget):
         self.T_dev_to_scan = None
         self.T_dev_to_head = None
 
-        self.show_vectors = False
-        self.show_helmet_stl = True
         self.sensor_csv_path = None
         self.helmet_landmark_csv_path = None
         # Sensors alignment pairing actors (MUST exist before use)
@@ -272,31 +269,42 @@ class OPMCoregGUI(QWidget):
         info_v.addWidget(self.cb_show_master_scan)
 
         self.cb_show_aux_dev = QCheckBox("Aux device")
-        self.cb_show_aux_dev.setChecked(False)
+        self.cb_show_aux_dev.setChecked(True)
         self.cb_show_aux_dev.stateChanged.connect(
             lambda state: toggle_aux_dev_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_aux_dev)
 
         self.cb_show_head = QCheckBox("Head scan")
-        self.cb_show_head.setChecked(False)
+        self.cb_show_head.setChecked(True)
         self.cb_show_head.stateChanged.connect(
             lambda state: toggle_head_overlay(self, state)
         )
         info_v.addWidget(self.cb_show_head)
-        self.cb_stl = QCheckBox("Sensors")
-        self.cb_stl.setChecked(False)
-        self.cb_stl.stateChanged.connect(
+
+        self.cb_show_helmet = QCheckBox("Helmet (Device)")
+        self.cb_show_helmet.setChecked(True)
+        self.cb_show_helmet.stateChanged.connect(
             lambda state: toggle_helmet_overlay(self, state)
         )
-        info_v.addWidget(self.cb_stl)
-        self.cb_vec = QCheckBox("Unit vectors")
-        self.cb_vec.setChecked(False)
-        self.cb_vec.stateChanged.connect(lambda state: toggle_vectors(self, state))
-        info_v.addWidget(self.cb_vec)
+        info_v.addWidget(self.cb_show_helmet)
+
+        self.cb_show_sensors = QCheckBox("Sensors")
+        self.cb_show_sensors.setChecked(True)
+        self.cb_show_sensors.stateChanged.connect(
+            lambda state: toggle_helmet_overlay(self, state)
+        )
+        info_v.addWidget(self.cb_show_sensors)
+
+        self.cb_show_unit_vectors = QCheckBox("Unit vectors")
+        self.cb_show_unit_vectors.setChecked(True)
+        self.cb_show_unit_vectors.stateChanged.connect(
+            lambda state: toggle_vectors(self, state)
+        )
+        info_v.addWidget(self.cb_show_unit_vectors)
 
         self.cb_show_mri = QCheckBox("MRI (scalp)")
-        self.cb_show_mri.setChecked(False)
+        self.cb_show_mri.setChecked(True)
         self.cb_show_mri.stateChanged.connect(
             lambda state: toggle_mri_overlay(self, state)
         )
@@ -553,9 +561,7 @@ class OPMCoregGUI(QWidget):
                 except Exception:
                     pass
 
-                self.update_info(
-                    "All aux device pairs picked."
-                )
+                self.update_info("All aux device pairs picked.")
             else:
                 self.update_info(
                     f"Picked {lab}. Next: "
@@ -1099,8 +1105,6 @@ class OPMCoregGUI(QWidget):
         # re-render and re-add transformed if present
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        if self.T_dev_to_scan is not None:
-            overlay_helmet_sensors_transformed(self, self.T_dev_to_scan)
         self.update_info("Undid last sensor alignment pair.")
 
     def _clear_sensor_alignment_pair_markers(self):
