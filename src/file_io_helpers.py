@@ -14,10 +14,6 @@ from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
 from src.const import PAIR_COLORS
-from src.display_helpers import (
-    draw_mri_fiducials,
-    draw_sensor_vectors_source_window,
-)
 from src.utils import (
     actor_from_polydata,
     create_text_actor,
@@ -203,8 +199,6 @@ def load_sensor_csv(gui):
         actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
         gui.ren_source.AddActor(actor)
         gui.sensor_actors_source_window.append(actor)
-    # show vectors on source window if toggled
-    draw_sensor_vectors_source_window(gui)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
     gui.update_info(
@@ -359,7 +353,6 @@ def load_mri_fiducials(gui):
     if len(gui.mri_fiducials) != 3:
         gui.update_info(f"Incomplete MRI fiducials: {list(gui.mri_fiducials.keys())}")
         return
-    draw_mri_fiducials(gui)
 
 
 def save_transformed_sensors_csv(gui):

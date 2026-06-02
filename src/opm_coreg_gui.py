@@ -32,6 +32,8 @@ from src.display_helpers import (
     preview_head_scan_on_master_scan,
     preview_helmet_sensor_unit_vectors_on_master_scan,
     preview_mri_on_master_scan,
+    draw_mri_fiducials,
+    draw_sensor_vectors_source_window,
 )
 from src.file_io_helpers import (
     load_all_saved_data,
@@ -907,7 +909,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Sensor Locations CSV (Source Window)",
-                "callback": lambda: load_sensor_csv(self),
+                "callback": lambda: self.load_and_display_sensors(self),
             },
             {
                 "label": "Load Helmet Landmarks CSV (Source Window) (Optional)",
@@ -946,6 +948,11 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+    
+    def load_and_display_sensors(self):
+        """Wrapper function to load and display sensors from CSV."""
+        load_sensor_csv(self)
+        draw_sensor_vectors_source_window(self)
 
     def restart_sensors_alignment(self):
         """Reset all Sensor Alignment related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
@@ -1154,7 +1161,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Estimated Fiducials (Source Window)",
-                "callback": lambda: load_mri_fiducials(self),
+                "callback": lambda: self.load_and_display_mri_fiducials,
             },
             {
                 "label": "Load Master Scan (Target Window)",
@@ -1183,6 +1190,11 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+    
+    def load_and_display_mri_fiducials(self):
+        """Wrapper for file and display IO functions for loading MRI fiducials."""
+        load_mri_fiducials(self)
+        draw_mri_fiducials(self)
 
     def restart_mri_alignment(self):
         """Reset all MRI Alignment related state and UI elements, including MRI mesh, fiducials, transformed actors, and any pairwise points."""
