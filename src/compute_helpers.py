@@ -4,10 +4,6 @@ import numpy as np
 import vtk
 from scipy.spatial import Delaunay
 
-from src.display_helpers import (
-    preview_head_on_mri,
-    preview_roi_on_mri,
-)
 from src.file_io_helpers import (
     save_generated_transforms,
     save_marked_points_in_cache,
@@ -205,8 +201,6 @@ def compute_head_to_mri_initial(gui):
         f"RPA={errs[2]:.2f}"
     )
 
-    preview_head_on_mri(gui, T)
-
 
 def compute_surface_rms(src_poly, dst_poly):
     """Compute RMS distance from each point in src_poly to closest point in dst_poly."""
@@ -313,20 +307,16 @@ def run_icp_head_to_mri(gui):
     tf_filter2.Update()
 
     roi_refined_in_mri_frame = tf_filter2.GetOutput()
+    gui.roi_in_mri_frame = roi_refined_in_mri_frame  # Store for preview
 
     final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
-    # --------------------------------------------------
-    # Preview full head
-    # --------------------------------------------------
-    preview_head_on_mri(gui, gui.T_head_to_mri)
-    preview_roi_on_mri(gui, roi_refined_in_mri_frame)
 
 def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     """Extract face ROI using robust surface clipping."""
-    
+
     import pyvista as pv
 
     required = ["NAS", "LPA", "RPA"]
@@ -334,9 +324,9 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
         gui.update_info("ROI extraction: missing fiducials")
         return None
 
-    nas  = fid_dict["NAS"]
-    lpa  = fid_dict["LPA"]
-    rpa  = fid_dict["RPA"]
+    nas = fid_dict["NAS"]
+    lpa = fid_dict["LPA"]
+    rpa = fid_dict["RPA"]
     nose = fid_dict.get("NOSE", nas)
     chin = fid_dict.get("CHIN", nas)
 
@@ -366,11 +356,7 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     side = float(np.dot(nose - plane_origin, normal))
     invert = True if side < 0.0 else False
 
-    roi = roi.clip(
-        normal=list(normal),
-        origin=list(plane_origin),
-        invert=invert
-    )
+    roi = roi.clip(normal=list(normal), origin=list(plane_origin), invert=invert)
 
     if roi.n_cells < 500:
         gui.update_info("ROI too small — returning None")
@@ -379,6 +365,7 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     gui.update_info(f"ROI points: {roi.n_points}")
 
     return roi
+
 
 def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
     """

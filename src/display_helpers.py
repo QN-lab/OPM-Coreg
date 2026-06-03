@@ -51,7 +51,9 @@ def preview_head_scan_on_master_scan(gui):
     except Exception:
         pass
     if gui.head_polydata is None:
-        gui.update_info("Load head scan STL and compute T_head_to_scan (Head Alignment step) first.")
+        gui.update_info(
+            "Load head scan STL and compute T_head_to_scan (Head Alignment step) first."
+        )
         return
     if gui.T_head_to_scan is None:
         gui.update_info("Compute T_head_to_scan (Head Alignment step) first.")
@@ -79,7 +81,7 @@ def preview_head_scan_on_master_scan(gui):
 
 def preview_helmet_stl_on_master_scan(gui, T):
     """Overlay the helmet STL transformed by T onto the target window.
-    
+
     Args:
         gui: The main GUI object containing the VTK renderers and data.
         T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
@@ -116,7 +118,7 @@ def preview_helmet_stl_on_master_scan(gui, T):
 
 def preview_sensors_on_master_scan(gui, T):
     """Overlay the sensor positions transformed by T onto the target window.
-    
+
     Args:
         gui: The main GUI object containing the VTK renderers and data.
         T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
@@ -144,7 +146,7 @@ def preview_sensors_on_master_scan(gui, T):
             radius=3.2,
         )
         gui.transformed_sensor_actors.append(actor)
-    
+
     if gui.cb_show_sensors.isChecked():
         for actor in gui.transformed_sensor_actors:
             gui.ren_target.AddActor(actor)
@@ -155,7 +157,7 @@ def preview_sensors_on_master_scan(gui, T):
 
 def preview_sensor_unit_vectors_on_master_scan(gui, T):
     """Overlay unit vectors for each sensor transformed by T on the target window, if sensor axes are available.
-    
+
     Args:
         gui: The main GUI object containing the VTK renderers and data.
         T: A 4x4 numpy array representing the rigid transform to apply to the sensor positions and axes for previewing on the target window.
@@ -199,7 +201,7 @@ def preview_sensor_unit_vectors_on_master_scan(gui, T):
 
             if ar is not None:
                 gui.transformed_vector_actors.append(ar)
-    
+
     if gui.cb_show_unit_vectors.isChecked():
         for actor in gui.transformed_vector_actors:
             gui.ren_target.AddActor(actor)
@@ -268,18 +270,16 @@ def draw_mri_fiducials(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
-def preview_head_on_mri(gui, T):
-    """Preview the head scan transformed by T overlaid on the MRI in the source window.
-
-    Args:
-        gui: The main GUI object containing the VTK renderers and data.
-        T: A 4x4 numpy array representing the rigid transform to apply to the head scan for previewing on the MRI.
-    """
+def preview_head_on_mri(gui):
+    """Preview the head scan transformed by T overlaid on the MRI in the source window."""
     if gui.head_polydata is None:
         return
 
+    if gui.T_head_to_mri is None:
+        return
+
     tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(T))
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
 
     filt = vtk.vtkTransformPolyDataFilter()
     filt.SetTransform(tf)
@@ -302,13 +302,8 @@ def preview_head_on_mri(gui, T):
     gui.vtk_source.GetRenderWindow().Render()
 
 
-def preview_roi_on_mri(gui, roi):
-    """Preview the ROI surface overlaid on the MRI in the source window.
-
-    Args:
-        gui: The main GUI object containing the VTK renderers and data.
-        roi: A vtkPolyData object representing the ROI surface to overlay on the MRI.
-    """
+def preview_roi_on_mri(gui):
+    """Preview the ROI surface overlaid on the MRI in the source window."""
     if (
         hasattr(gui, "roi_on_mri_actor_source_window")
         and gui.roi_on_mri_actor_source_window is not None
@@ -318,9 +313,16 @@ def preview_roi_on_mri(gui, roi):
         except Exception:
             pass
 
+    # Check if the ROI in MRI frame exists
+    if not hasattr(gui, "roi_in_mri_frame") or gui.roi_in_mri_frame is None:
+        gui.update_info(
+            "No ROI in MRI frame to preview. Compute Head→MRI transform and ROI extraction first."
+        )
+        return
+
     # Show ROI on MRI in source window (light red)
     gui.roi_on_mri_actor_source_window = actor_from_polydata(
-        roi, color=(1.0, 0.5, 0.5), opacity=0.6
+        gui.roi_in_mri_frame, color=(1.0, 0.5, 0.5), opacity=0.6
     )
 
     gui.ren_source.AddActor(gui.roi_on_mri_actor_source_window)
