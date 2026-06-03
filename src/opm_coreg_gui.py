@@ -909,7 +909,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Sensor Locations CSV (Source Window)",
-                "callback": lambda: self.load_and_display_sensors(self),
+                "callback": lambda: self.load_and_display_sensors(),
             },
             {
                 "label": "Load Helmet Landmarks CSV (Source Window) (Optional)",
@@ -1161,7 +1161,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Estimated Fiducials (Source Window)",
-                "callback": lambda: self.load_and_display_mri_fiducials,
+                "callback": lambda: self.load_and_display_mri_fiducials(),
             },
             {
                 "label": "Load Master Scan (Target Window)",
