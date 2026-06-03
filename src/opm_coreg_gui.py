@@ -1000,6 +1000,7 @@ class OPMCoregGUI(QWidget):
         self.pair_actors_source = []
         self.pair_actors_target = []
         self.T_dev_to_scan = None
+        self.T_dev_to_head = None
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
         self.update_info("Restarted Sensor Alignment.")
