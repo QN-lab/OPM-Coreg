@@ -4,11 +4,6 @@ import numpy as np
 import vtk
 from scipy.spatial import Delaunay
 
-from src.file_io_helpers import (
-    save_generated_transforms,
-    save_marked_points_in_cache,
-    save_transformed_sensors_csv,
-)
 from src.utils import (
     compute_rigid_transform,
     vtk_matrix_from_numpy,
@@ -31,13 +26,6 @@ def compute_aux_dev_to_scan(gui):
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
 
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="aux_dev_to_scan")
-
-    # Save marked points in cache after computing transform
-    save_marked_points_in_cache(gui, file_to_save="aux_alignment_points_from_source")
-    save_marked_points_in_cache(gui, file_to_save="aux_alignment_points_from_target")
-
 
 def compute_dev_to_scan(gui):
     """Compute transform from device (sensor helmet) to master scan using the device pairs."""
@@ -55,13 +43,6 @@ def compute_dev_to_scan(gui):
         f"Computed device (helmet) to master scan transform RMS={rms:.3f} mm."
     )
 
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="dev_to_scan")
-
-    # Save marked points in cache after computing transform
-    save_marked_points_in_cache(gui, file_to_save="sensor_alignment_points_from_source")
-    save_marked_points_in_cache(gui, file_to_save="sensor_alignment_points_from_target")
-
 
 def compute_head_to_scan(gui):
     """Compute transform from head scan to master scan using the head pairs."""
@@ -76,14 +57,6 @@ def compute_head_to_scan(gui):
         f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
     )
 
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="head_to_scan")
-
-    # Save marked points in cache after computing transform
-    save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_source")
-    save_marked_points_in_cache(gui, file_to_save="head_alignment_points_from_target")
-    save_marked_points_in_cache(gui, file_to_save="marked_fiducials_on_head_scan")
-
 
 def compute_aux_to_device(gui):
     """Compute transform from auxiliary device to device (sensor helmet).
@@ -97,9 +70,6 @@ def compute_aux_to_device(gui):
     T_aux_to_device = T_scan_to_dev @ gui.T_aux_dev_to_scan
     gui.T_aux_to_device = T_aux_to_device
 
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="aux_to_device")
-
 
 def compute_device_to_head(gui):
     """Compute transform from device (sensor helmet) to head using the dev->scan and head->scan transforms."""
@@ -110,9 +80,6 @@ def compute_device_to_head(gui):
     T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
     T_dev_to_head = T_scan_to_head @ gui.T_dev_to_scan
     gui.T_dev_to_head = T_dev_to_head
-
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="dev_to_head")
 
 
 def obtain_true_landmarks_from_marked_points(
@@ -141,23 +108,6 @@ def obtain_true_landmarks_from_marked_points(
         true_landmark_coords.append(helmet_landmark_positions[closest_idx])
 
     return true_landmark_coords
-
-
-def compute_sensors_transform(gui):
-    """Compute transform from helmet to master scan using the helmet pairs, then apply to sensors."""
-    if len(gui.sensor_alignment_points_from_source) < 3:
-        gui.update_info("Need ≥3 point pairs from sensor alignment step.")
-        return
-
-    # Compute device (helmet) to scan transform
-    compute_dev_to_scan(gui)
-    # Compute aux -> device if aux->scan and dev->scan exist
-    compute_aux_to_device(gui)
-    # Compute device -> head if head transform exists
-    compute_device_to_head(gui)
-
-    # save transformed sensors csv
-    save_transformed_sensors_csv(gui)
 
 
 def compute_head_to_mri_initial(gui):
@@ -291,9 +241,6 @@ def run_icp_head_to_mri(gui):
 
     # Compose
     gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
-
-    # Save generated transform
-    save_generated_transforms(gui, trans_to_save="head_to_mri")
 
     # --------------------------------------------------
     # Recompute RMS after ICP

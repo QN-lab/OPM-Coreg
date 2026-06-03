@@ -21,9 +21,11 @@ from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.compute_helpers import (
     compute_aux_dev_to_scan,
+    compute_aux_to_device,
+    compute_dev_to_scan,
+    compute_device_to_head,
     compute_head_to_mri_initial,
     compute_head_to_scan,
-    compute_sensors_transform,
     run_icp_head_to_mri,
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
@@ -49,6 +51,8 @@ from src.file_io_helpers import (
     load_mri_mesh,
     load_sensor_csv,
     save_generated_transforms,
+    save_marked_points_in_cache,
+    save_transformed_sensors_csv,
 )
 from src.observer_helpers import (
     add_source_observer,
@@ -446,7 +450,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Compute Transform : Aux Device to Master Scan",
-                "callback": lambda: compute_aux_dev_to_scan(self),
+                "callback": lambda: self.compute_and_save_aux_dev_transforms(),
             },
             {
                 "label": "Preview Aux Device on Master Scan",
@@ -463,6 +467,24 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def compute_and_save_aux_dev_transforms(self):
+        """Compute the aux device to master scan transform, save it, and also compute the aux device to device transform if possible."""
+        # Save aux device to master scan transform
+        compute_aux_dev_to_scan(self)
+        save_generated_transforms(self, trans_to_save="aux_dev_to_scan")
+
+        # Save aux device to device transform if possible (requires head->scan transform to be already computed.
+        compute_aux_to_device(self)
+        save_generated_transforms(self, trans_to_save="aux_to_device")
+
+        # Save marked points in cache after computing transform
+        save_marked_points_in_cache(
+            self, file_to_save="aux_alignment_points_from_source"
+        )
+        save_marked_points_in_cache(
+            self, file_to_save="aux_alignment_points_from_target"
+        )
 
     def restart_aux_alignment(self):
         """Reset all Aux Alignment step related state and UI elements."""
@@ -637,7 +659,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Compute Transform : Head Scan to Master Scan",
-                "callback": lambda: compute_head_to_scan(self),
+                "callback": lambda: self.compute_and_save_head_to_scan_transforms(),
             },
             {
                 "label": "Preview Head Scan on Master Scan",
@@ -861,6 +883,25 @@ class OPMCoregGUI(QWidget):
         self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
 
+    def compute_and_save_head_to_scan_transforms(self):
+        """Compute the head scan to master scan transform, save it, and also compute the head to device transform if possible."""
+        # Save head scan to master scan transform
+        compute_head_to_scan(self)
+        save_generated_transforms(self, trans_to_save="head_to_scan")
+
+        # Save device to head transform if possible (requires device to scan and head to scan transforms to be already computed).
+        compute_device_to_head(self)
+        save_generated_transforms(self, trans_to_save="device_to_head")
+
+        # Save marked points in cache after computing transform
+        save_marked_points_in_cache(
+            self, file_to_save="head_alignment_points_from_source"
+        )
+        save_marked_points_in_cache(
+            self, file_to_save="head_alignment_points_from_target"
+        )
+        save_marked_points_in_cache(self, file_to_save="marked_fiducials_on_head_scan")
+
     def restart_head_alignment(self):
         """Reset all Head Alignment related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
         # remove transformed actor and pair markers
@@ -932,7 +973,7 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Compute Transform : Sensors to Master Scan",
-                "callback": lambda: compute_sensors_transform(self),
+                "callback": lambda: self.compute_and_save_sensors_transforms(),
             },
             {
                 "label": "Preview Device/Sensors/Unit Vectors on Master Scan",
@@ -956,6 +997,24 @@ class OPMCoregGUI(QWidget):
         """Wrapper function to load and display sensors from CSV."""
         load_sensor_csv(self)
         draw_sensor_vectors_source_window(self)
+
+    def compute_and_save_sensors_transforms(self):
+        """Compute device/helmet/sensors to master scan transform, save it, along with device to head transform if possible."""
+        compute_dev_to_scan(self)
+        save_generated_transforms(self, trans_to_save="dev_to_scan")
+        save_transformed_sensors_csv(self)
+
+        # Compute device -> head if head transform exists
+        compute_device_to_head(self)
+        save_generated_transforms(self, trans_to_save="device_to_head")
+
+        # Save marked points in cache after computing transform
+        save_marked_points_in_cache(
+            self, file_to_save="sensor_alignment_points_from_source"
+        )
+        save_marked_points_in_cache(
+            self, file_to_save="sensor_alignment_points_from_target"
+        )
 
     def restart_sensors_alignment(self):
         """Reset all Sensor Alignment related state and UI elements, including helmet STL, sensor positions, pairwise points, and any transformed actors."""
@@ -1205,11 +1264,13 @@ class OPMCoregGUI(QWidget):
     def compute_and_preview_head_to_mri_with_fiducials(self):
         """Wrapper for computing head to MRI transform using fiducials and previewing the alignment result."""
         compute_head_to_mri_initial(self)
+        save_generated_transforms(self, trans_to_save="head_to_mri")
         preview_head_on_mri(self)
 
     def compute_and_preview_head_to_mri_with_ICP(self):
         """Wrapper for computing head to MRI transform refinement using ICP and previewing the alignment result."""
         run_icp_head_to_mri(self)
+        save_generated_transforms(self, trans_to_save="head_to_mri")
         preview_head_on_mri(self)
         preview_roi_on_mri(self)
 
