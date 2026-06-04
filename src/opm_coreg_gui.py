@@ -31,7 +31,8 @@ from src.compute_helpers import (
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     draw_mri_fiducials,
-    draw_sensor_vectors_source_window,
+    draw_sensor_positions_on_source_window,
+    draw_sensor_vectors_on_source_window,
     preview_aux_dev_on_master_scan,
     preview_head_on_mri,
     preview_head_scan_on_master_scan,
@@ -49,7 +50,7 @@ from src.file_io_helpers import (
     load_master_scan,
     load_mri_fiducials,
     load_mri_mesh,
-    load_sensor_csv,
+    load_sensor_location_with_unit_vectors,
     save_generated_transforms,
     save_marked_points_in_cache,
     save_transformed_sensors_csv,
@@ -153,7 +154,6 @@ class OPMCoregGUI(QWidget):
         self.T_dev_to_scan = None
         self.T_dev_to_head = None
 
-        self.sensor_csv_path = None
         self.helmet_landmark_csv_path = None
         # Sensors alignment pairing actors (MUST exist before use)
         self.pair_actors_source = []
@@ -994,9 +994,10 @@ class OPMCoregGUI(QWidget):
             self.step_ctrl_layout.addWidget(b, r, 0)
 
     def load_and_display_sensors(self):
-        """Wrapper function to load and display sensors from CSV."""
-        load_sensor_csv(self)
-        draw_sensor_vectors_source_window(self)
+        """Wrapper function to load and display sensors and their unit vectors."""
+        load_sensor_location_with_unit_vectors(self)
+        draw_sensor_positions_on_source_window(self)
+        draw_sensor_vectors_on_source_window(self)
 
     def compute_and_save_sensors_transforms(self):
         """Compute device/helmet/sensors to master scan transform, save it, along with device to head transform if possible."""
@@ -1048,7 +1049,6 @@ class OPMCoregGUI(QWidget):
         self.sensor_positions = None
         self.sensor_axes = None
         self.sensor_df = None
-        self.sensor_csv_path = None
         self.sensor_actors_source_window = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_actors_source_window = []

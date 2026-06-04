@@ -10,6 +10,7 @@ import pandas as pd
 import vtk
 from mne.io import read_fiducials
 from mne.io.constants import FIFF
+from mne.io import read_raw_fif
 from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
@@ -155,12 +156,10 @@ def load_helmet_cad(gui):
     gui.update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
 
 
-def load_sensor_csv(gui):
-    """Load sensor positions + axes from CSV, display on source window."""
-    filepath, _ = QFileDialog.getOpenFileName(
-        gui, "Load sensor CSV", "", "CSV Files (*.csv)"
-    )
-    if not filepath:
+def load_sensor_csv(gui, filepath=None):
+    """Load sensor positions + axes from CSV"""
+    if filepath is None:
+        gui.update_info("No sensor CSV file path provided.")
         return
     df = pd.read_csv(filepath)
     cols = [
@@ -179,31 +178,61 @@ def load_sensor_csv(gui):
     ]
     for column in cols:
         if column not in df.columns:
-            gui.update_info(f"CSV missing column: {column}")
+            gui.update_info(
+                f"Sensor location reading failed. CSV missing column: {column}"
+            )
+            gui.update_info("Expected columns: " + ", ".join(cols))
             return
     gui.sensor_df = df.copy()
-    gui.sensor_csv_path = filepath
     gui.sensor_positions = df[["X", "Y", "Z"]].to_numpy(dtype=float)
     x = df[["x_i", "x_j", "x_k"]].to_numpy(dtype=float)
     y = df[["y_i", "y_j", "y_k"]].to_numpy(dtype=float)
     z = df[["z_i", "z_j", "z_k"]].to_numpy(dtype=float)
     gui.sensor_axes = np.stack([x, y, z], axis=1)
-    # display original sensors on source window (on top of STL)
-    for actor in gui.sensor_actors_source_window:
-        try:
-            gui.ren_source.RemoveActor(actor)
-        except Exception:
-            pass
-    gui.sensor_actors_source_window = []
-    for pnt in gui.sensor_positions:
-        actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-        gui.ren_source.AddActor(actor)
-        gui.sensor_actors_source_window.append(actor)
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
     gui.update_info(
-        f"Loaded sensor CSV: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
+        f"Loaded sensor locations and axes from CSV file: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
     )
+
+
+def load_sensor_locations_from_fif(gui, filepath=None):
+    """Load sensor positions + axes from FIF file"""
+    if filepath is None:
+        gui.update_info("No .fif file path provided.")
+        return
+
+    # Read raw fif file
+    raw = read_raw_fif(filepath, preload=False)
+
+    # Get sensor positions and three unit vectors from the info
+    # TODO : Allow dropping bad channels
+    try:
+        gui.sensor_positions = np.array([ch["loc"][:3] for ch in raw.info["chs"]])
+        x = np.array([ch["loc"][3:6] for ch in raw.info["chs"]])
+        y = np.array([ch["loc"][6:9] for ch in raw.info["chs"]])
+        z = np.array([ch["loc"][9:12] for ch in raw.info["chs"]])
+        gui.sensor_axes = np.stack([x, y, z], axis=1)
+        gui.update_info(
+            f"Loaded sensor locations and axes from FIF file: {os.path.basename(filepath)} ({len(gui.sensor_positions)} sensors)."
+        )
+    except Exception as e:
+        gui.update_info(f"Error reading sensor locations from FIF file: {e}")
+        return
+
+
+def load_sensor_location_with_unit_vectors(gui):
+    """Load sensor positions + axes from CSV, display on source window."""
+    filepath, _ = QFileDialog.getOpenFileName(
+        gui,
+        "Load sensor CSV or raw.fif file containing sensor locations",
+        "",
+        "CSV Files (*.csv);;FIF Files (*.fif)",
+    )
+    if not filepath:
+        return
+    if filepath.endswith(".fif"):
+        load_sensor_locations_from_fif(gui, filepath)
+    elif filepath.endswith(".csv"):
+        load_sensor_csv(gui, filepath)
 
 
 def load_helmet_landmark_csv(gui):
@@ -357,11 +386,17 @@ def load_mri_fiducials(gui):
 
 def save_transformed_sensors_csv(gui):
     """Apply the given transform to the original sensor positions and axes, and save the transformed coordinates to a CSV file."""
+    # TODO : Not sure if this function is needed, may get deleted in later versions
     if gui.sensor_positions is None:
         return
     if gui.T_dev_to_scan is None:
         gui.update_info(
             "No device→scan transform available, cannot save transformed sensors."
+        )
+        return
+    if gui.sensor_df is None:
+        gui.update_info(
+            "Original sensor DataFrame not available, cannot save transformed sensors."
         )
         return
 
