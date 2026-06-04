@@ -221,7 +221,23 @@ def preview_helmet_sensor_unit_vectors_on_master_scan(gui):
     preview_sensor_unit_vectors_on_master_scan(gui, gui.T_dev_to_scan)
 
 
-def draw_sensor_vectors_source_window(gui):
+def draw_sensor_positions_on_source_window(gui):
+    """Draw sensor positions as spheres on the source window."""
+    for actor in gui.sensor_actors_source_window:
+        try:
+            gui.ren_source.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.sensor_actors_source_window = []
+    for pnt in gui.sensor_positions:
+        actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        gui.ren_source.AddActor(actor)
+        gui.sensor_actors_source_window.append(actor)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
+def draw_sensor_vectors_on_source_window(gui):
     """Draw unit vectors for each sensor on the source window, if toggled on and if sensor axes are available."""
     # rebuild source window: helmet_stl + sensor spheres + optional vectors
     gui.ren_source.RemoveAllViewProps()
