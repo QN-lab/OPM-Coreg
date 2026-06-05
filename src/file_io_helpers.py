@@ -1,6 +1,8 @@
 """Helper functions to load files based on GUI actions, and update the GUI state accordingly."""
 
+import contextlib
 import csv
+import io
 import os
 from pathlib import Path
 
@@ -8,9 +10,8 @@ import mne
 import numpy as np
 import pandas as pd
 import vtk
-from mne.io import read_fiducials
+from mne.io import read_fiducials, read_raw_fif
 from mne.io.constants import FIFF
-from mne.io import read_raw_fif
 from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
@@ -201,12 +202,25 @@ def load_sensor_locations_from_fif(gui, filepath=None):
         return
 
     # Read raw fif file
-    raw = read_raw_fif(filepath, preload=False)
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            raw = read_raw_fif(filepath, preload=False)
+    finally:
+        # flush captured stdout/stderr
+        out = buf.getvalue().strip()
+        if out:
+            # split lines to avoid very long single messages
+            for line in out.splitlines():
+                gui.update_info(line)
 
     # Get sensor positions and three unit vectors from the info
     # TODO : Allow dropping bad channels
     try:
-        gui.sensor_positions = np.array([ch["loc"][:3] for ch in raw.info["chs"]])
+        # MNE stores locations in meters, so convert to mm before storing and displaying on the GUI sourcewindow
+        gui.sensor_positions = np.array(
+            [ch["loc"][:3] * 1000 for ch in raw.info["chs"]]
+        )
         x = np.array([ch["loc"][3:6] for ch in raw.info["chs"]])
         y = np.array([ch["loc"][6:9] for ch in raw.info["chs"]])
         z = np.array([ch["loc"][9:12] for ch in raw.info["chs"]])
