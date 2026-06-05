@@ -144,6 +144,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_positions = None
         self.sensor_axes = None
         self.sensor_actors_source_window = []
+        self.sensor_vector_actors_source_window = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_actors_source_window = []
         self.helmet_landmark_text_actors_source_window = []
@@ -1036,6 +1037,7 @@ class OPMCoregGUI(QWidget):
         # sensors
         for actor in (
             self.sensor_actors_source_window
+            + self.sensor_vector_actors_source_window
             + self.transformed_sensor_actors
             + self.transformed_vector_actors
             + self.helmet_landmark_actors_source_window
@@ -1050,6 +1052,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_axes = None
         self.sensor_df = None
         self.sensor_actors_source_window = []
+        self.sensor_vector_actors_source_window = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_actors_source_window = []
         self.helmet_landmark_text_actors_source_window = []

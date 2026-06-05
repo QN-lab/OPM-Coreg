@@ -238,18 +238,15 @@ def draw_sensor_positions_on_source_window(gui):
 
 
 def draw_sensor_vectors_on_source_window(gui):
-    """Draw unit vectors for each sensor on the source window, if toggled on and if sensor axes are available."""
-    # rebuild source window: helmet_stl + sensor spheres + optional vectors
-    gui.ren_source.RemoveAllViewProps()
-    if gui.helmet_stl_actor_source is not None:
-        gui.ren_source.AddActor(gui.helmet_stl_actor_source)
-    gui.sensor_actors_source_window = []
-    if gui.sensor_positions is not None:
-        for pnt in gui.sensor_positions:
-            actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-            gui.ren_source.AddActor(actor)
-            gui.sensor_actors_source_window.append(actor)
-    if gui.cb_show_unit_vectors.isChecked() and (gui.sensor_axes is not None):
+    """Draw unit vectors for each sensor on the source window."""
+    for actor in gui.sensor_vector_actors_source_window:
+        try:
+            gui.ren_source.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.sensor_vector_actors_source_window = []
+
+    if gui.sensor_axes is not None and gui.sensor_positions is not None:
         for p, vecs in zip(gui.sensor_positions, gui.sensor_axes):
             for vec, color in [
                 (vecs[0], (1, 0, 0)),
@@ -259,6 +256,7 @@ def draw_sensor_vectors_on_source_window(gui):
                 ar = arrow_actor(p, vec, scale=6.0, color=color)
                 if ar is not None:
                     gui.ren_source.AddActor(ar)
+                    gui.sensor_vector_actors_source_window.append(ar)
     gui.ren_source.ResetCamera()
     gui.vtk_source.GetRenderWindow().Render()
 
