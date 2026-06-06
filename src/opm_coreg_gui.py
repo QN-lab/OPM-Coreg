@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.compute_helpers import (
-    compute_aux_dev_to_scan,
+    compute_aux_to_scan,
     compute_aux_to_device,
     compute_dev_to_scan,
     compute_device_to_head,
@@ -121,7 +121,7 @@ class OPMCoregGUI(QWidget):
         self.aux_alignment_points_from_source = []
         self.aux_alignment_points_from_target = []
         self.aux_dev_pick_index = 0
-        self.T_aux_dev_to_scan = None
+        self.T_aux_to_scan = None
         self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
 
@@ -472,8 +472,8 @@ class OPMCoregGUI(QWidget):
     def compute_and_save_aux_dev_transforms(self):
         """Compute the aux device to master scan transform, save it, and also compute the aux device to device transform if possible."""
         # Save aux device to master scan transform
-        compute_aux_dev_to_scan(self)
-        save_generated_transforms(self, trans_to_save="aux_dev_to_scan")
+        compute_aux_to_scan(self)
+        save_generated_transforms(self, trans_to_save="aux_to_scan")
 
         # Save aux device to device transform if possible (requires head->scan transform to be already computed.
         compute_aux_to_device(self)
@@ -511,7 +511,7 @@ class OPMCoregGUI(QWidget):
         self.aux_alignment_points_from_source = []
         self.aux_alignment_points_from_target = []
         self.aux_dev_pick_index = 0
-        self.T_aux_dev_to_scan = None
+        self.T_aux_to_scan = None
         self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
         self.vtk_source.GetRenderWindow().Render()

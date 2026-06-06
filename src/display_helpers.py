@@ -13,12 +13,12 @@ from src.utils import (
 
 
 def preview_aux_dev_on_master_scan(gui):
-    """Merge the auxiliary device STL into the master scan on the target window using the T_aux_dev_to_scan transform."""
-    if gui.aux_dev_polydata is None or gui.T_aux_dev_to_scan is None:
-        gui.update_info("Need auxiliary device STL and T_aux_dev_to_scan first.")
+    """Merge the auxiliary device STL into the master scan on the target window using the T_aux_to_scan transform."""
+    if gui.aux_dev_polydata is None or gui.T_aux_to_scan is None:
+        gui.update_info("Need auxiliary device STL and T_aux_to_scan first.")
         return
     tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_aux_dev_to_scan))
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_aux_to_scan))
     tfilter = vtk.vtkTransformPolyDataFilter()
     tfilter.SetTransform(tf)
     tfilter.SetInputData(gui.aux_dev_polydata)

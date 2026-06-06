@@ -10,7 +10,7 @@ from src.utils import (
 )
 
 
-def compute_aux_dev_to_scan(gui):
+def compute_aux_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
     if (
         not getattr(gui, "aux_alignment_points_from_source", None)
@@ -21,7 +21,7 @@ def compute_aux_dev_to_scan(gui):
     src = np.vstack(gui.aux_alignment_points_from_source)
     dst = np.vstack(gui.aux_alignment_points_from_target)
     T, rms, errs = compute_rigid_transform(src, dst)
-    gui.T_aux_dev_to_scan = T
+    gui.T_aux_to_scan = T
     gui.update_info(
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
@@ -62,12 +62,12 @@ def compute_aux_to_device(gui):
     """Compute transform from auxiliary device to device (sensor helmet).
 
     Using the aux->scan transform and dev->scan transform."""
-    if gui.T_aux_dev_to_scan is None or gui.T_dev_to_scan is None:
+    if gui.T_aux_to_scan is None or gui.T_dev_to_scan is None:
         gui.update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
         return
 
     T_scan_to_dev = np.linalg.inv(gui.T_dev_to_scan)
-    T_aux_to_device = T_scan_to_dev @ gui.T_aux_dev_to_scan
+    T_aux_to_device = T_scan_to_dev @ gui.T_aux_to_scan
     gui.T_aux_to_device = T_aux_to_device
 
 

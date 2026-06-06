@@ -506,7 +506,7 @@ def save_generated_transforms(gui, trans_to_save=None):
 
     # Create a dictionary of available transforms for easy iteration
     available_transforms = {
-        "aux_dev_to_scan": gui.T_aux_dev_to_scan,
+        "aux_to_scan": gui.T_aux_to_scan,
         "dev_to_scan": gui.T_dev_to_scan,
         "head_to_scan": gui.T_head_to_scan,
         "head_to_mri": gui.T_head_to_mri,
@@ -633,7 +633,7 @@ def load_transforms(gui, results_foler_path=None):
         return
 
     transforms_to_load = {
-        "aux_dev_to_scan": "Aux device to scan transform",
+        "aux_to_scan": "Aux device to scan transform",
         "dev_to_scan": "Device to scan transform",
         "head_to_scan": "Head to scan transform",
         "head_to_mri": "Head to MRI transform",
