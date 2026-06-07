@@ -374,6 +374,24 @@ def draw_sensor_vectors_on_source_window(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
+def display_mri_mesh_on_source_window(gui):
+    """Draw scalp surface from anatomical MRI on the source window."""
+    try:
+        if gui.mri_actor_source_window is not None:
+            gui.ren_source.RemoveActor(gui.mri_actor_source_window)
+    except Exception:
+        pass
+    gui.mri_actor_source_window = actor_from_polydata(
+        gui.mri_polydata, color=(0.85, 0.85, 0.95), opacity=0.7
+    )
+
+    gui.ren_source.RemoveAllViewProps()
+    gui.ren_source.AddActor(gui.mri_actor_source_window)
+
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
 def draw_mri_fiducials(gui):
     """Draw fiducials on the source window in MRI frame.
 

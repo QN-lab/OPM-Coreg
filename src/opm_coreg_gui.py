@@ -36,6 +36,7 @@ from src.display_helpers import (
     display_helmet_landmarks_on_source_window,
     display_helmet_stl_on_source_window,
     display_master_scan_on_target_window,
+    display_mri_mesh_on_source_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
     draw_sensor_vectors_on_source_window,
@@ -1271,7 +1272,7 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load Skin Surface (Source Window)",
-                "callback": lambda: load_mri_mesh(self),
+                "callback": lambda: self.load_and_display_mri_mesh_on_source_window(),
             },
             {
                 "label": "Load Estimated Fiducials (Source Window)",
@@ -1309,8 +1310,13 @@ class OPMCoregGUI(QWidget):
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
 
+    def load_and_display_mri_mesh_on_source_window(self):
+        """Load and display skin surface obtained from anatomical MRI in source window."""
+        load_mri_mesh(self)
+        display_mri_mesh_on_source_window(self)
+
     def load_and_display_mri_fiducials(self):
-        """Wrapper for file and display IO functions for loading MRI fiducials."""
+        """Load and display anatomical MRI fiducials in source window."""
         load_mri_fiducials(self)
         draw_mri_fiducials(self)
 
