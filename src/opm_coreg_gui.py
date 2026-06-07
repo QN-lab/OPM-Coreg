@@ -281,54 +281,24 @@ class OPMCoregGUI(QWidget):
         self.info_label.setWordWrap(True)
         info_v.addWidget(self.info_label)
 
-        self.cb_show_master_scan = QCheckBox("Master scan")
-        self.cb_show_master_scan.setChecked(True)
-        self.cb_show_master_scan.stateChanged.connect(
-            lambda state: toggle_master_scan_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_master_scan)
+        checkboxes = [
+            ("cb_show_master_scan", "Master scan", toggle_master_scan_overlay),
+            ("cb_show_aux_dev", "Aux device", toggle_aux_dev_overlay),
+            ("cb_show_head", "Head scan", toggle_head_overlay),
+            ("cb_show_helmet", "Helmet (Device)", toggle_helmet_overlay),
+            ("cb_show_sensors", "Sensors", toggle_sensors_overlay),
+            ("cb_show_unit_vectors", "Unit vectors", toggle_unit_vectors_overlay),
+            ("cb_show_mri", "MRI (scalp)", toggle_mri_overlay),
+        ]
 
-        self.cb_show_aux_dev = QCheckBox("Aux device")
-        self.cb_show_aux_dev.setChecked(True)
-        self.cb_show_aux_dev.stateChanged.connect(
-            lambda state: toggle_aux_dev_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_aux_dev)
-
-        self.cb_show_head = QCheckBox("Head scan")
-        self.cb_show_head.setChecked(True)
-        self.cb_show_head.stateChanged.connect(
-            lambda state: toggle_head_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_head)
-
-        self.cb_show_helmet = QCheckBox("Helmet (Device)")
-        self.cb_show_helmet.setChecked(True)
-        self.cb_show_helmet.stateChanged.connect(
-            lambda state: toggle_helmet_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_helmet)
-
-        self.cb_show_sensors = QCheckBox("Sensors")
-        self.cb_show_sensors.setChecked(True)
-        self.cb_show_sensors.stateChanged.connect(
-            lambda state: toggle_sensors_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_sensors)
-
-        self.cb_show_unit_vectors = QCheckBox("Unit vectors")
-        self.cb_show_unit_vectors.setChecked(True)
-        self.cb_show_unit_vectors.stateChanged.connect(
-            lambda state: toggle_unit_vectors_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_unit_vectors)
-
-        self.cb_show_mri = QCheckBox("MRI (scalp)")
-        self.cb_show_mri.setChecked(True)
-        self.cb_show_mri.stateChanged.connect(
-            lambda state: toggle_mri_overlay(self, state)
-        )
-        info_v.addWidget(self.cb_show_mri)
+        for attr_name, label, callback in checkboxes:
+            cb = QCheckBox(label)
+            cb.setChecked(True)
+            cb.stateChanged.connect(
+                lambda state, cb_func=callback: cb_func(self, state)
+            )
+            setattr(self, attr_name, cb)
+            info_v.addWidget(cb)
 
         info_box.setLayout(info_v)
         ctrl_layout.addWidget(info_box)
