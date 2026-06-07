@@ -30,6 +30,7 @@ from src.compute_helpers import (
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
+    display_aux_dev_stl_on_source_window,
     display_master_scan_on_target_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
@@ -432,7 +433,7 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load Aux Device Model (Source Window)",
-                "callback": lambda: load_aux_dev_stl(self),
+                "callback": lambda: self.load_and_display_aux_dev_on_source_window(),
             },
             {
                 "label": "Load Aux Device Landmarks CSV (Source Window)",
@@ -471,6 +472,11 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def load_and_display_aux_dev_on_source_window(self):
+        """Load the auxiliary device STL and display it in the source window."""
+        load_aux_dev_stl(self)
+        display_aux_dev_stl_on_source_window(self)
 
     def load_and_display_master_scan_on_target_window(self):
         """Load the master scan and display it in the target window."""

@@ -48,17 +48,6 @@ def load_aux_dev_stl(gui):
     if not filepath:
         return
     gui.aux_dev_polydata = load_mesh_to_polydata(filepath)
-    if gui.aux_dev_actor_source_window is not None:
-        try:
-            gui.ren_source.RemoveActor(gui.aux_dev_actor_source_window)
-        except Exception:
-            pass
-    gui.aux_dev_actor_source_window = actor_from_polydata(
-        gui.aux_dev_polydata, color=(0.7, 1, 0.2), opacity=1.0
-    )
-    gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
     gui.update_info("Loaded auxiliary device STL (source window).")
 
 

@@ -27,6 +27,21 @@ def display_master_scan_on_target_window(gui):
     gui.vtk_target.GetRenderWindow().Render()
 
 
+def display_aux_dev_stl_on_source_window(gui):
+    """Display the auxiliary device STL on the source window."""
+    if gui.aux_dev_actor_source_window is not None:
+        try:
+            gui.ren_source.RemoveActor(gui.aux_dev_actor_source_window)
+        except Exception:
+            pass
+    gui.aux_dev_actor_source_window = actor_from_polydata(
+        gui.aux_dev_polydata, color=(0.7, 1, 0.2), opacity=1.0
+    )
+    gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
 def preview_aux_dev_on_master_scan(gui):
     """Merge the auxiliary device STL into the master scan on the target window using the T_aux_to_scan transform."""
     if gui.aux_dev_polydata is None or gui.T_aux_to_scan is None:
