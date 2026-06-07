@@ -32,6 +32,7 @@ from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
+    display_head_scan_on_source_window,
     display_master_scan_on_target_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
@@ -658,7 +659,7 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load Head Scan (Source Window)",
-                "callback": lambda: load_head_scan(self),
+                "callback": lambda: self.load_and_display_head_scan_on_source_window(),
             },
             {
                 "label": "Load Master Scan (Target Window)",
@@ -701,6 +702,11 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def load_and_display_head_scan_on_source_window(self):
+        """Load the head scan and display it in the source window."""
+        load_head_scan(self)
+        display_head_scan_on_source_window(self)
 
     def start_fiducial_mode_for_head_alignment(self):
         """Enable picking fiducials on the head scan (source window) in the order NAS, LPA, RPA, Nose, Chin."""

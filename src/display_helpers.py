@@ -85,6 +85,21 @@ def preview_aux_dev_on_master_scan(gui):
         gui.update_info("Previewed auxiliary device on master scan.")
 
 
+def display_head_scan_on_source_window(gui):
+    """Display head scan on the source window."""
+    if gui.head_actor is not None:
+        try:
+            gui.ren_source.RemoveActor(gui.head_actor)
+        except Exception:
+            pass
+    gui.head_actor = actor_from_polydata(
+        gui.head_polydata, color=(0.8, 0.8, 0.95), opacity=1.0
+    )
+    gui.ren_source.AddActor(gui.head_actor)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
 def preview_head_scan_on_master_scan(gui):
     """Overlay the head scan transformed by T onto the target window, along with transformed fiducials."""
     # remove old transformed head scan if any

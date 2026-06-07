@@ -85,17 +85,6 @@ def load_head_scan(gui):
     if not filepath:
         return
     gui.head_polydata = load_mesh_to_polydata(filepath)
-    if gui.head_actor is not None:
-        try:
-            gui.ren_source.RemoveActor(gui.head_actor)
-        except Exception:
-            pass
-    gui.head_actor = actor_from_polydata(
-        gui.head_polydata, color=(0.8, 0.8, 0.95), opacity=1.0
-    )
-    gui.ren_source.AddActor(gui.head_actor)
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
     gui.update_info(f"Loaded head scan: {os.path.basename(filepath)}")
 
 
