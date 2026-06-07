@@ -12,6 +12,21 @@ from src.utils import (
 )
 
 
+def display_master_scan_on_target_window(gui):
+    """Display the master scan STL on the target window."""
+    if gui.master_scan_actor is not None:
+        try:
+            gui.ren_target.RemoveActor(gui.master_scan_actor)
+        except Exception:
+            pass
+    gui.master_scan_actor = actor_from_polydata(
+        gui.master_scan_polydata, color=(0.85, 0.85, 0.85), opacity=1.0
+    )
+    gui.ren_target.AddActor(gui.master_scan_actor)
+    gui.ren_target.ResetCamera()
+    gui.vtk_target.GetRenderWindow().Render()
+
+
 def preview_aux_dev_on_master_scan(gui):
     """Merge the auxiliary device STL into the master scan on the target window using the T_aux_to_scan transform."""
     if gui.aux_dev_polydata is None or gui.T_aux_to_scan is None:

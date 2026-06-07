@@ -20,8 +20,8 @@ from PyQt5.QtWidgets import (
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from src.compute_helpers import (
-    compute_aux_to_scan,
     compute_aux_to_device,
+    compute_aux_to_scan,
     compute_dev_to_scan,
     compute_device_to_head,
     compute_head_to_mri_initial,
@@ -30,6 +30,7 @@ from src.compute_helpers import (
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
+    display_master_scan_on_target_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
     draw_sensor_vectors_on_source_window,
@@ -439,7 +440,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Master Scan (Target Window)",
-                "callback": lambda: load_master_scan(self),
+                "callback": lambda: (
+                    self.load_and_display_master_scan_on_target_window()
+                ),
             },
             {
                 "label": "Mark Aux Device Landmarks on Master Scan (Target Window)",
@@ -468,6 +471,11 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def load_and_display_master_scan_on_target_window(self):
+        """Load the master scan and display it in the target window."""
+        load_master_scan(self)
+        display_master_scan_on_target_window(self)
 
     def compute_and_save_aux_dev_transforms(self):
         """Compute the aux device to master scan transform, save it, and also compute the aux device to device transform if possible."""
@@ -640,7 +648,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Master Scan (Target Window)",
-                "callback": lambda: load_master_scan(self),
+                "callback": lambda: (
+                    self.load_and_display_master_scan_on_target_window()
+                ),
             },
             {
                 "label": "Mark Fiducials on Head Scan (NAS->LPA->RPA->Nose->Chin)",
@@ -962,7 +972,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Master Scan (Target Window)",
-                "callback": lambda: load_master_scan(self),
+                "callback": lambda: (
+                    self.load_and_display_master_scan_on_target_window()
+                ),
             },
             {
                 "label": "Start Pairwise Mode (Sensor Helmet to Master Scan)",
@@ -1231,7 +1243,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Master Scan (Target Window)",
-                "callback": lambda: load_master_scan(self),
+                "callback": lambda: (
+                    self.load_and_display_master_scan_on_target_window()
+                ),
             },
             {
                 "label": "Compute Transform : Head Scan to MRI using Fiducials",
