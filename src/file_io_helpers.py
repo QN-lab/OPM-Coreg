@@ -15,7 +15,6 @@ from mne.io.constants import FIFF
 from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
-from src.const import PAIR_COLORS
 from src.utils import (
     actor_from_polydata,
     create_text_actor,
@@ -72,19 +71,6 @@ def load_aux_dev_landmarks(gui):
                 continue
             lm[lab] = np.array([x, y, z], float)
     gui.aux_dev_landmarks = lm
-    # draw landmarks on source window
-    for actor in getattr(gui, "aux_dev_landmark_actors_source_window", []):
-        try:
-            gui.ren_source.RemoveActor(actor)
-        except Exception:
-            pass
-    gui.aux_dev_landmark_actors_source_window = []
-    for i, (lab, point_coords) in enumerate(gui.aux_dev_landmarks.items()):
-        selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
-        actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
-        gui.ren_source.AddActor(actor)
-        gui.aux_dev_landmark_actors_source_window.append(actor)
-    gui.vtk_source.GetRenderWindow().Render()
     gui.update_info(f"Loaded {len(gui.aux_dev_landmarks)} auxiliary device landmarks.")
 
 

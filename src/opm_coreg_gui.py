@@ -31,6 +31,7 @@ from src.compute_helpers import (
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.display_helpers import (
     display_aux_dev_stl_on_source_window,
+    display_aux_landmarks_on_source_window,
     display_master_scan_on_target_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
@@ -437,7 +438,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Aux Device Landmarks CSV (Source Window)",
-                "callback": lambda: load_aux_dev_landmarks(self),
+                "callback": lambda: (
+                    self.load_and_display_aux_landmarks_on_source_window()
+                ),
             },
             {
                 "label": "Load Master Scan (Target Window)",
@@ -477,6 +480,11 @@ class OPMCoregGUI(QWidget):
         """Load the auxiliary device STL and display it in the source window."""
         load_aux_dev_stl(self)
         display_aux_dev_stl_on_source_window(self)
+
+    def load_and_display_aux_landmarks_on_source_window(self):
+        """Load the auxiliary device landmarks CSV and display the landmarks in the source window."""
+        load_aux_dev_landmarks(self)
+        display_aux_landmarks_on_source_window(self)
 
     def load_and_display_master_scan_on_target_window(self):
         """Load the master scan and display it in the target window."""

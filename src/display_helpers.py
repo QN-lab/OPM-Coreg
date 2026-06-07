@@ -3,7 +3,7 @@
 import numpy as np
 import vtk
 
-from src.const import FIDUCIAL_COLORS
+from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
@@ -39,6 +39,22 @@ def display_aux_dev_stl_on_source_window(gui):
     )
     gui.ren_source.AddActor(gui.aux_dev_actor_source_window)
     gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
+def display_aux_landmarks_on_source_window(gui):
+    """Display the auxiliary device landmark points on the source window."""
+    for actor in getattr(gui, "aux_dev_landmark_actors_source_window", []):
+        try:
+            gui.ren_source.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.aux_dev_landmark_actors_source_window = []
+    for i, (lab, point_coords) in enumerate(gui.aux_dev_landmarks.items()):
+        selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
+        actor = sphere_actor(point_coords, color=selected_color, radius=3.5)
+        gui.ren_source.AddActor(actor)
+        gui.aux_dev_landmark_actors_source_window.append(actor)
     gui.vtk_source.GetRenderWindow().Render()
 
 
