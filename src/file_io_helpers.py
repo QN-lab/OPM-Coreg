@@ -17,10 +17,8 @@ from PyQt5.QtWidgets import QFileDialog
 
 from src.utils import (
     actor_from_polydata,
-    create_text_actor,
     load_mesh_to_polydata,
     save_transform,
-    sphere_actor,
 )
 
 
@@ -88,7 +86,7 @@ def load_head_scan(gui):
     gui.update_info(f"Loaded head scan: {os.path.basename(filepath)}")
 
 
-def load_helmet_cad(gui):
+def load_helmet_stl(gui):
     """Load helmet design file (STL) on the source window."""
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Load helmet design file (STL)", "", "STL/PLY Files (*.stl *.ply)"
@@ -96,17 +94,6 @@ def load_helmet_cad(gui):
     if not filepath:
         return
     gui.helmet_stl_raw = load_mesh_to_polydata(filepath)
-    if gui.helmet_stl_actor_source is not None:
-        try:
-            gui.ren_source.RemoveActor(gui.helmet_stl_actor_source)
-        except Exception:
-            pass
-    gui.helmet_stl_actor_source = actor_from_polydata(
-        gui.helmet_stl_raw, color=(0.7, 0.9, 1.0), opacity=0.8
-    )
-    gui.ren_source.AddActor(gui.helmet_stl_actor_source)
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
     gui.update_info(f"Loaded helmet STL: {os.path.basename(filepath)}")
 
 
@@ -226,39 +213,7 @@ def load_helmet_landmark_csv(gui):
     labels = (
         df["Label"].tolist() if has_labels else [f"L{i + 1}" for i in range(len(df))]
     )
-
-    # Clear existing actors
-    for actor in gui.helmet_landmark_actors_source_window:
-        try:
-            gui.ren_source.RemoveActor(actor)
-        except Exception:
-            pass
-    gui.helmet_landmark_actors_source_window = []
-
-    # Clear existing text actors
-    for actor in gui.helmet_landmark_text_actors_source_window:
-        try:
-            gui.ren_source.RemoveActor(actor)
-        except Exception:
-            pass
-    gui.helmet_landmark_text_actors_source_window = []
-
-    # Add sphere and text for each landmark
-    for pnt, label in zip(gui.helmet_landmark_positions, labels):
-        # Sphere actor
-        sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
-        gui.ren_source.AddActor(sphere)
-        gui.helmet_landmark_actors_source_window.append(sphere)
-
-        # Text label
-        text_actor = create_text_actor(
-            label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2)
-        )
-        gui.ren_source.AddActor(text_actor)
-        gui.helmet_landmark_text_actors_source_window.append(text_actor)
-
-    gui.ren_source.ResetCamera()
-    gui.vtk_source.GetRenderWindow().Render()
+    gui.helmet_landmark_labels = labels
     gui.update_info(f"Loaded helmet landmark CSV: {os.path.basename(filepath)}.")
 
 

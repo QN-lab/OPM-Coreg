@@ -7,6 +7,7 @@ from src.const import FIDUCIAL_COLORS, PAIR_COLORS
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
+    create_text_actor,
     sphere_actor,
     vtk_matrix_from_numpy,
 )
@@ -138,6 +139,57 @@ def preview_head_scan_on_master_scan(gui):
         gui.ren_target.ResetCameraClippingRange()
         gui.vtk_target.GetRenderWindow().Render()
         gui.update_info("Previewed head scan on master scan.")
+
+
+def display_helmet_stl_on_source_window(gui):
+    """Display helmet STL onto the source window."""
+    if gui.helmet_stl_actor_source is not None:
+        try:
+            gui.ren_source.RemoveActor(gui.helmet_stl_actor_source)
+        except Exception:
+            pass
+    gui.helmet_stl_actor_source = actor_from_polydata(
+        gui.helmet_stl_raw, color=(0.7, 0.9, 1.0), opacity=0.8
+    )
+    gui.ren_source.AddActor(gui.helmet_stl_actor_source)
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
+
+
+def display_helmet_landmarks_on_source_window(gui):
+    """Display helmet landmarks onto the source window."""
+    # Clear existing actors
+    for actor in gui.helmet_landmark_actors_source_window:
+        try:
+            gui.ren_source.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_actors_source_window = []
+
+    # Clear existing text actors
+    for actor in gui.helmet_landmark_text_actors_source_window:
+        try:
+            gui.ren_source.RemoveActor(actor)
+        except Exception:
+            pass
+    gui.helmet_landmark_text_actors_source_window = []
+
+    # Add sphere and text for each landmark
+    for pnt, label in zip(gui.helmet_landmark_positions, gui.helmet_landmark_labels):
+        # Sphere actor
+        sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        gui.ren_source.AddActor(sphere)
+        gui.helmet_landmark_actors_source_window.append(sphere)
+
+        # Text label
+        text_actor = create_text_actor(
+            label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2)
+        )
+        gui.ren_source.AddActor(text_actor)
+        gui.helmet_landmark_text_actors_source_window.append(text_actor)
+
+    gui.ren_source.ResetCamera()
+    gui.vtk_source.GetRenderWindow().Render()
 
 
 def preview_helmet_stl_on_master_scan(gui, T):

@@ -33,6 +33,8 @@ from src.display_helpers import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
     display_head_scan_on_source_window,
+    display_helmet_landmarks_on_source_window,
+    display_helmet_stl_on_source_window,
     display_master_scan_on_target_window,
     draw_mri_fiducials,
     draw_sensor_positions_on_source_window,
@@ -49,8 +51,8 @@ from src.file_io_helpers import (
     load_aux_dev_landmarks,
     load_aux_dev_stl,
     load_head_scan,
-    load_helmet_cad,
     load_helmet_landmark_csv,
+    load_helmet_stl,
     load_master_scan,
     load_mri_fiducials,
     load_mri_mesh,
@@ -150,6 +152,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_actors_source_window = []
         self.sensor_vector_actors_source_window = []
         self.helmet_landmark_positions = None
+        self.helmet_landmark_labels = None
         self.helmet_landmark_actors_source_window = []
         self.helmet_landmark_text_actors_source_window = []
         self.transformed_sensor_actors = []
@@ -980,7 +983,7 @@ class OPMCoregGUI(QWidget):
         buttons = [
             {
                 "label": "Load Helmet Model (Source Window)",
-                "callback": lambda: load_helmet_cad(self),
+                "callback": lambda: self.load_and_display_helmet_stl_on_source_window(),
             },
             {
                 "label": "Load Sensor Locations CSV (Source Window)",
@@ -988,7 +991,9 @@ class OPMCoregGUI(QWidget):
             },
             {
                 "label": "Load Helmet Landmarks CSV (Source Window) (Optional)",
-                "callback": lambda: load_helmet_landmark_csv(self),
+                "callback": lambda: (
+                    self.load_and_display_helmet_landmarks_on_source_window()
+                ),
             },
             {
                 "label": "Load Master Scan (Target Window)",
@@ -1025,6 +1030,16 @@ class OPMCoregGUI(QWidget):
             b = QPushButton(btn["label"])
             b.clicked.connect(btn["callback"])
             self.step_ctrl_layout.addWidget(b, r, 0)
+
+    def load_and_display_helmet_stl_on_source_window(self):
+        """Load the helmet/device STL and display it in the source window."""
+        load_helmet_stl(self)
+        display_helmet_stl_on_source_window(self)
+
+    def load_and_display_helmet_landmarks_on_source_window(self):
+        """Load the helmet landmark CSV and display the landmarks in the source window."""
+        load_helmet_landmark_csv(self)
+        display_helmet_landmarks_on_source_window(self)
 
     def load_and_display_sensors(self):
         """Wrapper function to load and display sensors and their unit vectors."""
@@ -1086,6 +1101,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_actors_source_window = []
         self.sensor_vector_actors_source_window = []
         self.helmet_landmark_positions = None
+        self.helmet_landmark_labels = None
         self.helmet_landmark_actors_source_window = []
         self.helmet_landmark_text_actors_source_window = []
         self.helmet_landmark_csv_path = None
