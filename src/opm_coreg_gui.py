@@ -121,13 +121,12 @@ class OPMCoregGUI(QWidget):
         self.master_scan_actor = None
         self.master_scan_filename = None
         self.aux_dev_polydata = None
-        self.aux_dev_actor_source_window = None
         self.aux_dev_landmarks = {}
         self.aux_dev_landmark_actors_source_window = []
-        self.aux_dev_expected_labels = []
         self.aux_alignment_points_from_source = []
         self.aux_alignment_points_from_target = []
-        self.aux_dev_pick_index = 0
+        self.aux_alignment_pair_actors_source = []
+        self.aux_alignment_pair_actors_target = []
         self.T_aux_to_scan = None
         self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
@@ -356,6 +355,12 @@ class OPMCoregGUI(QWidget):
         # 4. Step setup
         if selected_mode == "align_aux":
             self._populate_aux_alignment_step_controls()
+            add_source_observer(
+                self, "LeftButtonPressEvent", self._source_click_aux_alignment
+            )
+            add_target_observer(
+                self, "LeftButtonPressEvent", self._target_click_aux_alignment
+            )
 
         elif selected_mode == "align_head":
             self._populate_head_alignment_step_controls()
@@ -424,12 +429,12 @@ class OPMCoregGUI(QWidget):
                 ),
             },
             {
-                "label": "Mark Aux Device Landmarks on Master Scan (Target Window)",
-                "callback": self.start_aux_dev_landmark_pairs,
+                "label": "Start Pairwise Mode (Aux Device to Master Scan)",
+                "callback": self.start_pairs_for_aux_alignment,
             },
             {
-                "label": "Undo Last Marked Landmark",
-                "callback": self.undo_last_aux_dev_pair,
+                "label": "Undo Last Marked Pair",
+                "callback": self.undo_last_pair_from_aux_alignment_step,
             },
             {
                 "label": "Compute Transform : Aux Device to Master Scan",
@@ -505,123 +510,151 @@ class OPMCoregGUI(QWidget):
         self.aux_dev_actor_source_window = None
         self.aux_dev_landmarks = {}
         self.aux_dev_landmark_actors_source_window = []
+        self._clear_aux_alignment_pair_markers()
         self.aux_alignment_points_from_source = []
         self.aux_alignment_points_from_target = []
-        self.aux_dev_pick_index = 0
         self.T_aux_to_scan = None
         self.T_aux_to_device = None
         self.aux_dev_actor_transformed = None
-        self.vtk_source.GetRenderWindow().Render()
-        self.vtk_target.GetRenderWindow().Render()
         self.update_info("Aux Alignment restarted.")
 
-    def start_aux_dev_landmark_pairs(self):
-        """Start the process of picking aux device landmark pairs on the master scan (target window) based on loaded aux device landmarks CSV."""
-        if not self.aux_dev_landmarks or self.master_scan_polydata is None:
+    def start_pairs_for_aux_alignment(self):
+        """Enable picking pairwise points between the auxiliary device STL/landmark list (source window) and master scan (target window).
+
+        Requires that both the aux device STL (or aux device landmark CSV) and master scan are loaded first."""
+        if self.master_scan_polydata is None or (
+            self.aux_dev_polydata is None and self.aux_dev_landmarks == {}
+        ):
             self.update_info(
-                "Need aux device landmarks and master scan (participant in helmet)."
+                "Need aux device STL/landmark list (source window) and the master scan (target window) loaded."
             )
             return
-
-        ordered = [
-            lab
-            for lab in ["HTR", "HBR", "HBL", "HTL", "STR", "SBR", "SBL", "STL"]
-            if lab in self.aux_dev_landmarks
-        ]  # TODO : make this more robust to different landmark naming conventions, or at least provide clear instructions on required format.
-
-        if not ordered:
-            ordered = list(self.aux_dev_landmarks.keys())
-
-        self.aux_dev_expected_labels = ordered
         self.aux_alignment_points_from_source = []
         self.aux_alignment_points_from_target = []
-        self.aux_dev_pick_index = 0
-
+        self._clear_aux_alignment_pair_markers()
+        self.picking_state = {"mode": "aux_alignment_pairs", "await": "source"}
         self.update_info(
-            "Pick aux device landmarks in the target window in order: "
-            + ", ".join(self.aux_dev_expected_labels)
-        )
-        self.update_info(
-            "Instructions: use SHIFT+click to pick points; rotate normally without SHIFT."
+            "Aux alignment step: SHIFT+click aux device STL on source window then matching point on target window (scan)."
         )
 
-        def handler(obj, event):
+    def undo_last_pair_from_aux_alignment_step(self):
+        """Undo the last picked pairwise point between the aux STL and master scan in aux alignment step."""
+        if not self.aux_alignment_points_from_source:
+            self.update_info("No aux alignment pairs to undo.")
+            return
+        self.aux_alignment_points_from_source.pop()
+        self.aux_alignment_points_from_target.pop()
+        if self.aux_alignment_pair_actors_source:
+            actor = self.aux_alignment_pair_actors_source.pop()
+            self.ren_source.RemoveActor(actor)
+        if self.aux_alignment_pair_actors_target:
+            actor = self.aux_alignment_pair_actors_target.pop()
+            self.ren_target.RemoveActor(actor)
+        # re-render and re-add transformed if present
+        self.vtk_source.GetRenderWindow().Render()
+        self.vtk_target.GetRenderWindow().Render()
+        self.update_info("Undid last aux alignment pair.")
 
-            # If not SHIFT → let VTK rotate normally
-            if not self.iren_target.GetShiftKey():
+    def _source_click_aux_alignment(self, obj, event):
+        """Handle left clicks in aux alignment step mode for picking points on the aux STL that correspond to points on the master scan."""
+        if not self.iren_source.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        if ps.get("mode") == "aux_alignment_pairs" and ps.get("await") == "source":
+            x, y = self.iren_source.GetEventPosition()
+            picker = vtk.vtkPropPicker()
+
+            pick_success = picker.Pick(x, y, 0, self.ren_source)
+            if not pick_success:
+                self.update_info("No pick on source window (STL).")
                 obj.OnLeftButtonDown()
                 return
 
-            # If done picking → let VTK rotate
-            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
-                obj.OnLeftButtonDown()
-                return
+            pos = np.array(picker.GetPickPosition(), dtype=float)
 
+            self.picking_state["source_pt"] = pos
+            self.picking_state["await"] = "target"
+
+            self.update_info(
+                "Selected point on the aux device; now SHIFT+click matching point on target window."
+            )
+
+        obj.OnLeftButtonDown()
+
+    def _target_click_aux_alignment(self, obj, event):
+        """Handle left clicks in aux alignment step mode for picking points on the master scan that correspond to previously picked points on the aux STL."""
+        if not self.iren_target.GetShiftKey():
+            obj.OnLeftButtonDown()
+            return
+
+        ps = self.picking_state or {}
+
+        if ps.get("mode") == "aux_alignment_pairs" and ps.get("await") == "target":
             x, y = self.iren_target.GetEventPosition()
             picker = vtk.vtkPropPicker()
 
             pick_success = picker.Pick(x, y, 0, self.ren_target)
             if not pick_success:
-                self.update_info("No pick on target window.")
+                self.update_info("No pick on target window (scan).")
                 obj.OnLeftButtonDown()
                 return
 
-            pos = np.array(picker.GetPickPosition(), float)
-            lab = self.aux_dev_expected_labels[self.aux_dev_pick_index]
+            pos_target = np.array(picker.GetPickPosition(), dtype=float)
+            pos_source = ps.get("source_pt")
 
-            self.aux_alignment_points_from_source.append(self.aux_dev_landmarks[lab])
-            self.aux_alignment_points_from_target.append(pos)
+            if pos_source is None:
+                self.update_info("No source window point stored.")
+                obj.OnLeftButtonDown()
+                return
 
-            selected_color = PAIR_COLORS[self.aux_dev_pick_index % len(PAIR_COLORS)]
+            self.aux_alignment_points_from_source.append(pos_source)
+            self.aux_alignment_points_from_target.append(pos_target)
 
-            self.ren_target.AddActor(
-                sphere_actor(pos, color=selected_color, radius=3.5)
-            )
+            idx = len(self.aux_alignment_points_from_source) - 1
+            selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
+            actor_source = sphere_actor(pos_source, color=selected_color, radius=3.0)
+            actor_target = sphere_actor(pos_target, color=selected_color, radius=3.0)
+
+            self.ren_source.AddActor(actor_source)
+            self.ren_target.AddActor(actor_target)
+
+            self.aux_alignment_pair_actors_source.append(actor_source)
+            self.aux_alignment_pair_actors_target.append(actor_target)
+
+            self.vtk_source.GetRenderWindow().Render()
             self.vtk_target.GetRenderWindow().Render()
 
-            self.aux_dev_pick_index += 1
+            self.picking_state = {"mode": "aux_alignment_pairs", "await": "source"}
 
-            if self.aux_dev_pick_index >= len(self.aux_dev_expected_labels):
+            self.update_info(f"Added aux alignment pair #{idx + 1}.")
+
+        obj.OnLeftButtonDown()
+
+    def _clear_aux_alignment_pair_markers(self):
+        """Remove all pairwise point markers from both renderers in aux alignment step."""
+        if hasattr(self, "aux_alignment_pair_actors_source"):
+            for actor in self.aux_alignment_pair_actors_source:
                 try:
-                    self.iren_target.RemoveObserver(obs_id)
+                    self.ren_source.RemoveActor(actor)
                 except Exception:
                     pass
 
-                self.update_info("All aux device pairs picked.")
-            else:
-                self.update_info(
-                    f"Picked {lab}. Next: "
-                    f"{self.aux_dev_expected_labels[self.aux_dev_pick_index]}"
-                )
+        if hasattr(self, "aux_alignment_pair_actors_target"):
+            for actor in self.aux_alignment_pair_actors_target:
+                try:
+                    self.ren_target.RemoveActor(actor)
+                except Exception:
+                    pass
 
-            # IMPORTANT: After handling SHIFT pick,
-            # still forward event so camera doesn't freeze
-            obj.OnLeftButtonDown()
+        self.aux_alignment_pair_actors_source = []
+        self.aux_alignment_pair_actors_target = []
 
-        obs_id = add_target_observer(self, "LeftButtonPressEvent", handler)
-
-    def undo_last_aux_dev_pair(self):
-        """Undo the last picked aux device landmark pair, removing the marker from the target renderer and updating state."""
-        if not getattr(self, "aux_alignment_points_from_source", []):
-            self.update_info("No aux device pairs to undo.")
-            return
-        self.aux_alignment_points_from_source.pop()
-        self.aux_alignment_points_from_target.pop()
-        self.aux_dev_pick_index = max(0, self.aux_dev_pick_index - 1)
-        # redraw target window: master scan + placed aux device pair spheres + transformed aux device if present
-        self.ren_target.RemoveAllViewProps()
-        if self.master_scan_actor is not None:
-            self.ren_target.AddActor(self.master_scan_actor)
-        for i, pos in enumerate(self.aux_alignment_points_from_target):
-            selected_color = PAIR_COLORS[i % len(PAIR_COLORS)]
-            self.ren_target.AddActor(
-                sphere_actor(pos, color=selected_color, radius=3.5)
-            )
-        if self.aux_dev_actor_transformed is not None:
-            self.ren_target.AddActor(self.aux_dev_actor_transformed)
+        self.vtk_source.GetRenderWindow().Render()
         self.vtk_target.GetRenderWindow().Render()
-        self.update_info("Undid last aux device pair.")
 
     # ----------------- head alignment step (head scan -> master scan) -----------------
 
@@ -831,14 +864,14 @@ class OPMCoregGUI(QWidget):
             self.head_alignment_points_from_source.append(pos_source)
             self.head_alignment_points_from_target.append(pos_target)
 
-            a_l = sphere_actor(pos_source, color=selected_color, radius=3.0)
-            a_r = sphere_actor(pos_target, color=selected_color, radius=3.0)
+            actor_source = sphere_actor(pos_source, color=selected_color, radius=3.0)
+            actor_target = sphere_actor(pos_target, color=selected_color, radius=3.0)
 
-            self.ren_source.AddActor(a_l)
-            self.ren_target.AddActor(a_r)
+            self.ren_source.AddActor(actor_source)
+            self.ren_target.AddActor(actor_target)
 
-            self.head_alignment_pair_actors_source.append(a_l)
-            self.head_alignment_pair_actors_target.append(a_r)
+            self.head_alignment_pair_actors_source.append(actor_source)
+            self.head_alignment_pair_actors_target.append(actor_target)
 
             self.vtk_source.GetRenderWindow().Render()
             self.vtk_target.GetRenderWindow().Render()
@@ -941,8 +974,6 @@ class OPMCoregGUI(QWidget):
         self.head_alignment_points_from_source = []
         self.head_alignment_points_from_target = []
         self.T_head_to_scan = None
-        self.vtk_source.GetRenderWindow().Render()
-        self.vtk_target.GetRenderWindow().Render()
         self.update_info("Restarted Head Alignment (fiducials & pairs cleared).")
 
     # ------------------ sensor alignment step (Sensors & device STL -> master scan) -----------------
@@ -1081,12 +1112,9 @@ class OPMCoregGUI(QWidget):
         # pairs
         self.sensor_alignment_points_from_source = []
         self.sensor_alignment_points_from_target = []
-        self.pair_actors_source = []
-        self.pair_actors_target = []
+        self._clear_sensor_alignment_pair_markers()
         self.T_dev_to_scan = None
         self.T_dev_to_head = None
-        self.vtk_source.GetRenderWindow().Render()
-        self.vtk_target.GetRenderWindow().Render()
         self.update_info("Restarted Sensor Alignment.")
 
     def start_pairs_for_sensor_alignment(self):
@@ -1172,14 +1200,14 @@ class OPMCoregGUI(QWidget):
             idx = len(self.sensor_alignment_points_from_source) - 1
             selected_color = PAIR_COLORS[idx % len(PAIR_COLORS)]
 
-            a_l = sphere_actor(pos_source, color=selected_color, radius=3.0)
-            a_r = sphere_actor(pos_target, color=selected_color, radius=3.0)
+            actor_source = sphere_actor(pos_source, color=selected_color, radius=3.0)
+            actor_target = sphere_actor(pos_target, color=selected_color, radius=3.0)
 
-            self.ren_source.AddActor(a_l)
-            self.ren_target.AddActor(a_r)
+            self.ren_source.AddActor(actor_source)
+            self.ren_target.AddActor(actor_target)
 
-            self.pair_actors_source.append(a_l)
-            self.pair_actors_target.append(a_r)
+            self.pair_actors_source.append(actor_source)
+            self.pair_actors_target.append(actor_target)
 
             self.vtk_source.GetRenderWindow().Render()
             self.vtk_target.GetRenderWindow().Render()

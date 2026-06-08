@@ -49,6 +49,7 @@ def load_aux_dev_stl(gui):
 
 def load_aux_dev_landmarks(gui):
     """Load auxiliary device landmarks CSV on the source window."""
+    # TODO : make code consistent with load_helmet_landmark_csv().
     filepath, _ = QFileDialog.getOpenFileName(
         gui, "Select auxiliary device landmarks CSV", "", "CSV Files (*.csv)"
     )

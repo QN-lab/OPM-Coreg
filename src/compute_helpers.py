@@ -20,6 +20,15 @@ def compute_aux_to_scan(gui):
         return
     src = np.vstack(gui.aux_alignment_points_from_source)
     dst = np.vstack(gui.aux_alignment_points_from_target)
+
+    # If aux landmark points exist, obtain a list of true landmark positions based on the marked points on aux STL window
+    if gui.aux_dev_landmarks != {}:
+        true_landmark_coords = obtain_true_landmarks_from_marked_points(
+            list(gui.aux_dev_landmarks.values()),
+            gui.aux_alignment_points_from_source,
+        )
+        src = np.vstack(true_landmark_coords)
+
     T, rms, errs = compute_rigid_transform(src, dst)
     gui.T_aux_to_scan = T
     gui.update_info(
