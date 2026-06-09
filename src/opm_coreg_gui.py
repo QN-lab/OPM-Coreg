@@ -121,6 +121,7 @@ class OPMCoregGUI(QWidget):
         self.master_scan_actor = None
         self.master_scan_filename = None
         self.aux_dev_polydata = None
+        self.aux_dev_actor_source_window = None
         self.aux_dev_landmarks = {}
         self.aux_dev_landmark_actors_source_window = []
         self.aux_alignment_points_from_source = []
@@ -477,7 +478,7 @@ class OPMCoregGUI(QWidget):
         compute_aux_to_scan(self)
         save_generated_transforms(self, trans_to_save="aux_to_scan")
 
-        # Save aux device to device transform if possible (requires head->scan transform to be already computed.
+        # Save aux device to device transform if possible (requires head->scan transform to be already computed)
         compute_aux_to_device(self)
         save_generated_transforms(self, trans_to_save="aux_to_device")
 
@@ -1058,6 +1059,10 @@ class OPMCoregGUI(QWidget):
         # Compute device -> head if head transform exists
         compute_device_to_head(self)
         save_generated_transforms(self, trans_to_save="device_to_head")
+
+        # Save aux device to device transform if possible (requires aux->scan transform to be already computed)
+        compute_aux_to_device(self)
+        save_generated_transforms(self, trans_to_save="aux_to_device")
 
         # Save marked points in cache after computing transform
         save_marked_points_in_cache(
