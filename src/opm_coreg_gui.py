@@ -26,6 +26,8 @@ from src.compute_helpers import (
     compute_device_to_head,
     compute_head_to_mri_initial,
     compute_head_to_scan,
+    extract_roi_on_head_scan,
+    run_icp_head_to_master_scan,
     run_icp_head_to_mri,
 )
 from src.const import FIDUCIAL_COLORS, PAIR_COLORS
@@ -45,6 +47,7 @@ from src.display_helpers import (
     preview_head_scan_on_master_scan,
     preview_helmet_sensor_unit_vectors_on_master_scan,
     preview_mri_on_master_scan,
+    preview_roi_on_head_scan,
     preview_roi_on_mri,
 )
 from src.file_io_helpers import (
@@ -141,6 +144,8 @@ class OPMCoregGUI(QWidget):
         self.head_alignment_points_from_target = []
         self.head_alignment_pair_actors_source = []
         self.head_alignment_pair_actors_target = []
+        self.roi_in_head_frame = None
+        self.roi_on_head_scan_actor_source_window = None
         self.T_head_to_scan = None
 
         # Sensors alignment step (to get the device to scan transform)
@@ -696,6 +701,14 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: self.compute_and_save_head_to_scan_transforms(),
             },
             {
+                "label": "Extract ROI and preview on head scan",
+                "callback": lambda: self.extract_and_preview_roi_on_head_scan(),
+            },
+            {
+                "label": "Refine Transform : Head Scan to Master Scan using ICP",
+                "callback": lambda: self.refine_and_save_head_to_scan_transforms(),
+            },
+            {
                 "label": "Preview Head Scan on Master Scan",
                 "callback": lambda: preview_head_scan_on_master_scan(self),
             },
@@ -941,6 +954,16 @@ class OPMCoregGUI(QWidget):
         )
         save_marked_points_in_cache(self, file_to_save="marked_fiducials_on_head_scan")
 
+    def refine_and_save_head_to_scan_transforms(self):
+        """Wrapper for computing head to master scan transform refinement using ICP."""
+        run_icp_head_to_master_scan(self)
+        save_generated_transforms(self, trans_to_save="head_to_scan")
+    
+    def extract_and_preview_roi_on_head_scan(self):
+        """Wrapper for extracting ROI on head scan and preview it in the source window."""
+        extract_roi_on_head_scan(self)
+        preview_roi_on_head_scan(self)
+
     def restart_head_alignment(self):
         """Reset all Head Alignment related state and UI elements, including fiducials, pairwise points, and any transformed actors."""
         # remove transformed actor and pair markers
@@ -969,11 +992,19 @@ class OPMCoregGUI(QWidget):
                 self.ren_source.RemoveActor(actor)
             except Exception:
                 pass
+        # Remove ROI actors from source window (roi_on_head_scan_actor_source_window)
+        try:
+            if self.roi_on_head_scan_actor_source_window is not None:
+                self.ren_source.RemoveActor(self.roi_on_head_scan_actor_source_window)
+        except Exception:
+            pass
         self.marked_fiducials_on_head_scan = {}
         self.head_fiducial_actors = {}
         self._clear_head_alignment_pair_markers()
         self.head_alignment_points_from_source = []
         self.head_alignment_points_from_target = []
+        self.roi_in_head_frame = None
+        self.roi_on_head_scan_actor_source_window = None
         self.T_head_to_scan = None
         self.update_info("Restarted Head Alignment (fiducials & pairs cleared).")
 

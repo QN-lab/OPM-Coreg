@@ -276,6 +276,103 @@ def run_icp_head_to_mri(gui):
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
 
+def extract_roi_on_head_scan(gui):
+    """Extract irregular ROI on head scan using marked points in pairwise surface matching."""
+    if gui.head_polydata is None or gui.head_alignment_points_from_source is None:
+        gui.update_info("Need head scan mesh loaded and user marked points to extract an ROI.")
+        return
+
+    # Extract ROI in HEAD frame
+    roi_in_head_frame = extract_convex_hull_roi(
+        gui.head_polydata, gui.head_alignment_points_from_source
+    )
+    if roi_in_head_frame is None:
+        gui.update_info(
+            "ROI extraction failed. Repeat with new points on the head scan."
+        )
+        return
+    gui.roi_in_head_frame = roi_in_head_frame
+    gui.update_info(
+            "Successfully extracted ROI based on the marked points on the head scan."
+        )
+
+
+def run_icp_head_to_master_scan(gui):
+    """Run ICP to refine head→master scan alignment using the marked points ROI."""
+    if gui.T_head_to_scan is None:
+        gui.update_info("Compute initial head to master scan alignment first.")
+        return
+
+    if gui.master_scan_polydata is None:
+        gui.update_info("Need master scan mesh loaded first.")
+        return
+
+    # --------------------------------------------------
+    # Transform ROI to master scan frame
+    # --------------------------------------------------
+    tf = vtk.vtkTransform()
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
+
+    tf_filter = vtk.vtkTransformPolyDataFilter()
+    tf_filter.SetTransform(tf)
+    tf_filter.SetInputData(gui.roi_in_head_frame)
+    tf_filter.Update()
+
+    roi_in_master_scan_frame = tf_filter.GetOutput()
+
+    # --------------------------------------------------
+    # Initial RMS
+    # --------------------------------------------------
+    initial_rms = compute_surface_rms(
+        roi_in_master_scan_frame, gui.master_scan_polydata
+    )
+
+    # --------------------------------------------------
+    # ICP
+    # --------------------------------------------------
+    try:
+        icp = vtk.vtkIterativeClosestPointTransform()
+        icp.SetSource(roi_in_master_scan_frame)
+        icp.SetTarget(gui.master_scan_polydata)
+        icp.GetLandmarkTransform().SetModeToRigidBody()
+        icp.SetMaximumNumberOfIterations(50)
+        icp.StartByMatchingCentroidsOff()
+        icp.Modified()
+        icp.Update()
+
+        # Extract matrix
+        T_icp = np.eye(4)
+        icp_matrix = icp.GetMatrix()
+        for row in range(4):
+            for col in range(4):
+                T_icp[row, col] = icp_matrix.GetElement(row, col)
+    except Exception:
+        gui.update_info("ICP failed for extracted ROI. Repeat with new points and ROI.")
+        return
+
+    # Compose
+    gui.T_head_to_scan = T_icp @ gui.T_head_to_scan
+
+    # --------------------------------------------------
+    # Recompute RMS after ICP
+    # --------------------------------------------------
+    tf2 = vtk.vtkTransform()
+    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
+
+    tf_filter2 = vtk.vtkTransformPolyDataFilter()
+    tf_filter2.SetTransform(tf2)
+    tf_filter2.SetInputData(gui.roi_in_head_frame)
+    tf_filter2.Update()
+
+    roi_refined_in_master_scan_frame = tf_filter2.GetOutput()
+
+    final_rms = compute_surface_rms(
+        roi_refined_in_master_scan_frame, gui.master_scan_polydata
+    )
+
+    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+
+
 def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     """Extract face ROI using robust surface clipping."""
 

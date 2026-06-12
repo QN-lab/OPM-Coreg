@@ -474,6 +474,35 @@ def preview_roi_on_mri(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
+def preview_roi_on_head_scan(gui):
+    """Preview the ROI surface overlaid on the MRI in the source window."""
+    if (
+        hasattr(gui, "roi_on_head_scan_actor_source_window")
+        and gui.roi_on_head_scan_actor_source_window is not None
+    ):
+        try:
+            gui.ren_source.RemoveActor(gui.roi_on_head_scan_actor_source_window)
+        except Exception:
+            pass
+
+    # Check if the ROI in head frame exists
+    if not hasattr(gui, "roi_in_head_frame") or gui.roi_in_head_frame is None:
+        gui.update_info(
+            "No ROI in head frame to preview. Mark required points on the head scan first."
+        )
+        return
+
+    # Show ROI on head scan in source window (light red)
+    gui.roi_on_head_scan_actor_source_window = actor_from_polydata(
+        gui.roi_in_head_frame, color=(1.0, 0.5, 0.5), opacity=0.6
+    )
+
+    gui.update_info("Extracted ROI is overlaid on the head scan (source window).")
+
+    gui.ren_source.AddActor(gui.roi_on_head_scan_actor_source_window)
+    gui.vtk_source.GetRenderWindow().Render()
+
+
 def preview_mri_on_master_scan(gui):
     """Preview the MRI mesh transformed to the scan frame overlaid on the master scan in the target window view."""
     if gui.T_head_to_mri is None:
