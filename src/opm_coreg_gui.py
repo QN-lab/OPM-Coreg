@@ -701,10 +701,6 @@ class OPMCoregGUI(QWidget):
                 "callback": lambda: self.compute_and_save_head_to_scan_transforms(),
             },
             {
-                "label": "Extract ROI and preview on head scan",
-                "callback": lambda: self.extract_and_preview_roi_on_head_scan(),
-            },
-            {
                 "label": "Refine Transform : Head Scan to Master Scan using ICP",
                 "callback": lambda: self.refine_and_save_head_to_scan_transforms(),
             },
@@ -956,12 +952,9 @@ class OPMCoregGUI(QWidget):
 
     def refine_and_save_head_to_scan_transforms(self):
         """Wrapper for computing head to master scan transform refinement using ICP."""
+        extract_roi_on_head_scan(self)
         run_icp_head_to_master_scan(self)
         save_generated_transforms(self, trans_to_save="head_to_scan")
-    
-    def extract_and_preview_roi_on_head_scan(self):
-        """Wrapper for extracting ROI on head scan and preview it in the source window."""
-        extract_roi_on_head_scan(self)
         preview_roi_on_head_scan(self)
 
     def restart_head_alignment(self):
