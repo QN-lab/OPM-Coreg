@@ -26,7 +26,8 @@ from src.compute_helpers import (
     compute_device_to_head,
     compute_head_to_mri_initial,
     compute_head_to_scan,
-    extract_roi_on_head_scan,
+    extract_face_roi_from_head_scan,
+    extract_irregular_roi_from_head_scan,
     run_icp_head_to_master_scan,
     run_icp_head_to_mri,
 )
@@ -144,7 +145,7 @@ class OPMCoregGUI(QWidget):
         self.head_alignment_points_from_target = []
         self.head_alignment_pair_actors_source = []
         self.head_alignment_pair_actors_target = []
-        self.roi_in_head_frame = None
+        self.irregular_roi_in_head_frame = None
         self.roi_on_head_scan_actor_source_window = None
         self.T_head_to_scan = None
 
@@ -181,7 +182,8 @@ class OPMCoregGUI(QWidget):
         self.T_head_to_mri = None
         self.mri_actor_source_window = None
         self.mri_actor_target_window = None
-        self.roi_in_mri_frame = None
+        self.face_roi_in_head_frame = None
+        self.face_roi_in_mri_frame = None
         self.roi_on_mri_actor_source_window = None
 
         # Obtain required project paths
@@ -952,7 +954,7 @@ class OPMCoregGUI(QWidget):
 
     def refine_and_save_head_to_scan_transforms(self):
         """Wrapper for computing head to master scan transform refinement using ICP."""
-        extract_roi_on_head_scan(self)
+        extract_irregular_roi_from_head_scan(self)
         run_icp_head_to_master_scan(self)
         save_generated_transforms(self, trans_to_save="head_to_scan")
         preview_roi_on_head_scan(self)
@@ -996,7 +998,7 @@ class OPMCoregGUI(QWidget):
         self._clear_head_alignment_pair_markers()
         self.head_alignment_points_from_source = []
         self.head_alignment_points_from_target = []
-        self.roi_in_head_frame = None
+        self.irregular_roi_in_head_frame = None
         self.roi_on_head_scan_actor_source_window = None
         self.T_head_to_scan = None
         self.update_info("Restarted Head Alignment (fiducials & pairs cleared).")
@@ -1355,6 +1357,7 @@ class OPMCoregGUI(QWidget):
 
     def compute_and_preview_head_to_mri_with_ICP(self):
         """Wrapper for computing head to MRI transform refinement using ICP and previewing the alignment result."""
+        extract_face_roi_from_head_scan(self)
         run_icp_head_to_mri(self)
         save_generated_transforms(self, trans_to_save="head_to_mri")
         preview_head_on_mri(self)

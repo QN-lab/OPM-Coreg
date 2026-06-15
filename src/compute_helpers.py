@@ -1,6 +1,7 @@
 """Helper functions to compute transforms based on GUI state and user inputs."""
 
 import numpy as np
+import pyvista as pv
 import vtk
 from scipy.spatial import Delaunay
 
@@ -193,28 +194,17 @@ def compute_surface_rms(src_poly, dst_poly):
 def run_icp_head_to_mri(gui):
     """Run ICP to refine head→MRI alignment using the face ROI."""
     if gui.T_head_to_mri is None:
-        gui.update_info("Compute initial fiducial alignment first.")
+        gui.update_info(
+            "ICP refinement failed : Compute initial fiducial alignment first"
+        )
         return
 
-    if gui.head_polydata is None or gui.mri_polydata is None:
-        gui.update_info("Need head and MRI surfaces loaded.")
+    if gui.mri_polydata is None:
+        gui.update_info("ICP refinement failed : Need MRI surface loaded")
         return
 
-    if not all(
-        fid in gui.marked_fiducials_on_head_scan
-        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-    ):
-        gui.update_info("Need 5 head fiducials.")
-        return
-
-    # --------------------------------------------------
-    # Extract ROI in HEAD frame
-    # --------------------------------------------------
-    roi_in_head_frame = extract_face_roi(
-        gui, gui.head_polydata, gui.marked_fiducials_on_head_scan
-    )
-    if roi_in_head_frame is None:
-        gui.update_info("ROI extraction failed.")
+    if gui.face_roi_in_head_frame is None:
+        gui.update_info("ICP refinement failed : No valid ROI found")
         return
 
     # --------------------------------------------------
@@ -225,21 +215,21 @@ def run_icp_head_to_mri(gui):
 
     tf_filter = vtk.vtkTransformPolyDataFilter()
     tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(roi_in_head_frame)
+    tf_filter.SetInputData(gui.face_roi_in_head_frame)
     tf_filter.Update()
 
-    roi_in_mri_frame = tf_filter.GetOutput()
+    face_roi_in_mri_frame = tf_filter.GetOutput()
 
     # --------------------------------------------------
     # Initial RMS
     # --------------------------------------------------
-    initial_rms = compute_surface_rms(roi_in_mri_frame, gui.mri_polydata)
+    initial_rms = compute_surface_rms(face_roi_in_mri_frame, gui.mri_polydata)
 
     # --------------------------------------------------
     # ICP
     # --------------------------------------------------
     icp = vtk.vtkIterativeClosestPointTransform()
-    icp.SetSource(roi_in_mri_frame)
+    icp.SetSource(face_roi_in_mri_frame)
     icp.SetTarget(gui.mri_polydata)
     icp.GetLandmarkTransform().SetModeToRigidBody()
     icp.SetMaximumNumberOfIterations(50)
@@ -265,46 +255,84 @@ def run_icp_head_to_mri(gui):
 
     tf_filter2 = vtk.vtkTransformPolyDataFilter()
     tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(roi_in_head_frame)
+    tf_filter2.SetInputData(gui.face_roi_in_head_frame)
     tf_filter2.Update()
 
     roi_refined_in_mri_frame = tf_filter2.GetOutput()
-    gui.roi_in_mri_frame = roi_refined_in_mri_frame  # Store for preview
+    gui.face_roi_in_mri_frame = roi_refined_in_mri_frame  # Store for preview
 
     final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
 
-def extract_roi_on_head_scan(gui):
-    """Extract irregular ROI on head scan using marked points in pairwise surface matching."""
-    if gui.head_polydata is None or gui.head_alignment_points_from_source is None:
-        gui.update_info("Need head scan mesh loaded and user marked points to extract an ROI.")
+def extract_face_roi_from_head_scan(gui):
+    """Extract face ROI on head scan using marked fiducials in head alignment step."""
+    if gui.head_polydata is None:
+        gui.update_info("ROI extraction failed : Need head scan loaded")
+        return
+
+    if not all(
+        fid in gui.marked_fiducials_on_head_scan
+        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    ):
+        gui.update_info(
+            "ROI extraction failed : Need 5 head fiducials marked on the head scan"
+        )
         return
 
     # Extract ROI in HEAD frame
-    roi_in_head_frame = extract_convex_hull_roi(
-        gui.head_polydata, gui.head_alignment_points_from_source
+    face_roi_in_head_frame = extract_face_roi(
+        gui.head_polydata, gui.marked_fiducials_on_head_scan
     )
-    if roi_in_head_frame is None:
+    if face_roi_in_head_frame is None:
+        gui.update_info("ROI extraction failed : Too few points detected")
+        return
+    gui.face_roi_in_head_frame = face_roi_in_head_frame
+    gui.update_info(
+        "Successfully extracted ROI based on the marked fiducials on the head scan."
+    )
+    gui.update_info(f"ROI points: {len(face_roi_in_head_frame)}")
+
+
+def extract_irregular_roi_from_head_scan(gui):
+    """Extract irregular ROI on head scan using marked points in pairwise surface matching."""
+    if gui.head_polydata is None or gui.head_alignment_points_from_source is None:
         gui.update_info(
-            "ROI extraction failed. Repeat with new points on the head scan."
+            "ROI extraction failed : Need head scan mesh loaded and user marked points to extract an ROI"
         )
         return
-    gui.roi_in_head_frame = roi_in_head_frame
-    gui.update_info(
-            "Successfully extracted ROI based on the marked points on the head scan."
+
+    # Extract ROI in HEAD frame
+    irregular_roi_in_head_frame = extract_convex_hull_roi(
+        gui.head_polydata, gui.head_alignment_points_from_source
+    )
+    if irregular_roi_in_head_frame is None:
+        gui.update_info(
+            "ROI extraction failed : Repeat with new points on the head scan"
         )
+        return
+    gui.irregular_roi_in_head_frame = irregular_roi_in_head_frame
+    gui.update_info(
+        "ROI extraction successful : Extracted ROI based on the marked points on the head scan."
+    )
+    gui.update_info(f"ROI points: {len(irregular_roi_in_head_frame)}")
 
 
 def run_icp_head_to_master_scan(gui):
     """Run ICP to refine head→master scan alignment using the marked points ROI."""
     if gui.T_head_to_scan is None:
-        gui.update_info("Compute initial head to master scan alignment first.")
+        gui.update_info(
+            "ICP refinement failed : Compute initial head to master scan alignment first"
+        )
         return
 
     if gui.master_scan_polydata is None:
-        gui.update_info("Need master scan mesh loaded first.")
+        gui.update_info("ICP refinement failed : Need master scan mesh loaded first")
+        return
+
+    if gui.irregular_roi_in_head_frame is None:
+        gui.update_info("ICP refinement failed : No valid ROI found")
         return
 
     # --------------------------------------------------
@@ -315,7 +343,7 @@ def run_icp_head_to_master_scan(gui):
 
     tf_filter = vtk.vtkTransformPolyDataFilter()
     tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(gui.roi_in_head_frame)
+    tf_filter.SetInputData(gui.irregular_roi_in_head_frame)
     tf_filter.Update()
 
     roi_in_master_scan_frame = tf_filter.GetOutput()
@@ -361,7 +389,7 @@ def run_icp_head_to_master_scan(gui):
 
     tf_filter2 = vtk.vtkTransformPolyDataFilter()
     tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(gui.roi_in_head_frame)
+    tf_filter2.SetInputData(gui.irregular_roi_in_head_frame)
     tf_filter2.Update()
 
     roi_refined_in_master_scan_frame = tf_filter2.GetOutput()
@@ -373,16 +401,8 @@ def run_icp_head_to_master_scan(gui):
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
 
 
-def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
+def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
     """Extract face ROI using robust surface clipping."""
-
-    import pyvista as pv
-
-    required = ["NAS", "LPA", "RPA"]
-    if not all(fid in fid_dict for fid in required):
-        gui.update_info("ROI extraction: missing fiducials")
-        return None
-
     nas = fid_dict["NAS"]
     lpa = fid_dict["LPA"]
     rpa = fid_dict["RPA"]
@@ -409,7 +429,6 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     roi = head_mesh.clip_surface(sphere)
 
     if roi.n_cells == 0:
-        gui.update_info("ROI too small — returning None")
         return None
 
     side = float(np.dot(nose - plane_origin, normal))
@@ -418,10 +437,7 @@ def extract_face_roi(gui, polydata, fid_dict, plane_offset_mm=15.0):
     roi = roi.clip(normal=list(normal), origin=list(plane_origin), invert=invert)
 
     if roi.n_cells < 500:
-        gui.update_info("ROI too small — returning None")
         return None
-
-    gui.update_info(f"ROI points: {roi.n_points}")
 
     return roi
 

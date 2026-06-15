@@ -459,7 +459,7 @@ def preview_roi_on_mri(gui):
             pass
 
     # Check if the ROI in MRI frame exists
-    if not hasattr(gui, "roi_in_mri_frame") or gui.roi_in_mri_frame is None:
+    if not hasattr(gui, "face_roi_in_mri_frame") or gui.face_roi_in_mri_frame is None:
         gui.update_info(
             "No ROI in MRI frame to preview. Compute Head→MRI transform and ROI extraction first."
         )
@@ -467,7 +467,7 @@ def preview_roi_on_mri(gui):
 
     # Show ROI on MRI in source window (light red)
     gui.roi_on_mri_actor_source_window = actor_from_polydata(
-        gui.roi_in_mri_frame, color=(1.0, 0.5, 0.5), opacity=0.6
+        gui.face_roi_in_mri_frame, color=(1.0, 0.5, 0.5), opacity=0.6
     )
 
     gui.ren_source.AddActor(gui.roi_on_mri_actor_source_window)
@@ -486,7 +486,10 @@ def preview_roi_on_head_scan(gui):
             pass
 
     # Check if the ROI in head frame exists
-    if not hasattr(gui, "roi_in_head_frame") or gui.roi_in_head_frame is None:
+    if (
+        not hasattr(gui, "irregular_roi_in_head_frame")
+        or gui.irregular_roi_in_head_frame is None
+    ):
         gui.update_info(
             "No ROI in head frame to preview. Mark required points on the head scan first."
         )
@@ -494,7 +497,7 @@ def preview_roi_on_head_scan(gui):
 
     # Show ROI on head scan in source window (light red)
     gui.roi_on_head_scan_actor_source_window = actor_from_polydata(
-        gui.roi_in_head_frame, color=(1.0, 0.5, 0.5), opacity=0.6
+        gui.irregular_roi_in_head_frame, color=(1.0, 0.5, 0.5), opacity=0.6
     )
 
     gui.update_info("Extracted ROI is overlaid on the head scan (source window).")
