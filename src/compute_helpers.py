@@ -191,7 +191,7 @@ def compute_surface_rms(src_poly, dst_poly):
     return np.sqrt(np.mean(squared_distances))
 
 
-def run_icp_head_to_mri(gui, face_roi=True):
+def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
     """Run ICP to refine head→MRI alignment using the face ROI."""
     if gui.T_head_to_mri is None:
         gui.update_info(
@@ -240,7 +240,7 @@ def run_icp_head_to_mri(gui, face_roi=True):
     icp.SetSource(face_roi_in_mri_frame)
     icp.SetTarget(gui.mri_polydata)
     icp.GetLandmarkTransform().SetModeToRigidBody()
-    icp.SetMaximumNumberOfIterations(50)
+    icp.SetMaximumNumberOfIterations(icp_iterations)
     icp.StartByMatchingCentroidsOff()
     icp.Modified()
     icp.Update()
@@ -327,7 +327,7 @@ def extract_irregular_roi_from_head_scan(gui):
     gui.update_info(f"ROI points: {len(irregular_roi_in_head_frame)}")
 
 
-def run_icp_head_to_master_scan(gui):
+def run_icp_head_to_master_scan(gui, icp_iterations=50):
     """Run ICP to refine head→master scan alignment using the marked points ROI."""
     if gui.T_head_to_scan is None:
         gui.update_info(
@@ -371,7 +371,7 @@ def run_icp_head_to_master_scan(gui):
         icp.SetSource(roi_in_master_scan_frame)
         icp.SetTarget(gui.master_scan_polydata)
         icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(50)
+        icp.SetMaximumNumberOfIterations(icp_iterations)
         icp.StartByMatchingCentroidsOff()
         icp.Modified()
         icp.Update()
