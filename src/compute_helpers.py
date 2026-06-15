@@ -300,7 +300,6 @@ def extract_face_roi_from_head_scan(gui):
     gui.update_info(
         "Successfully extracted ROI based on the marked fiducials on the head scan."
     )
-    gui.update_info(f"ROI points: {len(face_roi_in_head_frame)}")
 
 
 def extract_irregular_roi_from_head_scan(gui):
@@ -324,7 +323,6 @@ def extract_irregular_roi_from_head_scan(gui):
     gui.update_info(
         "ROI extraction successful : Extracted ROI based on the marked points on the head scan."
     )
-    gui.update_info(f"ROI points: {len(irregular_roi_in_head_frame)}")
 
 
 def run_icp_head_to_master_scan(gui, icp_iterations=50):
