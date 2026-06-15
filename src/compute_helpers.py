@@ -191,7 +191,7 @@ def compute_surface_rms(src_poly, dst_poly):
     return np.sqrt(np.mean(squared_distances))
 
 
-def run_icp_head_to_mri(gui):
+def run_icp_head_to_mri(gui, face_roi=True):
     """Run ICP to refine head→MRI alignment using the face ROI."""
     if gui.T_head_to_mri is None:
         gui.update_info(
@@ -203,9 +203,17 @@ def run_icp_head_to_mri(gui):
         gui.update_info("ICP refinement failed : Need MRI surface loaded")
         return
 
-    if gui.face_roi_in_head_frame is None:
+    if (face_roi and gui.face_roi_in_head_frame is None) or (
+        not face_roi and gui.irregular_roi_in_head_frame is None
+    ):
         gui.update_info("ICP refinement failed : No valid ROI found")
         return
+    
+    # Select the ROI data
+    if face_roi:
+        roi_in_head_frame = gui.face_roi_in_head_frame
+    else:
+        roi_in_head_frame = gui.irregular_roi_in_head_frame
 
     # --------------------------------------------------
     # Transform ROI to MRI frame
@@ -215,7 +223,7 @@ def run_icp_head_to_mri(gui):
 
     tf_filter = vtk.vtkTransformPolyDataFilter()
     tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(gui.face_roi_in_head_frame)
+    tf_filter.SetInputData(roi_in_head_frame)
     tf_filter.Update()
 
     face_roi_in_mri_frame = tf_filter.GetOutput()
@@ -255,7 +263,7 @@ def run_icp_head_to_mri(gui):
 
     tf_filter2 = vtk.vtkTransformPolyDataFilter()
     tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(gui.face_roi_in_head_frame)
+    tf_filter2.SetInputData(roi_in_head_frame)
     tf_filter2.Update()
 
     roi_refined_in_mri_frame = tf_filter2.GetOutput()

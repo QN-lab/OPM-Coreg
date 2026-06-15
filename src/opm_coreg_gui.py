@@ -1320,8 +1320,16 @@ class OPMCoregGUI(QWidget):
                 ),
             },
             {
-                "label": "Refine Transform : Head Scan to MRI using ICP",
-                "callback": lambda: self.compute_and_preview_head_to_mri_with_ICP(),
+                "label": "Refine Transform using ICP (Face ROI)",
+                "callback": lambda: (
+                    self.compute_and_preview_head_to_mri_with_face_roi_icp()
+                ),
+            },
+            {
+                "label": "Refine Transform using ICP (Irregular ROI)",
+                "callback": lambda: (
+                    self.compute_and_preview_head_to_mri_with_irregular_roi_icp()
+                ),
             },
             {
                 "label": "Preview Scalp(MRI) on Master Scan",
@@ -1355,10 +1363,20 @@ class OPMCoregGUI(QWidget):
         save_generated_transforms(self, trans_to_save="head_to_mri")
         preview_head_on_mri(self)
 
-    def compute_and_preview_head_to_mri_with_ICP(self):
+    def compute_and_preview_head_to_mri_with_face_roi_icp(self):
         """Wrapper for computing head to MRI transform refinement using ICP and previewing the alignment result."""
         extract_face_roi_from_head_scan(self)
         run_icp_head_to_mri(self)
+        save_generated_transforms(self, trans_to_save="head_to_mri")
+        preview_head_on_mri(self)
+        preview_roi_on_mri(self)
+
+    def compute_and_preview_head_to_mri_with_irregular_roi_icp(self):
+        """Wrapper for computing head to MRI transform refinement using ICP and previewing the alignment result."""
+        # Irregular ROI is supposed to be computed before this step
+        run_icp_head_to_mri(
+            self, face_roi=False
+        )  # Specify to use irregular ROI for ICP refinement
         save_generated_transforms(self, trans_to_save="head_to_mri")
         preview_head_on_mri(self)
         preview_roi_on_mri(self)
