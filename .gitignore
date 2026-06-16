@@ -1,5 +1,6 @@
 .conda/*
 src/__pycache__/*
+tests/__pycache__/*
 results/*
 !results/.gitkeep
 logs/*

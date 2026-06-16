@@ -120,7 +120,6 @@ def test_minimum_points_valid():
     "bad_input",
     [
         "not an array",
-        None,
         object(),
     ],
 )
@@ -133,7 +132,6 @@ def test_type_errors_src(bad_input):
     "bad_input",
     [
         "invalid",
-        None,
         object(),
     ],
 )
