@@ -16,16 +16,56 @@ def compute_rigid_transform(src_pts, dst_pts):
         T: 4x4 homogeneous transformation matrix.
         rms: Root mean square error of the alignment.
         errs: Per-point errors after transformation.
+
+    Raises:
+        TypeError: if inputs cannot be converted to numeric arrays.
+        ValueError: if shapes are incompatible, contain non-finite values, or do not provide
+                    a sufficient / well-conditioned point configuration to determine a unique
+                    rigid transform.
     """
-    src = np.asarray(src_pts, dtype=float)
-    dst = np.asarray(dst_pts, dtype=float)
-    assert src.shape == dst.shape and src.shape[0] >= 3
+    # Input checks
+    try:
+        src = np.asarray(src_pts, dtype=float)
+    except Exception as exc:
+        raise TypeError("src_pts must be array-like of numeric values") from exc
+    try:
+        dst = np.asarray(dst_pts, dtype=float)
+    except Exception as exc:
+        raise TypeError("dst_pts must be array-like of numeric values") from exc
+
+    if src.ndim != 2 or src.shape[1] != 3:
+        raise ValueError(f"src_pts must have shape (N,3); got {src.shape}")
+    if dst.ndim != 2 or dst.shape[1] != 3:
+        raise ValueError(f"dst_pts must have shape (N,3); got {dst.shape}")
+    if src.shape != dst.shape:
+        raise ValueError(f"src_pts and dst_pts must have the same shape; got {src.shape} vs {dst.shape}")
+
+    n_points = src.shape[0]
+    if n_points < 3:
+        raise ValueError(f"At least 3 points are required to compute a rigid transform; got {n_points}")
+
+    if not (np.isfinite(src).all() and np.isfinite(dst).all()):
+        raise ValueError("Input points must not contain NaN or infinite values")
+
+    # Central algorithm
     src_mean = src.mean(axis=0)
     dst_mean = dst.mean(axis=0)
     src_c = src - src_mean
     dst_c = dst - dst_mean
     H = src_c.T @ dst_c
     U, S, Vt = np.linalg.svd(H)
+
+    # Check conditioning of the cross-covariance: ensure we have enough non-negligible singular values
+    tol = np.max(S) * max(src.shape) * np.finfo(S.dtype).eps
+    n_nonzero = int((S > tol).sum())
+    if n_nonzero < 2:
+        # less than 2 meaningful singular values indicates degenerate configuration (e.g. identical points)
+        raise ValueError(
+            "Point configuration is degenerate (rank-deficient). "
+            "Provide at least three non-colinear points to determine a unique rigid transform."
+        )
+    
+    # Get rotation matrix and translation vector
     R = Vt.T @ U.T
     if np.linalg.det(R) < 0:
         Vt[-1, :] *= -1
