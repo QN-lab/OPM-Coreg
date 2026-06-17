@@ -7,97 +7,208 @@ from scipy.spatial import Delaunay
 
 from src.utils import (
     compute_rigid_transform,
+    validate_transform,
     vtk_matrix_from_numpy,
 )
 
 
 def compute_aux_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
+    # Checking points required to compute transforms
     if (
         not getattr(gui, "aux_alignment_points_from_source", None)
         or len(gui.aux_alignment_points_from_source) < 3
     ):
         gui.update_info("Need ≥3 auxiliary device pairs.")
-        return
+        return False
+    if (
+        not getattr(gui, "aux_alignment_points_from_target", None)
+        or len(gui.aux_alignment_points_from_target) < 3
+    ):
+        gui.update_info("Need ≥3 auxiliary device pairs.")
+        return False
+
     src = np.vstack(gui.aux_alignment_points_from_source)
     dst = np.vstack(gui.aux_alignment_points_from_target)
 
     # If aux landmark points exist, obtain a list of true landmark positions based on the marked points on aux STL window
-    if gui.aux_dev_landmarks != {}:
-        true_landmark_coords = obtain_true_landmarks_from_marked_points(
-            list(gui.aux_dev_landmarks.values()),
-            gui.aux_alignment_points_from_source,
-        )
-        src = np.vstack(true_landmark_coords)
+    if getattr(gui, "aux_dev_landmarks", {}):
+        try:
+            true_landmark_coords = obtain_true_landmarks_from_marked_points(
+                list(gui.aux_dev_landmarks.values()),
+                gui.aux_alignment_points_from_source,
+            )
+            src = np.vstack(true_landmark_coords)
+        except Exception:
+            gui.update_info(
+                "Could not find nearest landmark coordinates : continuing transform computation with marked points"
+            )
 
-    T, rms, errs = compute_rigid_transform(src, dst)
+    try:
+        T, rms, errs = compute_rigid_transform(src, dst)
+    except Exception as e:
+        gui.update_info(
+            f"Failed to compute auxiliary device to master scan transform : {e}"
+        )
+        return False
+
+    # Validate transform
+    valid, msg = validate_transform(T)
+    if not valid:
+        gui.update_info(f"Aux→Scan transform invalid: {msg}")
+        return False
+
     gui.T_aux_to_scan = T
     gui.update_info(
         f"Computed auxiliary device to master scan transform RMS={rms:.3f} mm."
     )
+    return True
 
 
 def compute_dev_to_scan(gui):
     """Compute transform from device (sensor helmet) to master scan using the device pairs."""
+    # Checking points required to compute transforms
     if (
         not getattr(gui, "sensor_alignment_points_from_source", None)
         or len(gui.sensor_alignment_points_from_source) < 3
     ):
         gui.update_info("Need ≥3 point pairs from sensor alignment step.")
-        return
+        return False
+    if (
+        not getattr(gui, "sensor_alignment_points_from_target", None)
+        or len(gui.sensor_alignment_points_from_target) < 3
+    ):
+        gui.update_info("Need ≥3 point pairs from sensor alignment step.")
+        return False
+
     src = np.vstack(gui.sensor_alignment_points_from_source)
     dst = np.vstack(gui.sensor_alignment_points_from_target)
 
     # If helmet landmark points exist, obtain a list of true landmark positions based on the marked points on helmet STL window
-    if gui.helmet_landmark_positions is not None:
-        true_landmark_coords = obtain_true_landmarks_from_marked_points(
-            gui.helmet_landmark_positions, gui.sensor_alignment_points_from_source
-        )
-        src = np.vstack(true_landmark_coords)
+    if getattr(gui, "helmet_landmark_positions", None):
+        try:
+            true_landmark_coords = obtain_true_landmarks_from_marked_points(
+                gui.helmet_landmark_positions, gui.sensor_alignment_points_from_source
+            )
+            src = np.vstack(true_landmark_coords)
+        except Exception:
+            gui.update_info(
+                "Could not find true landmark coordinates : continuing transform computation with marked points"
+            )
 
-    T, rms, errs = compute_rigid_transform(src, dst)
+    try:
+        T, rms, errs = compute_rigid_transform(src, dst)
+    except Exception as e:
+        gui.update_info(
+            f"Failed to compute device (helmet) to master scan transform : {e}"
+        )
+        return False
+
+    # Validate transform
+    valid, msg = validate_transform(T)
+    if not valid:
+        gui.update_info(f"Device→Scan transform invalid: {msg}")
+        return False
+
     gui.T_dev_to_scan = T
     gui.update_info(
         f"Computed device (helmet) to master scan transform RMS={rms:.3f} mm."
     )
+    return True
 
 
 def compute_head_to_scan(gui):
     """Compute transform from head scan to master scan using the head pairs."""
-    if len(gui.head_alignment_points_from_source) < 3:
-        gui.update_info("Need at least 3 head alignment pairs to compute transform.")
-        return
+    # Checking points required to compute transforms
+    if (
+        not getattr(gui, "head_alignment_points_from_source", None)
+        or len(gui.head_alignment_points_from_source) < 3
+    ):
+        gui.update_info("Need ≥3 point pairs from head alignment step.")
+        return False
+    if (
+        not getattr(gui, "head_alignment_points_from_target", None)
+        or len(gui.head_alignment_points_from_target) < 3
+    ):
+        gui.update_info("Need ≥3 point pairs from head alignment step.")
+        return False
+
     src = np.vstack(gui.head_alignment_points_from_source)
     dst = np.vstack(gui.head_alignment_points_from_target)
-    T, rms, errs = compute_rigid_transform(src, dst)
+
+    try:
+        T, rms, errs = compute_rigid_transform(src, dst)
+    except Exception as e:
+        gui.update_info(f"Failed to compute head to master scan transform : {e}")
+        return False
+
+    # Validate transform
+    valid, msg = validate_transform(T)
+    if not valid:
+        gui.update_info(f"Head→Scan transform invalid: {msg}")
+        return False
+
     gui.T_head_to_scan = T
-    gui.update_info(
-        f"Computed head_to_scan RMS={rms:.3f} mm. Overlaying transformed head scan onto target window."
-    )
+    gui.update_info(f"Computed head to master scan transform RMS={rms:.3f} mm.")
+    return True
 
 
 def compute_aux_to_device(gui):
     """Compute transform from auxiliary device to device (sensor helmet).
 
     Using the aux->scan transform and dev->scan transform."""
-    if gui.T_aux_to_scan is None or gui.T_dev_to_scan is None:
-        gui.update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
-        return
+    T_aux_to_scan = getattr(gui, "T_aux_to_scan", None)
+    T_dev_to_scan = getattr(gui, "T_dev_to_scan", None)
 
-    T_scan_to_dev = np.linalg.inv(gui.T_dev_to_scan)
-    T_aux_to_device = T_scan_to_dev @ gui.T_aux_to_scan
+    if T_aux_to_scan is None or T_dev_to_scan is None:
+        gui.update_info("Need Aux Alignment and Sensors Alignment steps transforms.")
+        return False
+
+    try:
+        T_scan_to_dev = np.linalg.inv(T_dev_to_scan)
+    except np.linalg.LinAlgError:
+        gui.update_info("Invalid transform matrix")
+        return False
+
+    T_aux_to_device = T_scan_to_dev @ T_aux_to_scan
+
+    # Validate transform
+    valid, msg = validate_transform(T_aux_to_device)
+    if not valid:
+        gui.update_info(f"Aux→Device transform invalid: {msg}")
+        return False
+
     gui.T_aux_to_device = T_aux_to_device
+    return True
 
 
 def compute_device_to_head(gui):
-    """Compute transform from device (sensor helmet) to head using the dev->scan and head->scan transforms."""
-    if gui.T_dev_to_scan is None or gui.T_head_to_scan is None:
-        gui.update_info("Need Sensors Alignment and Head Alignment steps transforms.")
-        return
+    """Compute transform from device (sensor helmet) to head.
 
-    T_scan_to_head = np.linalg.inv(gui.T_head_to_scan)
-    T_dev_to_head = T_scan_to_head @ gui.T_dev_to_scan
+    Using the dev->scan and head->scan transforms."""
+    T_dev_to_scan = getattr(gui, "T_dev_to_scan", None)
+    T_head_to_scan = getattr(gui, "T_head_to_scan", None)
+
+    if T_dev_to_scan is None or T_head_to_scan is None:
+        gui.update_info("Need Sensors Alignment and Head Alignment steps transforms.")
+        return False
+
+    try:
+        T_scan_to_head = np.linalg.inv(T_head_to_scan)
+    except np.linalg.LinAlgError:
+        gui.update_info("Invalid transform matrix")
+        return False
+
+    T_dev_to_head = T_scan_to_head @ T_dev_to_scan
+
+    # Validate transform
+    valid, msg = validate_transform(T_dev_to_head)
+    if not valid:
+        gui.update_info(f"Device→Head transform invalid: {msg}")
+        return False
+
     gui.T_dev_to_head = T_dev_to_head
+    return True
 
 
 def obtain_true_landmarks_from_marked_points(
@@ -106,22 +217,36 @@ def obtain_true_landmarks_from_marked_points(
     """Obtain a list of true landmark coordinates from points marked during pairwise alignment step.
 
     Args:
-        landmark_positions (list): Pre-defined true landmark coordinates
+        landmark_positions (array-like): Pre-defined true landmark coordinates
             (e.g., from CAD model or manufacturer specification), shape (n_landmarks, 3).
-        points_marked_from_source (list): User-marked points on the source during pairwise alignment step,
+        points_marked_from_source (array-like): User-marked points on the source during pairwise alignment step,
             shape (n_marked_points, 3).
 
     Returns:
-        list: True landmark coordinates corresponding to each user-marked point, in the same
+        numpy.ndarray: True landmark coordinates corresponding to each user-marked point, in the same
             order as points_marked_from_source. shape (n_marked_points, 3)
-    """
-    true_landmark_coords = []
 
-    for marked_point in points_marked_from_source:
-        # Find closest landmark to marked point
-        distances = [np.linalg.norm(marked_point - lm) for lm in landmark_positions]
-        closest_idx = np.argmin(distances)
-        true_landmark_coords.append(landmark_positions[closest_idx])
+    Raises:
+        ValueError: If inputs do not have the expected shapes or if no landmarks are provided.
+    """
+    landmarks = np.asarray(landmark_positions, dtype=float)
+    marked_points = np.asarray(points_marked_from_source, dtype=float)
+
+    if landmarks.ndim != 2 or landmarks.shape[1] != 3:
+        raise ValueError("landmark_positions must be shape (n_landmarks, 3).")
+    if marked_points.ndim != 2 or marked_points.shape[1] != 3:
+        raise ValueError(
+            "points_marked_from_source must be shape (n_marked_points, 3)."
+        )
+    if landmarks.shape[0] == 0:
+        raise ValueError("landmark_positions must contain at least one landmark.")
+
+    true_landmark_coords = np.empty_like(marked_points)
+
+    for i, marked_point in enumerate(marked_points):
+        distances = np.linalg.norm(landmarks - marked_point, axis=1)
+        closest_idx = int(np.argmin(distances))
+        true_landmark_coords[i] = landmarks[closest_idx]
 
     return true_landmark_coords
 
@@ -129,34 +254,46 @@ def obtain_true_landmarks_from_marked_points(
 def compute_head_to_mri_initial(gui):
     """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
     required = ["NAS", "LPA", "RPA"]
+    marked_fiducials_on_head_scan = getattr(gui, "marked_fiducials_on_head_scan", {})
+    mri_fiducials = getattr(gui, "mri_fiducials", {})
 
-    if not all(fid in gui.marked_fiducials_on_head_scan for fid in required):
+    if not all(fid in marked_fiducials_on_head_scan for fid in required):
         gui.update_info("Head fiducials missing (incomplete head alignment step).")
-        return
+        return False
 
-    if not all(fid in gui.mri_fiducials for fid in required):
+    if not all(fid in mri_fiducials for fid in required):
         gui.update_info("MRI fiducials missing.")
-        return
+        return False
 
     src = np.array(
         [
-            gui.marked_fiducials_on_head_scan["NAS"],
-            gui.marked_fiducials_on_head_scan["LPA"],
-            gui.marked_fiducials_on_head_scan["RPA"],
+            marked_fiducials_on_head_scan["NAS"],
+            marked_fiducials_on_head_scan["LPA"],
+            marked_fiducials_on_head_scan["RPA"],
         ]
     )
 
     dst = np.array(
         [
-            gui.mri_fiducials["NAS"],
-            gui.mri_fiducials["LPA"],
-            gui.mri_fiducials["RPA"],
+            mri_fiducials["NAS"],
+            mri_fiducials["LPA"],
+            mri_fiducials["RPA"],
         ]
     )
 
-    T, rms, errs = compute_rigid_transform(src, dst)
+    try:
+        T_head_to_mri, rms, errs = compute_rigid_transform(src, dst)
+    except Exception as e:
+        gui.update_info(f"Failed to compute head to MRI transform : {e}")
+        return False
 
-    gui.T_head_to_mri = T
+    # Validate transform
+    valid, msg = validate_transform(T_head_to_mri)
+    if not valid:
+        gui.update_info(f"Head→MRI transform invalid: {msg}")
+        return False
+
+    gui.T_head_to_mri = T_head_to_mri
     gui.head_to_mri_rms = rms
     gui.head_to_mri_errors = errs
 
@@ -166,6 +303,7 @@ def compute_head_to_mri_initial(gui):
         f"LPA={errs[1]:.2f}, "
         f"RPA={errs[2]:.2f}"
     )
+    return True
 
 
 def compute_surface_rms(src_poly, dst_poly):
@@ -208,7 +346,7 @@ def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
     ):
         gui.update_info("ICP refinement failed : No valid ROI found")
         return
-    
+
     # Select the ROI data
     if face_roi:
         roi_in_head_frame = gui.face_roi_in_head_frame
