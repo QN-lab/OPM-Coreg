@@ -285,17 +285,15 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0, min_cells=500):
     if polydata is None:
         return None
 
-    if not all(
-        fid in fid_dict
-        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-    ):
+    if not all(fid in fid_dict for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]):
         return None
 
-    nas = fid_dict["NAS"]
-    lpa = fid_dict["LPA"]
-    rpa = fid_dict["RPA"]
-    nose = fid_dict.get("NOSE", nas)
-    chin = fid_dict.get("CHIN", nas)
+    # Read fiducials and cast to float type object (to avoid int/float divide bug downstream)
+    nas = np.asarray(fid_dict["NAS"], dtype=float)
+    lpa = np.asarray(fid_dict["LPA"], dtype=float)
+    rpa = np.asarray(fid_dict["RPA"], dtype=float)
+    nose = np.asarray(fid_dict.get("NOSE", nas), dtype=float)
+    chin = np.asarray(fid_dict.get("CHIN", nas), dtype=float)
 
     # ---- convert VTK → PyVista
     head_mesh = pv.wrap(polydata)
@@ -306,7 +304,10 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0, min_cells=500):
     radius = 0.75 * np.max(np.linalg.norm(pts - center, axis=1))
 
     normal = np.cross(lpa - nas, rpa - nas)
-    normal /= np.linalg.norm(normal)
+    norm = np.linalg.norm(normal)
+    if norm < 1e-8:
+        return None
+    normal /= norm
 
     if np.dot(normal, chin - nas) > 0:
         normal *= -1
@@ -330,7 +331,9 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0, min_cells=500):
     return roi
 
 
-def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5, min_points=100):
+def extract_convex_hull_roi(
+    polydata, marked_points, expansion_factor=1.5, min_points=100
+):
     """
     Extract ROI containing all points inside the convex hull volume of user-marked points.
 
@@ -344,7 +347,7 @@ def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5, min_p
     """
     if polydata is None or marked_points is None:
         return None
-    
+
     points_array = np.array(marked_points)
 
     if len(points_array) < 4:
