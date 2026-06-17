@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.utils import compute_rigid_transform, vtk_matrix_from_numpy
+from src.utils import compute_rigid_transform, validate_transform, vtk_matrix_from_numpy
 
 # ----------------------------
 # Tests for compute_rigid_transform
@@ -348,3 +348,202 @@ def test_vtk_matrix_conversion():
     for i in range(4):
         for j in range(4):
             assert M.GetElement(i, j) == pytest.approx(T[i, j])
+
+
+# ----------------------------
+# Tests for validate_transform
+# ----------------------------
+
+# ----------------------------
+# Helpers
+# ----------------------------
+
+
+def make_valid_transform():
+    """Return a simple valid identity transform."""
+    return np.eye(4)
+
+
+def make_rotation_z(theta):
+    """Rotation matrix about Z-axis."""
+    return np.array(
+        [
+            [np.cos(theta), -np.sin(theta), 0],
+            [np.sin(theta), np.cos(theta), 0],
+            [0, 0, 1],
+        ]
+    )
+
+
+# ----------------------------
+# Valid cases
+# ----------------------------
+
+
+def test_identity_transform_valid():
+    T = np.eye(4)
+    valid, msg = validate_transform(T)
+    assert valid is True
+    assert msg == "OK"
+
+
+def test_valid_rotation_and_translation():
+    R = make_rotation_z(np.pi / 4)
+    t = np.array([1, 2, 3])
+
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t
+
+    valid, msg = validate_transform(T)
+
+    assert valid is True
+    assert msg == "OK"
+
+
+def test_with_small_numerical_noise_within_tolerance():
+    T = make_valid_transform()
+    T[0, 0] += 1e-5  # tiny deviation
+
+    valid, msg = validate_transform(T, ortho_tol=1e-3)
+    assert valid is True
+
+
+# ----------------------------
+# Shape validation
+# ----------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_shape",
+    [
+        np.eye(3),
+        np.zeros((4, 3)),
+        np.zeros((5, 4)),
+        np.zeros((4, 4, 1)),
+    ],
+)
+def test_invalid_shape(bad_shape):
+    valid, msg = validate_transform(bad_shape)
+    assert valid is False
+    assert "Expected shape" in msg
+
+
+# ----------------------------
+# Non-finite values
+# ----------------------------
+
+
+@pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
+def test_non_finite_values_transform_validity(bad_value):
+    T = make_valid_transform()
+    T[0, 0] = bad_value
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "Non-finite values" in msg
+
+
+# ----------------------------
+# Bottom row checks
+# ----------------------------
+
+
+def test_invalid_bottom_row():
+    T = make_valid_transform()
+    T[3, :] = [0, 0, 0, 0]  # wrong last element
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "Bottom row" in msg
+
+
+def test_bottom_row_within_tolerance():
+    T = make_valid_transform()
+    T[3, 3] = 1 + 1e-7  # small perturbation
+
+    valid, msg = validate_transform(T, finite_tol=1e-6)
+
+    assert valid is True
+
+
+# ----------------------------
+# Orthonormality checks
+# ----------------------------
+
+
+def test_non_orthonormal_rotation():
+    T = make_valid_transform()
+    T[0, 0] = 2.0  # scaling breaks orthogonality
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "orthonormal" in msg
+
+
+def test_orthonormal_within_tolerance():
+    R = make_rotation_z(np.pi / 6)
+    R[0, 0] += 1e-4  # slight perturbation
+
+    T = make_valid_transform()
+    T[:3, :3] = R
+
+    valid, msg = validate_transform(T, ortho_tol=1e-3)
+
+    assert valid is True
+
+
+# ----------------------------
+# Determinant checks
+# ----------------------------
+
+
+def test_reflection_matrix_rejected():
+    T = make_valid_transform()
+    T[0, 0] = -1  # reflection → det = -1
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "determinant" in msg
+
+
+def test_determinant_within_tolerance():
+    R = make_rotation_z(np.pi / 4)
+
+    # introduce tiny scaling error
+    R = R * 1.0005
+
+    T = make_valid_transform()
+    T[:3, :3] = R
+
+    valid, msg = validate_transform(T, det_tol=1e-2)
+
+    assert valid is True
+
+
+# ----------------------------
+# Combined failure prioritization
+# ----------------------------
+
+
+def test_failure_order_shape_checked_first():
+    T = np.array([np.nan])  # wrong shape and non-finite
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "Expected shape" in msg
+
+
+def test_failure_order_nonfinite_before_other_checks():
+    T = make_valid_transform()
+    T[0, 0] = np.nan
+
+    valid, msg = validate_transform(T)
+
+    assert valid is False
+    assert "Non-finite" in msg
