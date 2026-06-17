@@ -5,6 +5,7 @@ import vtk
 
 # TODO: Write appropriate comments wherever necessary.
 
+
 def compute_rigid_transform(src_pts, dst_pts):
     """Compute the rigid transformation that best aligns src_pts to dst_pts.
 
@@ -38,11 +39,15 @@ def compute_rigid_transform(src_pts, dst_pts):
     if dst.ndim != 2 or dst.shape[1] != 3:
         raise ValueError(f"dst_pts must have shape (N,3); got {dst.shape}")
     if src.shape != dst.shape:
-        raise ValueError(f"src_pts and dst_pts must have the same shape; got {src.shape} vs {dst.shape}")
+        raise ValueError(
+            f"src_pts and dst_pts must have the same shape; got {src.shape} vs {dst.shape}"
+        )
 
     n_points = src.shape[0]
     if n_points < 3:
-        raise ValueError(f"At least 3 points are required to compute a rigid transform; got {n_points}")
+        raise ValueError(
+            f"At least 3 points are required to compute a rigid transform; got {n_points}"
+        )
 
     if not (np.isfinite(src).all() and np.isfinite(dst).all()):
         raise ValueError("Input points must not contain NaN or infinite values")
@@ -64,7 +69,7 @@ def compute_rigid_transform(src_pts, dst_pts):
             "Point configuration is degenerate (rank-deficient). "
             "Provide at least three non-colinear points to determine a unique rigid transform."
         )
-    
+
     # Get rotation matrix and translation vector
     R = Vt.T @ U.T
     if np.linalg.det(R) < 0:
@@ -97,11 +102,14 @@ def validate_transform(T, ortho_tol=1e-3, det_tol=1e-3, finite_tol=1e-6):
     if not np.all(np.isfinite(T)):
         return False, "Non-finite values in transform"
     if not np.allclose(T[3, :], [0, 0, 0, 1], atol=finite_tol):
-        return False, f"Bottom row must be [0,0,0,1], got {T[3,:]}"
+        return False, f"Bottom row must be [0,0,0,1], got {T[3, :]}"
     R = T[:3, :3]
     RtR = R.T @ R
     if not np.allclose(RtR, np.eye(3), atol=ortho_tol):
-        return False, f"Rotation not orthonormal (max err={np.max(np.abs(RtR-np.eye(3))):.4g})"
+        return (
+            False,
+            f"Rotation not orthonormal (max err={np.max(np.abs(RtR - np.eye(3))):.4g})",
+        )
     det = np.linalg.det(R)
     if not np.isfinite(det):
         return False, "Rotation determinant not finite"
@@ -192,7 +200,7 @@ def sphere_actor(pos, color=(1, 0, 0), radius=2.5):
 
 def create_text_actor(text, position, color=(1, 1, 1), font_size=14, offset=(5, 5, 5)):
     """Create a VTK text label that always faces the camera.
-    
+
     Args:
         text: Text to be displayed in the window.
         position: Tuple of (x, y, z) coordinates for the text location.
@@ -206,29 +214,29 @@ def create_text_actor(text, position, color=(1, 1, 1), font_size=14, offset=(5, 
     # Create text source
     text_source = vtk.vtkVectorText()
     text_source.SetText(str(text))
-    
+
     # Create mapper and actor
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputConnection(text_source.GetOutputPort())
-    
+
     actor = vtk.vtkFollower()
     actor.SetMapper(mapper)
-    
+
     # Position with offset
     position = (
         position[0] + offset[0],
         position[1] + offset[1],
-        position[2] + offset[2]
+        position[2] + offset[2],
     )
     actor.SetPosition(position[0], position[1], position[2])
     actor.SetScale(font_size)
-    
+
     # Set text color
     actor.GetProperty().SetColor(color)
-    
+
     # Optionally add a white background for readability
     actor.GetProperty().SetOpacity(1.0)
-    
+
     return actor
 
 
