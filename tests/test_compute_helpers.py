@@ -1,8 +1,320 @@
 import numpy as np
 import pytest
 
-from src.compute_helpers import obtain_true_landmarks_from_marked_points
+from src.compute_helpers import (
+    compute_aux_to_device,
+    compute_aux_to_scan,
+    compute_dev_to_scan,
+    compute_device_to_head,
+    compute_head_to_mri_initial,
+    compute_head_to_scan,
+    obtain_true_landmarks_from_marked_points,
+)
 
+# ----------------------------
+# Tests for compute_xx
+# ----------------------------
+
+# ==========================================================
+# 1. Parametrized tests for point-based functions
+# ==========================================================
+
+
+@pytest.mark.parametrize(
+    "func, src_attr, dst_attr, transform_attr, fixture_name",
+    [
+        (
+            compute_aux_to_scan,
+            "aux_alignment_points_from_source",
+            "aux_alignment_points_from_target",
+            "T_aux_to_scan",
+            "gui_with_valid_aux_points",
+        ),
+        (
+            compute_dev_to_scan,
+            "sensor_alignment_points_from_source",
+            "sensor_alignment_points_from_target",
+            "T_dev_to_scan",
+            "gui_with_valid_sensor_points",
+        ),
+        (
+            compute_head_to_scan,
+            "head_alignment_points_from_source",
+            "head_alignment_points_from_target",
+            "T_head_to_scan",
+            "gui_with_valid_head_points",
+        ),
+    ],
+)
+def test_points_missing_or_insufficient(
+    func, src_attr, dst_attr, transform_attr, fixture_name, request, gui
+):
+    """Test missing and insufficient source/target points."""
+    setattr(gui, src_attr, [])
+    setattr(gui, dst_attr, [np.zeros(3)] * 3)
+
+    assert func(gui) is False
+    assert not hasattr(gui, transform_attr)
+
+
+@pytest.mark.parametrize(
+    "func, transform_attr, fixture_name",
+    [
+        (compute_aux_to_scan, "T_aux_to_scan", "gui_with_valid_aux_points"),
+        (compute_dev_to_scan, "T_dev_to_scan", "gui_with_valid_sensor_points"),
+        (compute_head_to_scan, "T_head_to_scan", "gui_with_valid_head_points"),
+    ],
+)
+def test_transform_success(
+    func,
+    transform_attr,
+    fixture_name,
+    request,
+    mock_compute_transform_success,
+    mock_validate_success,
+):
+    """Test successful transform computation."""
+    gui = request.getfixturevalue(fixture_name)
+
+    result = func(gui)
+
+    assert result is True
+    assert hasattr(gui, transform_attr)
+
+
+@pytest.mark.parametrize(
+    "func, transform_attr, fixture_name",
+    [
+        (compute_aux_to_scan, "T_aux_to_scan", "gui_with_valid_aux_points"),
+        (compute_dev_to_scan, "T_dev_to_scan", "gui_with_valid_sensor_points"),
+        (compute_head_to_scan, "T_head_to_scan", "gui_with_valid_head_points"),
+    ],
+)
+def test_transform_failure(
+    func, transform_attr, fixture_name, request, mock_compute_transform_failure
+):
+    """Test failure of compute_rigid_transform."""
+    gui = request.getfixturevalue(fixture_name)
+
+    result = func(gui)
+
+    assert result is False
+    assert not hasattr(gui, transform_attr)
+
+
+@pytest.mark.parametrize(
+    "func, transform_attr, fixture_name",
+    [
+        (compute_aux_to_scan, "T_aux_to_scan", "gui_with_valid_aux_points"),
+        (compute_dev_to_scan, "T_dev_to_scan", "gui_with_valid_sensor_points"),
+        (compute_head_to_scan, "T_head_to_scan", "gui_with_valid_head_points"),
+    ],
+)
+def test_validation_failure(
+    func,
+    transform_attr,
+    fixture_name,
+    request,
+    mock_compute_transform_success,
+    mock_validate_failure,
+):
+    """Test invalid transform rejected by validation."""
+    gui = request.getfixturevalue(fixture_name)
+
+    result = func(gui)
+
+    assert result is False
+    assert not hasattr(gui, transform_attr)
+
+
+# ==========================================================
+# 2. Landmark-specific tests (only aux + dev)
+# ==========================================================
+
+
+@pytest.mark.parametrize(
+    "func, fixture_name, transform_attr, landmark_fixture",
+    [
+        (
+            compute_aux_to_scan,
+            "gui_with_aux_landmarks",
+            "T_aux_to_scan",
+            "mock_landmarks_success",
+        ),
+        (
+            compute_dev_to_scan,
+            "gui_with_helmet_landmarks",
+            "T_dev_to_scan",
+            "mock_landmarks_success",
+        ),
+    ],
+)
+def test_landmarks_success(
+    func,
+    fixture_name,
+    transform_attr,
+    landmark_fixture,
+    request,
+    mock_compute_transform_success,
+    mock_validate_success,
+):
+    gui = request.getfixturevalue(fixture_name)
+    request.getfixturevalue(landmark_fixture)
+
+    result = func(gui)
+
+    assert result is True
+    assert hasattr(gui, transform_attr)
+
+
+@pytest.mark.parametrize(
+    "func, fixture_name, transform_attr",
+    [
+        (compute_aux_to_scan, "gui_with_aux_landmarks", "T_aux_to_scan"),
+        (compute_dev_to_scan, "gui_with_helmet_landmarks", "T_dev_to_scan"),
+    ],
+)
+def test_landmarks_failure_fallback(
+    func,
+    fixture_name,
+    transform_attr,
+    request,
+    mock_landmarks_failure,
+    mock_compute_transform_success,
+    mock_validate_success,
+):
+    gui = request.getfixturevalue(fixture_name)
+
+    result = func(gui)
+
+    assert result is True  # fallback path
+    assert hasattr(gui, transform_attr)
+
+
+# ==========================================================
+# 3. Transform composition functions
+# ==========================================================
+
+
+@pytest.mark.parametrize(
+    "func, out_attr",
+    [
+        (compute_aux_to_device, "T_aux_to_device"),
+        (compute_device_to_head, "T_dev_to_head"),
+    ],
+)
+def test_transform_composition_success(
+    func, out_attr, gui_with_transforms, mock_validate_success
+):
+    result = func(gui_with_transforms)
+
+    assert result is True
+    assert hasattr(gui_with_transforms, out_attr)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        compute_aux_to_device,
+        compute_device_to_head,
+    ],
+)
+def test_transform_composition_missing_inputs(func, gui):
+    result = func(gui)
+
+    assert result is False
+
+
+@pytest.mark.parametrize(
+    "func, bad_attr",
+    [
+        (compute_aux_to_device, "T_dev_to_scan"),
+        (compute_device_to_head, "T_head_to_scan"),
+    ],
+)
+def test_transform_inversion_failure(func, bad_attr, gui_with_transforms):
+    # Create singular matrix
+    gui_with_transforms.__dict__[bad_attr] = np.zeros((4, 4))
+
+    result = func(gui_with_transforms)
+
+    assert result is False
+
+
+@pytest.mark.parametrize(
+    "func, out_attr",
+    [
+        (compute_aux_to_device, "T_aux_to_device"),
+        (compute_device_to_head, "T_dev_to_head"),
+    ],
+)
+def test_composition_validation_failure(
+    func, out_attr, gui_with_transforms, mock_validate_failure
+):
+    result = func(gui_with_transforms)
+
+    assert result is False
+    assert not hasattr(gui_with_transforms, out_attr)
+
+
+# ==========================================================
+# 4. Head → MRI function
+# ==========================================================
+
+
+def test_head_to_mri_missing_fiducials(gui):
+    gui.marked_fiducials_on_head_scan = {}
+    gui.mri_fiducials = {}
+
+    result = compute_head_to_mri_initial(gui)
+
+    assert result is False
+
+
+def test_head_to_mri_partial_fiducials(gui):
+    gui.marked_fiducials_on_head_scan = {"NAS": np.zeros(3)}
+    gui.mri_fiducials = {
+        "NAS": np.zeros(3),
+        "LPA": np.zeros(3),
+        "RPA": np.zeros(3),
+    }
+
+    result = compute_head_to_mri_initial(gui)
+
+    assert result is False
+
+
+def test_head_to_mri_success(
+    gui_with_fiducials, mock_compute_transform_success, mock_validate_success
+):
+    result = compute_head_to_mri_initial(gui_with_fiducials)
+
+    assert result is True
+    assert hasattr(gui_with_fiducials, "T_head_to_mri")
+    assert hasattr(gui_with_fiducials, "head_to_mri_rms")
+    assert hasattr(gui_with_fiducials, "head_to_mri_errors")
+
+
+def test_head_to_mri_compute_failure(
+    gui_with_fiducials, mock_compute_transform_failure
+):
+    result = compute_head_to_mri_initial(gui_with_fiducials)
+
+    assert result is False
+
+
+def test_head_to_mri_validation_failure(
+    gui_with_fiducials, mock_compute_transform_success, mock_validate_failure
+):
+    result = compute_head_to_mri_initial(gui_with_fiducials)
+
+    assert result is False
+    assert not hasattr(gui_with_fiducials, "T_head_to_mri")
+
+
+# ----------------------------
+# Tests for obtain_true_landmarks_from_marked_points
+# ----------------------------
 
 # ----------------------------
 # Basic correctness
