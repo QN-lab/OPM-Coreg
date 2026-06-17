@@ -140,7 +140,9 @@ def mock_landmarks_success(monkeypatch):
     def _mock(landmarks, marked_points):
         return np.asarray(marked_points)  # passthrough
 
-    monkeypatch.setattr("src.compute_helpers.obtain_true_landmarks_from_marked_points", _mock)
+    monkeypatch.setattr(
+        "src.compute_helpers.obtain_true_landmarks_from_marked_points", _mock
+    )
     return _mock
 
 
@@ -149,7 +151,9 @@ def mock_landmarks_failure(monkeypatch):
     def _mock(*args, **kwargs):
         raise ValueError("Landmark extraction failed")
 
-    monkeypatch.setattr("src.compute_helpers.obtain_true_landmarks_from_marked_points", _mock)
+    monkeypatch.setattr(
+        "src.compute_helpers.obtain_true_landmarks_from_marked_points", _mock
+    )
     return _mock
 
 
@@ -192,3 +196,234 @@ def gui_with_helmet_landmarks(gui_with_valid_sensor_points):
         np.array([0, 1, 0]),
     ]
     return gui_with_valid_sensor_points
+
+
+class FakeVTKPoints:
+    def __init__(self, n_points=0, point=(0.0, 0.0, 0.0)):
+        self.n_points = n_points
+        self.point = point
+
+    def GetNumberOfPoints(self):
+        return self.n_points
+
+    def GetPoint(self, i):
+        return self.point
+
+
+class FakePolyData:
+    def __init__(self, n_points=0):
+        self.points = FakeVTKPoints(n_points=n_points)
+
+    def GetPoints(self):
+        return self.points
+
+    def GetPoint(self, idx):
+        return (0.0, 0.0, 0.0)
+
+
+class FakeIdArray:
+    def __init__(self, n=0):
+        self._n = n
+
+    def InsertNextValue(self, val):
+        self._n += 1
+
+    def GetNumberOfTuples(self):
+        return self._n
+
+
+class FakeMesh:
+    def __init__(self, n_cells=1000):
+        self.n_cells = n_cells
+
+    def clip_surface(self, sphere):
+        return FakeMesh(n_cells=self.n_cells)
+
+    def clip(self, normal=None, origin=None, invert=False):
+        return FakeMesh(n_cells=self.n_cells)
+
+
+@pytest.fixture
+def mock_pyvista(monkeypatch):
+    import types
+
+    fake_pv = types.SimpleNamespace()
+
+    def fake_wrap(polydata):
+        return FakeMesh(n_cells=1000)
+
+    def fake_sphere(*args, **kwargs):
+        return object()
+
+    fake_pv.wrap = fake_wrap
+    fake_pv.Sphere = fake_sphere
+
+    monkeypatch.setattr("src.compute_helpers.pv", fake_pv)
+
+
+@pytest.fixture
+def mock_pyvista_zero_cells(monkeypatch):
+    import types
+
+    fake_pv = types.SimpleNamespace()
+
+    def fake_wrap(polydata):
+        return FakeMesh(n_cells=0)  # triggers early return
+
+    def fake_sphere(*args, **kwargs):
+        return object()
+
+    fake_pv.wrap = fake_wrap
+    fake_pv.Sphere = fake_sphere
+
+    monkeypatch.setattr("src.compute_helpers.pv", fake_pv)
+
+
+@pytest.fixture
+def mock_pyvista_small_cells(monkeypatch):
+    import types
+
+    fake_pv = types.SimpleNamespace()
+
+    def fake_wrap(polydata):
+        return FakeMesh(n_cells=10)  # below threshold
+
+    def fake_sphere(*args, **kwargs):
+        return object()
+
+    fake_pv.wrap = fake_wrap
+    fake_pv.Sphere = fake_sphere
+
+    monkeypatch.setattr("src.compute_helpers.pv", fake_pv)
+
+
+class FakeDelaunay:
+    def __init__(self, points):
+        pass
+
+    def find_simplex(self, p):
+        return 1  # always inside
+
+
+@pytest.fixture
+def mock_delaunay_failure(monkeypatch):
+    def _fail(*args, **kwargs):
+        raise Exception("Delaunay failed")
+
+    monkeypatch.setattr("src.compute_helpers.Delaunay", _fail)
+
+
+@pytest.fixture
+def mock_delaunay_success(monkeypatch):
+    monkeypatch.setattr("src.compute_helpers.Delaunay", FakeDelaunay)
+
+
+@pytest.fixture
+def mock_vtk_minimal(monkeypatch):
+    import types
+
+    vtk_mock = types.SimpleNamespace()
+
+    vtk_mock.vtkIdTypeArray = lambda: FakeIdArray(0)
+
+    vtk_mock.vtkSelectionNode = lambda: types.SimpleNamespace(
+        SetFieldType=lambda *a: None,
+        SetContentType=lambda *a: None,
+        SetSelectionList=lambda *a: None,
+    )
+
+    vtk_mock.vtkSelection = lambda: types.SimpleNamespace(AddNode=lambda *a: None)
+
+    vtk_mock.vtkExtractSelection = lambda: types.SimpleNamespace(
+        SetInputData=lambda *a: None,
+        Update=lambda: None,
+        GetOutputPort=lambda: None,
+    )
+
+    vtk_mock.vtkGeometryFilter = lambda: types.SimpleNamespace(
+        SetInputConnection=lambda *a: None,
+        Update=lambda: None,
+        GetOutput=lambda: None,
+    )
+
+    monkeypatch.setattr("src.compute_helpers.vtk", vtk_mock)
+
+
+@pytest.fixture
+def fake_polydata_empty():
+    return FakePolyData(n_points=0)
+
+
+@pytest.fixture
+def fake_polydata_small():
+    return FakePolyData(n_points=10)
+
+
+@pytest.fixture
+def fake_polydata_large():
+    return FakePolyData(n_points=200)
+
+
+@pytest.fixture
+def valid_fiducials():
+    return {
+        "NAS": np.array([0, 0, 0]),
+        "LPA": np.array([1, 0, 0]),
+        "RPA": np.array([0, 1, 0]),
+        "NOSE": np.array([0, 0.5, 0]),
+        "CHIN": np.array([0, -0.5, 0]),
+    }
+
+
+@pytest.fixture
+def incomplete_fiducials():
+    return {"NAS": np.array([0, 0, 0])}
+
+
+@pytest.fixture
+def mock_extract_face_roi_success(monkeypatch):
+    def _mock(*args, **kwargs):
+        return object()  # dummy ROI
+
+    monkeypatch.setattr("src.compute_helpers.extract_face_roi", _mock)
+
+
+@pytest.fixture
+def mock_extract_face_roi_failure(monkeypatch):
+    def _mock(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("src.compute_helpers.extract_face_roi", _mock)
+
+
+@pytest.fixture
+def mock_extract_convex_success(monkeypatch):
+    monkeypatch.setattr(
+        "src.compute_helpers.extract_convex_hull_roi", lambda *a, **k: object()
+    )
+
+
+@pytest.fixture
+def mock_extract_convex_failure(monkeypatch):
+    monkeypatch.setattr(
+        "src.compute_helpers.extract_convex_hull_roi", lambda *a, **k: None
+    )
+
+
+@pytest.fixture
+def gui_with_head_polydata(gui, fake_polydata_large, valid_fiducials):
+    gui.head_polydata = fake_polydata_large
+    gui.marked_fiducials_on_head_scan = valid_fiducials
+    return gui
+
+
+@pytest.fixture
+def gui_with_irregular_points(gui, fake_polydata_large):
+    gui.head_polydata = fake_polydata_large
+    gui.head_alignment_points_from_source = [
+        np.array([0, 0, 0]),
+        np.array([1, 0, 0]),
+        np.array([0, 1, 0]),
+        np.array([0, 0, 1]),
+    ]
+    return gui
