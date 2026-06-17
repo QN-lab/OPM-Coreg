@@ -79,6 +79,37 @@ def compute_rigid_transform(src_pts, dst_pts):
     return T, rms, errs
 
 
+def validate_transform(T, ortho_tol=1e-3, det_tol=1e-3, finite_tol=1e-6):
+    """Validate a 4x4 rigid transform matrix.
+
+    Checks:
+    - shape is (4,4)
+    - last row is [0,0,0,1]
+    - rotation part is orthonormal (R.T @ R ~= I)
+    - rotation det ~= 1 (no reflection/scale)
+    - all elements finite
+
+    Returns (bool, message).
+    """
+    T = np.asarray(T)
+    if T.shape != (4, 4):
+        return False, f"Expected shape (4,4), got {T.shape}"
+    if not np.all(np.isfinite(T)):
+        return False, "Non-finite values in transform"
+    if not np.allclose(T[3, :], [0, 0, 0, 1], atol=finite_tol):
+        return False, f"Bottom row must be [0,0,0,1], got {T[3,:]}"
+    R = T[:3, :3]
+    RtR = R.T @ R
+    if not np.allclose(RtR, np.eye(3), atol=ortho_tol):
+        return False, f"Rotation not orthonormal (max err={np.max(np.abs(RtR-np.eye(3))):.4g})"
+    det = np.linalg.det(R)
+    if not np.isfinite(det):
+        return False, "Rotation determinant not finite"
+    if not np.isclose(det, 1.0, atol=det_tol):
+        return False, f"Rotation determinant {det:.4g} differs from 1"
+    return True, "OK"
+
+
 def vtk_matrix_from_numpy(T):
     """Convert a 4x4 numpy array to a vtkMatrix4x4.
 
