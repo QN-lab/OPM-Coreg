@@ -427,3 +427,123 @@ def gui_with_irregular_points(gui, fake_polydata_large):
         np.array([0, 0, 1]),
     ]
     return gui
+
+
+# ==========================================================
+# GUI fixtures for ICP tests
+# ==========================================================
+
+
+@pytest.fixture
+def gui_empty(gui):
+    """All attributes missing / None."""
+    gui.T_head_to_mri = None
+    gui.mri_polydata = None
+    gui.face_roi_in_head_frame = None
+    gui.irregular_roi_in_head_frame = None
+    gui.T_head_to_scan = None
+    gui.master_scan_polydata = None
+    return gui
+
+
+@pytest.fixture
+def gui_with_mri_only(gui):
+    gui.T_head_to_mri = None
+    gui.mri_polydata = object()
+    return gui
+
+
+@pytest.fixture
+def gui_with_transform_only(gui):
+    gui.T_head_to_mri = np.eye(4)
+    gui.mri_polydata = None
+    return gui
+
+
+@pytest.fixture
+def gui_with_no_roi(gui):
+    gui.T_head_to_mri = np.eye(4)
+    gui.mri_polydata = object()
+    gui.face_roi_in_head_frame = None
+    gui.irregular_roi_in_head_frame = None
+    return gui
+
+
+@pytest.fixture
+def gui_master_scan_missing(gui):
+    gui.T_head_to_scan = None
+    gui.master_scan_polydata = None
+    gui.irregular_roi_in_head_frame = None
+    return gui
+
+
+@pytest.fixture
+def gui_master_with_transform_only(gui):
+    gui.T_head_to_scan = np.eye(4)
+    gui.master_scan_polydata = None
+    return gui
+
+
+@pytest.fixture
+def gui_master_no_roi(gui):
+    gui.T_head_to_scan = np.eye(4)
+    gui.master_scan_polydata = object()
+    gui.irregular_roi_in_head_frame = None
+    return gui
+
+
+# ==========================================================
+# Minimal safe mocks so deep pipeline doesn't crash
+# (only used when needed)
+# ==========================================================
+
+
+@pytest.fixture
+def mock_vtk_safe(monkeypatch):
+    """Minimal VTK mocks to avoid crashes if execution reaches deep code."""
+
+    import types
+
+    vtk_mock = types.SimpleNamespace()
+
+    vtk_mock.vtkTransform = lambda: types.SimpleNamespace(SetMatrix=lambda *a: None)
+
+    vtk_mock.vtkTransformPolyDataFilter = lambda: types.SimpleNamespace(
+        SetTransform=lambda *a: None,
+        SetInputData=lambda *a: None,
+        Update=lambda: None,
+        GetOutput=lambda: object(),
+    )
+
+    vtk_mock.vtkIterativeClosestPointTransform = lambda: types.SimpleNamespace(
+        SetSource=lambda *a: None,
+        SetTarget=lambda *a: None,
+        GetLandmarkTransform=lambda: types.SimpleNamespace(
+            SetModeToRigidBody=lambda: None
+        ),
+        SetMaximumNumberOfIterations=lambda *a: None,
+        StartByMatchingCentroidsOff=lambda: None,
+        Modified=lambda: None,
+        Update=lambda: None,
+        GetMatrix=lambda: types.SimpleNamespace(
+            GetElement=lambda r, c: 1.0 if r == c else 0.0
+        ),
+    )
+
+    monkeypatch.setattr("src.compute_helpers.vtk", vtk_mock)
+
+
+@pytest.fixture
+def mock_surface_rms(monkeypatch):
+    monkeypatch.setattr(
+        "src.compute_helpers.compute_surface_rms",
+        lambda *a, **k: 1.0,
+    )
+
+
+@pytest.fixture
+def mock_vtk_matrix(monkeypatch):
+    monkeypatch.setattr(
+        "src.compute_helpers.vtk_matrix_from_numpy",
+        lambda x: None,
+    )

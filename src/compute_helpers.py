@@ -556,15 +556,15 @@ def run_icp_head_to_master_scan(gui, icp_iterations=50):
         gui.update_info(
             "ICP refinement failed : Compute initial head to master scan alignment first"
         )
-        return
+        return False
 
     if gui.master_scan_polydata is None:
         gui.update_info("ICP refinement failed : Need master scan mesh loaded first")
-        return
+        return False
 
     if gui.irregular_roi_in_head_frame is None:
         gui.update_info("ICP refinement failed : No valid ROI found")
-        return
+        return False
 
     # --------------------------------------------------
     # Transform ROI to master scan frame
@@ -607,7 +607,7 @@ def run_icp_head_to_master_scan(gui, icp_iterations=50):
                 T_icp[row, col] = icp_matrix.GetElement(row, col)
     except Exception:
         gui.update_info("ICP failed for extracted ROI. Repeat with new points and ROI.")
-        return
+        return False
 
     # Compose
     T_head_to_scan = T_icp @ gui.T_head_to_scan

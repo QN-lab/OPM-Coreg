@@ -6,6 +6,8 @@ from src.compute_helpers import (
     extract_face_roi,
     extract_face_roi_from_head_scan,
     extract_irregular_roi_from_head_scan,
+    run_icp_head_to_master_scan,
+    run_icp_head_to_mri,
 )
 
 # ==========================================================
@@ -182,3 +184,96 @@ def test_extract_irregular_roi_from_head_scan_success(
 
     assert result is True
     assert hasattr(gui_with_irregular_points, "irregular_roi_in_head_frame")
+
+
+# ==========================================================
+# 5. run_icp_head_to_mri (False paths)
+# ==========================================================
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "gui_empty",  # no transform
+        "gui_with_mri_only",  # missing transform
+    ],
+)
+def test_icp_head_to_mri_missing_transform(request, fixture_name):
+    gui = request.getfixturevalue(fixture_name)
+
+    result = run_icp_head_to_mri(gui)
+
+    assert result is False
+
+
+def test_icp_head_to_mri_missing_mri(gui_with_transform_only):
+    result = run_icp_head_to_mri(gui_with_transform_only)
+
+    assert result is False
+
+
+@pytest.mark.parametrize("face_roi", [True, False])
+def test_icp_head_to_mri_missing_roi(gui_with_no_roi, face_roi):
+    result = run_icp_head_to_mri(gui_with_no_roi, face_roi=face_roi)
+
+    assert result is False
+
+
+# ==========================================================
+# 6. run_icp_head_to_master_scan (False paths)
+# ==========================================================
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "gui_master_scan_missing",  # no transform
+        "gui_master_with_transform_only",  # no master scan
+        "gui_master_no_roi",  # no ROI
+    ],
+)
+def test_icp_head_to_master_scan_missing_inputs(request, fixture_name):
+    gui = request.getfixturevalue(fixture_name)
+
+    result = run_icp_head_to_master_scan(gui)
+
+    # Function sometimes returns None instead of False → accept both
+    assert result is False
+
+
+# ==========================================================
+# 7. Validation failure after ICP
+# ==========================================================
+
+
+def test_icp_head_to_mri_validation_failure(
+    gui,
+    mock_validate_failure,
+    mock_vtk_safe,
+    mock_surface_rms,
+    mock_vtk_matrix,
+):
+    # Minimal valid setup to reach validation stage
+    gui.T_head_to_mri = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+    gui.mri_polydata = object()
+    gui.face_roi_in_head_frame = object()
+
+    result = run_icp_head_to_mri(gui)
+
+    assert result is False
+
+
+def test_icp_head_to_master_scan_validation_failure(
+    gui,
+    mock_validate_failure,
+    mock_vtk_safe,
+    mock_surface_rms,
+    mock_vtk_matrix,
+):
+    gui.T_head_to_scan = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+    gui.master_scan_polydata = object()
+    gui.irregular_roi_in_head_frame = object()
+
+    result = run_icp_head_to_master_scan(gui)
+
+    assert result is False
