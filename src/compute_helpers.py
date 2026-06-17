@@ -11,6 +11,10 @@ from src.utils import (
     vtk_matrix_from_numpy,
 )
 
+# ----------------------------
+# Functions to compute primary transforms
+# ----------------------------
+
 
 def compute_aux_to_scan(gui):
     """Compute transform from auxiliary device to master scan using the auxiliary device pairs."""
@@ -153,6 +157,66 @@ def compute_head_to_scan(gui):
     return True
 
 
+def compute_head_to_mri_initial(gui):
+    """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
+    required = ["NAS", "LPA", "RPA"]
+    marked_fiducials_on_head_scan = getattr(gui, "marked_fiducials_on_head_scan", {})
+    mri_fiducials = getattr(gui, "mri_fiducials", {})
+
+    if not all(fid in marked_fiducials_on_head_scan for fid in required):
+        gui.update_info("Head fiducials missing (incomplete head alignment step).")
+        return False
+
+    if not all(fid in mri_fiducials for fid in required):
+        gui.update_info("MRI fiducials missing.")
+        return False
+
+    src = np.array(
+        [
+            marked_fiducials_on_head_scan["NAS"],
+            marked_fiducials_on_head_scan["LPA"],
+            marked_fiducials_on_head_scan["RPA"],
+        ]
+    )
+
+    dst = np.array(
+        [
+            mri_fiducials["NAS"],
+            mri_fiducials["LPA"],
+            mri_fiducials["RPA"],
+        ]
+    )
+
+    try:
+        T_head_to_mri, rms, errs = compute_rigid_transform(src, dst)
+    except Exception as e:
+        gui.update_info(f"Failed to compute head to MRI transform : {e}")
+        return False
+
+    # Validate transform
+    valid, msg = validate_transform(T_head_to_mri)
+    if not valid:
+        gui.update_info(f"Head→MRI transform invalid: {msg}")
+        return False
+
+    gui.T_head_to_mri = T_head_to_mri
+    gui.head_to_mri_rms = rms
+    gui.head_to_mri_errors = errs
+
+    gui.update_info(
+        f"Head→MRI RMS = {rms:.2f} mm | "
+        f"NAS={errs[0]:.2f}, "
+        f"LPA={errs[1]:.2f}, "
+        f"RPA={errs[2]:.2f}"
+    )
+    return True
+
+
+# ----------------------------
+# Functions to compute secondary transforms
+# ----------------------------
+
+
 def compute_aux_to_device(gui):
     """Compute transform from auxiliary device to device (sensor helmet).
 
@@ -211,338 +275,9 @@ def compute_device_to_head(gui):
     return True
 
 
-def obtain_true_landmarks_from_marked_points(
-    landmark_positions, points_marked_from_source
-):
-    """Obtain a list of true landmark coordinates from points marked during pairwise alignment step.
-
-    Args:
-        landmark_positions (array-like): Pre-defined true landmark coordinates
-            (e.g., from CAD model or manufacturer specification), shape (n_landmarks, 3).
-        points_marked_from_source (array-like): User-marked points on the source during pairwise alignment step,
-            shape (n_marked_points, 3).
-
-    Returns:
-        numpy.ndarray: True landmark coordinates corresponding to each user-marked point, in the same
-            order as points_marked_from_source. shape (n_marked_points, 3)
-
-    Raises:
-        ValueError: If inputs do not have the expected shapes or if no landmarks are provided.
-    """
-    landmarks = np.asarray(landmark_positions, dtype=float)
-    marked_points = np.asarray(points_marked_from_source, dtype=float)
-
-    if landmarks.ndim != 2 or landmarks.shape[1] != 3:
-        raise ValueError("landmark_positions must be shape (n_landmarks, 3).")
-    if marked_points.ndim != 2 or marked_points.shape[1] != 3:
-        raise ValueError(
-            "points_marked_from_source must be shape (n_marked_points, 3)."
-        )
-    if landmarks.shape[0] == 0:
-        raise ValueError("landmark_positions must contain at least one landmark.")
-
-    true_landmark_coords = np.empty_like(marked_points)
-
-    for i, marked_point in enumerate(marked_points):
-        distances = np.linalg.norm(landmarks - marked_point, axis=1)
-        closest_idx = int(np.argmin(distances))
-        true_landmark_coords[i] = landmarks[closest_idx]
-
-    return true_landmark_coords
-
-
-def compute_head_to_mri_initial(gui):
-    """Compute initial head to MRI transform using the fiducials from head alignment (head scan) and mri alignment (MRI)."""
-    required = ["NAS", "LPA", "RPA"]
-    marked_fiducials_on_head_scan = getattr(gui, "marked_fiducials_on_head_scan", {})
-    mri_fiducials = getattr(gui, "mri_fiducials", {})
-
-    if not all(fid in marked_fiducials_on_head_scan for fid in required):
-        gui.update_info("Head fiducials missing (incomplete head alignment step).")
-        return False
-
-    if not all(fid in mri_fiducials for fid in required):
-        gui.update_info("MRI fiducials missing.")
-        return False
-
-    src = np.array(
-        [
-            marked_fiducials_on_head_scan["NAS"],
-            marked_fiducials_on_head_scan["LPA"],
-            marked_fiducials_on_head_scan["RPA"],
-        ]
-    )
-
-    dst = np.array(
-        [
-            mri_fiducials["NAS"],
-            mri_fiducials["LPA"],
-            mri_fiducials["RPA"],
-        ]
-    )
-
-    try:
-        T_head_to_mri, rms, errs = compute_rigid_transform(src, dst)
-    except Exception as e:
-        gui.update_info(f"Failed to compute head to MRI transform : {e}")
-        return False
-
-    # Validate transform
-    valid, msg = validate_transform(T_head_to_mri)
-    if not valid:
-        gui.update_info(f"Head→MRI transform invalid: {msg}")
-        return False
-
-    gui.T_head_to_mri = T_head_to_mri
-    gui.head_to_mri_rms = rms
-    gui.head_to_mri_errors = errs
-
-    gui.update_info(
-        f"Head→MRI RMS = {rms:.2f} mm | "
-        f"NAS={errs[0]:.2f}, "
-        f"LPA={errs[1]:.2f}, "
-        f"RPA={errs[2]:.2f}"
-    )
-    return True
-
-
-def compute_surface_rms(src_poly, dst_poly):
-    """Compute RMS distance from each point in src_poly to closest point in dst_poly."""
-    locator = vtk.vtkPointLocator()
-    locator.SetDataSet(dst_poly)
-    locator.BuildLocator()
-
-    src_points = src_poly.GetPoints()
-    num_points = src_points.GetNumberOfPoints()
-
-    squared_distances = []
-
-    for i in range(num_points):
-        src_point = src_points.GetPoint(i)
-        closest_idx = locator.FindClosestPoint(src_point)
-        closest_dst_point = dst_poly.GetPoint(closest_idx)
-        squared_distances.append(
-            np.sum((np.array(src_point) - np.array(closest_dst_point)) ** 2)
-        )
-
-    squared_distances = np.array(squared_distances)
-    return np.sqrt(np.mean(squared_distances))
-
-
-def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
-    """Run ICP to refine head→MRI alignment using the face ROI."""
-    if gui.T_head_to_mri is None:
-        gui.update_info(
-            "ICP refinement failed : Compute initial fiducial alignment first"
-        )
-        return
-
-    if gui.mri_polydata is None:
-        gui.update_info("ICP refinement failed : Need MRI surface loaded")
-        return
-
-    if (face_roi and gui.face_roi_in_head_frame is None) or (
-        not face_roi and gui.irregular_roi_in_head_frame is None
-    ):
-        gui.update_info("ICP refinement failed : No valid ROI found")
-        return
-
-    # Select the ROI data
-    if face_roi:
-        roi_in_head_frame = gui.face_roi_in_head_frame
-    else:
-        roi_in_head_frame = gui.irregular_roi_in_head_frame
-
-    # --------------------------------------------------
-    # Transform ROI to MRI frame
-    # --------------------------------------------------
-    tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
-
-    tf_filter = vtk.vtkTransformPolyDataFilter()
-    tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(roi_in_head_frame)
-    tf_filter.Update()
-
-    face_roi_in_mri_frame = tf_filter.GetOutput()
-
-    # --------------------------------------------------
-    # Initial RMS
-    # --------------------------------------------------
-    initial_rms = compute_surface_rms(face_roi_in_mri_frame, gui.mri_polydata)
-
-    # --------------------------------------------------
-    # ICP
-    # --------------------------------------------------
-    icp = vtk.vtkIterativeClosestPointTransform()
-    icp.SetSource(face_roi_in_mri_frame)
-    icp.SetTarget(gui.mri_polydata)
-    icp.GetLandmarkTransform().SetModeToRigidBody()
-    icp.SetMaximumNumberOfIterations(icp_iterations)
-    icp.StartByMatchingCentroidsOff()
-    icp.Modified()
-    icp.Update()
-
-    # Extract matrix
-    T_icp = np.eye(4)
-    icp_matrix = icp.GetMatrix()
-    for row in range(4):
-        for col in range(4):
-            T_icp[row, col] = icp_matrix.GetElement(row, col)
-
-    # Compose
-    gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
-
-    # --------------------------------------------------
-    # Recompute RMS after ICP
-    # --------------------------------------------------
-    tf2 = vtk.vtkTransform()
-    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
-
-    tf_filter2 = vtk.vtkTransformPolyDataFilter()
-    tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(roi_in_head_frame)
-    tf_filter2.Update()
-
-    roi_refined_in_mri_frame = tf_filter2.GetOutput()
-    gui.face_roi_in_mri_frame = roi_refined_in_mri_frame  # Store for preview
-
-    final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
-
-    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
-
-
-def extract_face_roi_from_head_scan(gui):
-    """Extract face ROI on head scan using marked fiducials in head alignment step."""
-    if gui.head_polydata is None:
-        gui.update_info("ROI extraction failed : Need head scan loaded")
-        return
-
-    if not all(
-        fid in gui.marked_fiducials_on_head_scan
-        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
-    ):
-        gui.update_info(
-            "ROI extraction failed : Need 5 head fiducials marked on the head scan"
-        )
-        return
-
-    # Extract ROI in HEAD frame
-    face_roi_in_head_frame = extract_face_roi(
-        gui.head_polydata, gui.marked_fiducials_on_head_scan
-    )
-    if face_roi_in_head_frame is None:
-        gui.update_info("ROI extraction failed : Too few points detected")
-        return
-    gui.face_roi_in_head_frame = face_roi_in_head_frame
-    gui.update_info(
-        "Successfully extracted ROI based on the marked fiducials on the head scan."
-    )
-
-
-def extract_irregular_roi_from_head_scan(gui):
-    """Extract irregular ROI on head scan using marked points in pairwise surface matching."""
-    if gui.head_polydata is None or gui.head_alignment_points_from_source is None:
-        gui.update_info(
-            "ROI extraction failed : Need head scan mesh loaded and user marked points to extract an ROI"
-        )
-        return
-
-    # Extract ROI in HEAD frame
-    irregular_roi_in_head_frame = extract_convex_hull_roi(
-        gui.head_polydata, gui.head_alignment_points_from_source
-    )
-    if irregular_roi_in_head_frame is None:
-        gui.update_info(
-            "ROI extraction failed : Repeat with new points on the head scan"
-        )
-        return
-    gui.irregular_roi_in_head_frame = irregular_roi_in_head_frame
-    gui.update_info(
-        "ROI extraction successful : Extracted ROI based on the marked points on the head scan."
-    )
-
-
-def run_icp_head_to_master_scan(gui, icp_iterations=50):
-    """Run ICP to refine head→master scan alignment using the marked points ROI."""
-    if gui.T_head_to_scan is None:
-        gui.update_info(
-            "ICP refinement failed : Compute initial head to master scan alignment first"
-        )
-        return
-
-    if gui.master_scan_polydata is None:
-        gui.update_info("ICP refinement failed : Need master scan mesh loaded first")
-        return
-
-    if gui.irregular_roi_in_head_frame is None:
-        gui.update_info("ICP refinement failed : No valid ROI found")
-        return
-
-    # --------------------------------------------------
-    # Transform ROI to master scan frame
-    # --------------------------------------------------
-    tf = vtk.vtkTransform()
-    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
-
-    tf_filter = vtk.vtkTransformPolyDataFilter()
-    tf_filter.SetTransform(tf)
-    tf_filter.SetInputData(gui.irregular_roi_in_head_frame)
-    tf_filter.Update()
-
-    roi_in_master_scan_frame = tf_filter.GetOutput()
-
-    # --------------------------------------------------
-    # Initial RMS
-    # --------------------------------------------------
-    initial_rms = compute_surface_rms(
-        roi_in_master_scan_frame, gui.master_scan_polydata
-    )
-
-    # --------------------------------------------------
-    # ICP
-    # --------------------------------------------------
-    try:
-        icp = vtk.vtkIterativeClosestPointTransform()
-        icp.SetSource(roi_in_master_scan_frame)
-        icp.SetTarget(gui.master_scan_polydata)
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.SetMaximumNumberOfIterations(icp_iterations)
-        icp.StartByMatchingCentroidsOff()
-        icp.Modified()
-        icp.Update()
-
-        # Extract matrix
-        T_icp = np.eye(4)
-        icp_matrix = icp.GetMatrix()
-        for row in range(4):
-            for col in range(4):
-                T_icp[row, col] = icp_matrix.GetElement(row, col)
-    except Exception:
-        gui.update_info("ICP failed for extracted ROI. Repeat with new points and ROI.")
-        return
-
-    # Compose
-    gui.T_head_to_scan = T_icp @ gui.T_head_to_scan
-
-    # --------------------------------------------------
-    # Recompute RMS after ICP
-    # --------------------------------------------------
-    tf2 = vtk.vtkTransform()
-    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
-
-    tf_filter2 = vtk.vtkTransformPolyDataFilter()
-    tf_filter2.SetTransform(tf2)
-    tf_filter2.SetInputData(gui.irregular_roi_in_head_frame)
-    tf_filter2.Update()
-
-    roi_refined_in_master_scan_frame = tf_filter2.GetOutput()
-
-    final_rms = compute_surface_rms(
-        roi_refined_in_master_scan_frame, gui.master_scan_polydata
-    )
-
-    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+# ----------------------------
+# Functions to extract ROI
+# ----------------------------
 
 
 def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
@@ -649,3 +384,292 @@ def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
     geo.Update()
 
     return geo.GetOutput()
+
+
+def extract_face_roi_from_head_scan(gui):
+    """Extract face ROI on head scan using marked fiducials in head alignment step."""
+    if gui.head_polydata is None:
+        gui.update_info("ROI extraction failed : Need head scan loaded")
+        return
+
+    if not all(
+        fid in gui.marked_fiducials_on_head_scan
+        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    ):
+        gui.update_info(
+            "ROI extraction failed : Need 5 head fiducials marked on the head scan"
+        )
+        return
+
+    # Extract ROI in HEAD frame
+    face_roi_in_head_frame = extract_face_roi(
+        gui.head_polydata, gui.marked_fiducials_on_head_scan
+    )
+    if face_roi_in_head_frame is None:
+        gui.update_info("ROI extraction failed : Too few points detected")
+        return
+    gui.face_roi_in_head_frame = face_roi_in_head_frame
+    gui.update_info(
+        "Successfully extracted ROI based on the marked fiducials on the head scan."
+    )
+
+
+def extract_irregular_roi_from_head_scan(gui):
+    """Extract irregular ROI on head scan using marked points in pairwise surface matching."""
+    if gui.head_polydata is None or gui.head_alignment_points_from_source is None:
+        gui.update_info(
+            "ROI extraction failed : Need head scan mesh loaded and user marked points to extract an ROI"
+        )
+        return
+
+    # Extract ROI in HEAD frame
+    irregular_roi_in_head_frame = extract_convex_hull_roi(
+        gui.head_polydata, gui.head_alignment_points_from_source
+    )
+    if irregular_roi_in_head_frame is None:
+        gui.update_info(
+            "ROI extraction failed : Repeat with new points on the head scan"
+        )
+        return
+    gui.irregular_roi_in_head_frame = irregular_roi_in_head_frame
+    gui.update_info(
+        "ROI extraction successful : Extracted ROI based on the marked points on the head scan."
+    )
+
+
+# ----------------------------
+# Functions to compute refined transforms using ICP
+# ----------------------------
+
+
+def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
+    """Run ICP to refine head→MRI alignment using the face ROI."""
+    if gui.T_head_to_mri is None:
+        gui.update_info(
+            "ICP refinement failed : Compute initial fiducial alignment first"
+        )
+        return
+
+    if gui.mri_polydata is None:
+        gui.update_info("ICP refinement failed : Need MRI surface loaded")
+        return
+
+    if (face_roi and gui.face_roi_in_head_frame is None) or (
+        not face_roi and gui.irregular_roi_in_head_frame is None
+    ):
+        gui.update_info("ICP refinement failed : No valid ROI found")
+        return
+
+    # Select the ROI data
+    if face_roi:
+        roi_in_head_frame = gui.face_roi_in_head_frame
+    else:
+        roi_in_head_frame = gui.irregular_roi_in_head_frame
+
+    # --------------------------------------------------
+    # Transform ROI to MRI frame
+    # --------------------------------------------------
+    tf = vtk.vtkTransform()
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
+
+    tf_filter = vtk.vtkTransformPolyDataFilter()
+    tf_filter.SetTransform(tf)
+    tf_filter.SetInputData(roi_in_head_frame)
+    tf_filter.Update()
+
+    face_roi_in_mri_frame = tf_filter.GetOutput()
+
+    # --------------------------------------------------
+    # Initial RMS
+    # --------------------------------------------------
+    initial_rms = compute_surface_rms(face_roi_in_mri_frame, gui.mri_polydata)
+
+    # --------------------------------------------------
+    # ICP
+    # --------------------------------------------------
+    icp = vtk.vtkIterativeClosestPointTransform()
+    icp.SetSource(face_roi_in_mri_frame)
+    icp.SetTarget(gui.mri_polydata)
+    icp.GetLandmarkTransform().SetModeToRigidBody()
+    icp.SetMaximumNumberOfIterations(icp_iterations)
+    icp.StartByMatchingCentroidsOff()
+    icp.Modified()
+    icp.Update()
+
+    # Extract matrix
+    T_icp = np.eye(4)
+    icp_matrix = icp.GetMatrix()
+    for row in range(4):
+        for col in range(4):
+            T_icp[row, col] = icp_matrix.GetElement(row, col)
+
+    # Compose
+    gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
+
+    # --------------------------------------------------
+    # Recompute RMS after ICP
+    # --------------------------------------------------
+    tf2 = vtk.vtkTransform()
+    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_mri))
+
+    tf_filter2 = vtk.vtkTransformPolyDataFilter()
+    tf_filter2.SetTransform(tf2)
+    tf_filter2.SetInputData(roi_in_head_frame)
+    tf_filter2.Update()
+
+    roi_refined_in_mri_frame = tf_filter2.GetOutput()
+    gui.face_roi_in_mri_frame = roi_refined_in_mri_frame  # Store for preview
+
+    final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
+
+    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+
+
+def run_icp_head_to_master_scan(gui, icp_iterations=50):
+    """Run ICP to refine head→master scan alignment using the marked points ROI."""
+    if gui.T_head_to_scan is None:
+        gui.update_info(
+            "ICP refinement failed : Compute initial head to master scan alignment first"
+        )
+        return
+
+    if gui.master_scan_polydata is None:
+        gui.update_info("ICP refinement failed : Need master scan mesh loaded first")
+        return
+
+    if gui.irregular_roi_in_head_frame is None:
+        gui.update_info("ICP refinement failed : No valid ROI found")
+        return
+
+    # --------------------------------------------------
+    # Transform ROI to master scan frame
+    # --------------------------------------------------
+    tf = vtk.vtkTransform()
+    tf.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
+
+    tf_filter = vtk.vtkTransformPolyDataFilter()
+    tf_filter.SetTransform(tf)
+    tf_filter.SetInputData(gui.irregular_roi_in_head_frame)
+    tf_filter.Update()
+
+    roi_in_master_scan_frame = tf_filter.GetOutput()
+
+    # --------------------------------------------------
+    # Initial RMS
+    # --------------------------------------------------
+    initial_rms = compute_surface_rms(
+        roi_in_master_scan_frame, gui.master_scan_polydata
+    )
+
+    # --------------------------------------------------
+    # ICP
+    # --------------------------------------------------
+    try:
+        icp = vtk.vtkIterativeClosestPointTransform()
+        icp.SetSource(roi_in_master_scan_frame)
+        icp.SetTarget(gui.master_scan_polydata)
+        icp.GetLandmarkTransform().SetModeToRigidBody()
+        icp.SetMaximumNumberOfIterations(icp_iterations)
+        icp.StartByMatchingCentroidsOff()
+        icp.Modified()
+        icp.Update()
+
+        # Extract matrix
+        T_icp = np.eye(4)
+        icp_matrix = icp.GetMatrix()
+        for row in range(4):
+            for col in range(4):
+                T_icp[row, col] = icp_matrix.GetElement(row, col)
+    except Exception:
+        gui.update_info("ICP failed for extracted ROI. Repeat with new points and ROI.")
+        return
+
+    # Compose
+    gui.T_head_to_scan = T_icp @ gui.T_head_to_scan
+
+    # --------------------------------------------------
+    # Recompute RMS after ICP
+    # --------------------------------------------------
+    tf2 = vtk.vtkTransform()
+    tf2.SetMatrix(vtk_matrix_from_numpy(gui.T_head_to_scan))
+
+    tf_filter2 = vtk.vtkTransformPolyDataFilter()
+    tf_filter2.SetTransform(tf2)
+    tf_filter2.SetInputData(gui.irregular_roi_in_head_frame)
+    tf_filter2.Update()
+
+    roi_refined_in_master_scan_frame = tf_filter2.GetOutput()
+
+    final_rms = compute_surface_rms(
+        roi_refined_in_master_scan_frame, gui.master_scan_polydata
+    )
+
+    gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+
+
+# ----------------------------
+# Functions helping in transform computations
+# ----------------------------
+
+
+def obtain_true_landmarks_from_marked_points(
+    landmark_positions, points_marked_from_source
+):
+    """Obtain a list of true landmark coordinates from points marked during pairwise alignment step.
+
+    Args:
+        landmark_positions (array-like): Pre-defined true landmark coordinates
+            (e.g., from CAD model or manufacturer specification), shape (n_landmarks, 3).
+        points_marked_from_source (array-like): User-marked points on the source during pairwise alignment step,
+            shape (n_marked_points, 3).
+
+    Returns:
+        numpy.ndarray: True landmark coordinates corresponding to each user-marked point, in the same
+            order as points_marked_from_source. shape (n_marked_points, 3)
+
+    Raises:
+        ValueError: If inputs do not have the expected shapes or if no landmarks are provided.
+    """
+    landmarks = np.asarray(landmark_positions, dtype=float)
+    marked_points = np.asarray(points_marked_from_source, dtype=float)
+
+    if landmarks.ndim != 2 or landmarks.shape[1] != 3:
+        raise ValueError("landmark_positions must be shape (n_landmarks, 3).")
+    if marked_points.ndim != 2 or marked_points.shape[1] != 3:
+        raise ValueError(
+            "points_marked_from_source must be shape (n_marked_points, 3)."
+        )
+    if landmarks.shape[0] == 0:
+        raise ValueError("landmark_positions must contain at least one landmark.")
+
+    true_landmark_coords = np.empty_like(marked_points)
+
+    for i, marked_point in enumerate(marked_points):
+        distances = np.linalg.norm(landmarks - marked_point, axis=1)
+        closest_idx = int(np.argmin(distances))
+        true_landmark_coords[i] = landmarks[closest_idx]
+
+    return true_landmark_coords
+
+
+def compute_surface_rms(src_poly, dst_poly):
+    """Compute RMS distance from each point in src_poly to closest point in dst_poly."""
+    locator = vtk.vtkPointLocator()
+    locator.SetDataSet(dst_poly)
+    locator.BuildLocator()
+
+    src_points = src_poly.GetPoints()
+    num_points = src_points.GetNumberOfPoints()
+
+    squared_distances = []
+
+    for i in range(num_points):
+        src_point = src_points.GetPoint(i)
+        closest_idx = locator.FindClosestPoint(src_point)
+        closest_dst_point = dst_poly.GetPoint(closest_idx)
+        squared_distances.append(
+            np.sum((np.array(src_point) - np.array(closest_dst_point)) ** 2)
+        )
+
+    squared_distances = np.array(squared_distances)
+    return np.sqrt(np.mean(squared_distances))
