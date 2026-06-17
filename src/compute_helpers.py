@@ -280,8 +280,17 @@ def compute_device_to_head(gui):
 # ----------------------------
 
 
-def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
+def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0, min_cells=500):
     """Extract face ROI using robust surface clipping."""
+    if polydata is None:
+        return None
+
+    if not all(
+        fid in fid_dict
+        for fid in ["NAS", "LPA", "RPA", "NOSE", "CHIN"]
+    ):
+        return None
+
     nas = fid_dict["NAS"]
     lpa = fid_dict["LPA"]
     rpa = fid_dict["RPA"]
@@ -315,13 +324,13 @@ def extract_face_roi(polydata, fid_dict, plane_offset_mm=15.0):
 
     roi = roi.clip(normal=list(normal), origin=list(plane_origin), invert=invert)
 
-    if roi.n_cells < 500:
+    if roi.n_cells < min_cells:
         return None
 
     return roi
 
 
-def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
+def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5, min_points=100):
     """
     Extract ROI containing all points inside the convex hull volume of user-marked points.
 
@@ -333,6 +342,9 @@ def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
     Returns:
         roi_poly: Extracted region as vtkPolyData, or None if too small
     """
+    if polydata is None or marked_points is None:
+        return None
+    
     points_array = np.array(marked_points)
 
     if len(points_array) < 4:
@@ -362,7 +374,7 @@ def extract_convex_hull_roi(polydata, marked_points, expansion_factor=1.5):
         if simplex >= 0:
             ids.InsertNextValue(i)
 
-    if ids.GetNumberOfTuples() < 100:
+    if ids.GetNumberOfTuples() < min_points:
         return None
 
     # 4. Extract selected points
@@ -390,7 +402,7 @@ def extract_face_roi_from_head_scan(gui):
     """Extract face ROI on head scan using marked fiducials in head alignment step."""
     if gui.head_polydata is None:
         gui.update_info("ROI extraction failed : Need head scan loaded")
-        return
+        return False
 
     if not all(
         fid in gui.marked_fiducials_on_head_scan
@@ -399,7 +411,7 @@ def extract_face_roi_from_head_scan(gui):
         gui.update_info(
             "ROI extraction failed : Need 5 head fiducials marked on the head scan"
         )
-        return
+        return False
 
     # Extract ROI in HEAD frame
     face_roi_in_head_frame = extract_face_roi(
@@ -407,11 +419,12 @@ def extract_face_roi_from_head_scan(gui):
     )
     if face_roi_in_head_frame is None:
         gui.update_info("ROI extraction failed : Too few points detected")
-        return
+        return False
     gui.face_roi_in_head_frame = face_roi_in_head_frame
     gui.update_info(
         "Successfully extracted ROI based on the marked fiducials on the head scan."
     )
+    return True
 
 
 def extract_irregular_roi_from_head_scan(gui):
@@ -420,7 +433,7 @@ def extract_irregular_roi_from_head_scan(gui):
         gui.update_info(
             "ROI extraction failed : Need head scan mesh loaded and user marked points to extract an ROI"
         )
-        return
+        return False
 
     # Extract ROI in HEAD frame
     irregular_roi_in_head_frame = extract_convex_hull_roi(
@@ -430,11 +443,12 @@ def extract_irregular_roi_from_head_scan(gui):
         gui.update_info(
             "ROI extraction failed : Repeat with new points on the head scan"
         )
-        return
+        return False
     gui.irregular_roi_in_head_frame = irregular_roi_in_head_frame
     gui.update_info(
         "ROI extraction successful : Extracted ROI based on the marked points on the head scan."
     )
+    return True
 
 
 # ----------------------------
@@ -448,17 +462,17 @@ def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
         gui.update_info(
             "ICP refinement failed : Compute initial fiducial alignment first"
         )
-        return
+        return False
 
     if gui.mri_polydata is None:
         gui.update_info("ICP refinement failed : Need MRI surface loaded")
-        return
+        return False
 
     if (face_roi and gui.face_roi_in_head_frame is None) or (
         not face_roi and gui.irregular_roi_in_head_frame is None
     ):
         gui.update_info("ICP refinement failed : No valid ROI found")
-        return
+        return False
 
     # Select the ROI data
     if face_roi:
@@ -504,7 +518,14 @@ def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
             T_icp[row, col] = icp_matrix.GetElement(row, col)
 
     # Compose
-    gui.T_head_to_mri = T_icp @ gui.T_head_to_mri
+    T_head_to_mri = T_icp @ gui.T_head_to_mri
+    # Validate transform
+    valid, msg = validate_transform(T_head_to_mri)
+    if not valid:
+        gui.update_info("ICP refinement failed : No valid ROI found")
+        gui.update_info(f"Head→MRI transform invalid: {msg}")
+        return False
+    gui.T_head_to_mri = T_head_to_mri
 
     # --------------------------------------------------
     # Recompute RMS after ICP
@@ -523,6 +544,7 @@ def run_icp_head_to_mri(gui, face_roi=True, icp_iterations=50):
     final_rms = compute_surface_rms(roi_refined_in_mri_frame, gui.mri_polydata)
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+    return True
 
 
 def run_icp_head_to_master_scan(gui, icp_iterations=50):
@@ -585,7 +607,14 @@ def run_icp_head_to_master_scan(gui, icp_iterations=50):
         return
 
     # Compose
-    gui.T_head_to_scan = T_icp @ gui.T_head_to_scan
+    T_head_to_scan = T_icp @ gui.T_head_to_scan
+    # Validate transform
+    valid, msg = validate_transform(T_head_to_scan)
+    if not valid:
+        gui.update_info("ICP refinement failed")
+        gui.update_info(f"Head→Scan transform invalid: {msg}")
+        return False
+    gui.T_head_to_scan = T_head_to_scan
 
     # --------------------------------------------------
     # Recompute RMS after ICP
@@ -605,6 +634,7 @@ def run_icp_head_to_master_scan(gui, icp_iterations=50):
     )
 
     gui.update_info(f"ICP complete | ROI RMS: {initial_rms:.2f} → {final_rms:.2f} mm")
+    return True
 
 
 # ----------------------------
