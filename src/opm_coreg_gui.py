@@ -31,7 +31,7 @@ from src.compute_helpers import (
     run_icp_head_to_master_scan,
     run_icp_head_to_mri,
 )
-from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem
 from src.display_helpers import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
@@ -160,6 +160,7 @@ class OPMCoregGUI(QWidget):
         self.sensor_vector_actors_source_window = []
         self.helmet_landmark_positions = None
         self.helmet_landmark_labels = None
+        self.helmet_system_name = HelmetSystem.CUSTOM
         self.helmet_landmark_actors_source_window = []
         self.helmet_landmark_text_actors_source_window = []
         self.transformed_sensor_actors = []

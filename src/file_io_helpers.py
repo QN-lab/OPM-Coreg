@@ -15,6 +15,7 @@ from mne.io.constants import FIFF
 from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
+from src.const import HELMET_SYSTEM_DICT
 from src.utils import (
     load_mesh_to_polydata,
     save_transform,
@@ -214,6 +215,11 @@ def load_helmet_landmark_csv(gui):
         df["Label"].tolist() if has_labels else [f"L{i + 1}" for i in range(len(df))]
     )
     gui.helmet_landmark_labels = labels
+    gui.helmet_system_name = next(
+        manufacturer
+        for (label, manufacturer) in HELMET_SYSTEM_DICT.items()
+        if label in filepath
+    )
     gui.update_info(f"Loaded helmet landmark CSV: {os.path.basename(filepath)}.")
 
 

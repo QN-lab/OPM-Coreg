@@ -3,7 +3,13 @@
 import numpy as np
 import vtk
 
-from src.const import FIDUCIAL_COLORS, PAIR_COLORS
+from src.const import (
+    DEFAULT_COLOR,
+    FIDUCIAL_COLORS,
+    FIELDLINE_LANDMARK_COLORS,
+    PAIR_COLORS,
+    HelmetSystem,
+)
 from src.utils import (
     actor_from_polydata,
     arrow_actor,
@@ -156,6 +162,20 @@ def display_helmet_stl_on_source_window(gui):
     gui.vtk_source.GetRenderWindow().Render()
 
 
+def obtain_colors_for_helmet_landmarks(helmet_system_name, landmark_label):
+    """Function returns display colour of the landmark based on helmet manufacturer."""
+    if helmet_system_name == HelmetSystem.FIELDLINE:
+        return next(
+            (
+                color
+                for (label, color) in FIELDLINE_LANDMARK_COLORS.items()
+                if label in landmark_label
+            ),
+            DEFAULT_COLOR,
+        )
+    return DEFAULT_COLOR
+
+
 def display_helmet_landmarks_on_source_window(gui):
     """Display helmet landmarks onto the source window."""
     # Clear existing actors
@@ -176,14 +196,17 @@ def display_helmet_landmarks_on_source_window(gui):
 
     # Add sphere and text for each landmark
     for pnt, label in zip(gui.helmet_landmark_positions, gui.helmet_landmark_labels):
+        # Obtain landmark color from the label
+        label_color = obtain_colors_for_helmet_landmarks(gui.helmet_system_name, label)
+
         # Sphere actor
-        sphere = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        sphere = sphere_actor(pnt, color=label_color, radius=2.8)
         gui.ren_source.AddActor(sphere)
         gui.helmet_landmark_actors_source_window.append(sphere)
 
         # Text label
         text_actor = create_text_actor(
-            label, pnt, color=(1, 1, 0), font_size=7, offset=(2, 2, 2)
+            label, pnt, color=label_color, font_size=7, offset=(2, 2, 2)
         )
         gui.ren_source.AddActor(text_actor)
         gui.helmet_landmark_text_actors_source_window.append(text_actor)
@@ -343,7 +366,7 @@ def draw_sensor_positions_on_source_window(gui):
             pass
     gui.sensor_actors_source_window = []
     for pnt in gui.sensor_positions:
-        actor = sphere_actor(pnt, color=(0.2, 0.4, 0.9), radius=2.8)
+        actor = sphere_actor(pnt, color=DEFAULT_COLOR, radius=2.8)
         gui.ren_source.AddActor(actor)
         gui.sensor_actors_source_window.append(actor)
     gui.ren_source.ResetCamera()
