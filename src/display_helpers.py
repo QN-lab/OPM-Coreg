@@ -206,7 +206,7 @@ def display_helmet_landmarks_on_source_window(gui):
 
         # Text label
         text_actor = create_text_actor(
-            label, pnt, color=label_color, font_size=7, offset=(2, 2, 2)
+            label, pnt, gui.ren_source, color=label_color, font_size=7, offset=(2, 2, 2)
         )
         gui.ren_source.AddActor(text_actor)
         gui.helmet_landmark_text_actors_source_window.append(text_actor)

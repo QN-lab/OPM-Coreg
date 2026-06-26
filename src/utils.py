@@ -198,12 +198,15 @@ def sphere_actor(pos, color=(1, 0, 0), radius=2.5):
     return a
 
 
-def create_text_actor(text, position, color=(1, 1, 1), font_size=14, offset=(5, 5, 5)):
+def create_text_actor(
+    text, position, renderer, color=(1, 1, 1), font_size=14, offset=(5, 5, 5)
+):
     """Create a VTK text label that always faces the camera.
 
     Args:
         text: Text to be displayed in the window.
         position: Tuple of (x, y, z) coordinates for the text location.
+        renderer: renderer for the window in which text actors will be drawn
         color: Tuple of (R, G, B) values for the text color.
         font_size: font size of the text label.
         offset: Tuple of (offsetx, offsety, offstez) to offset the text label from the sphere centre.
@@ -221,6 +224,7 @@ def create_text_actor(text, position, color=(1, 1, 1), font_size=14, offset=(5, 
 
     actor = vtk.vtkFollower()
     actor.SetMapper(mapper)
+    actor.SetCamera(renderer.GetActiveCamera())
 
     # Position with offset
     position = (
