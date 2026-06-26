@@ -255,10 +255,10 @@ class OPMCoregGUI(QWidget):
         steps_v = QVBoxLayout()
         for button_label, mode in [
             ("Load Available Data", "load_data"),
-            ("Align Aux Device to Master Scan", "align_aux"),
-            ("Align Head Scan to Master Scan", "align_head"),
-            ("Align Helmet to Master Scan", "align_sensors"),
-            ("Align Head Scan to Scalp(MRI)", "align_mri"),
+            ("Aux Device to Master Scan", "align_aux"),
+            ("Head Scan to Master Scan", "align_head"),
+            ("Helmet to Master Scan", "align_sensors"),
+            ("Head Scan to Scalp(MRI)", "align_mri"),
             ("Save Generated Transforms", "save_transforms"),
             ("Clear all and restart", "restart"),
         ]:
