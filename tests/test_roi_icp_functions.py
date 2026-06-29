@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.compute_helpers import (
+from .compute_helpers import (
     extract_convex_hull_roi,
     extract_face_roi,
     extract_face_roi_from_head_scan,

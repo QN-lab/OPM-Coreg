@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.compute_helpers import (
+from .compute_helpers import (
     compute_aux_to_device,
     compute_aux_to_scan,
     compute_dev_to_scan,

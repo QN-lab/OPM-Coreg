@@ -5,7 +5,7 @@ import pyvista as pv
 import vtk
 from scipy.spatial import Delaunay
 
-from src.utils import (
+from .utils import (
     compute_rigid_transform,
     validate_transform,
     vtk_matrix_from_numpy,

@@ -15,8 +15,8 @@ from mne.io.constants import FIFF
 from mne.transforms import Transform
 from PyQt5.QtWidgets import QFileDialog
 
-from src.const import HELMET_SYSTEM_DICT
-from src.utils import (
+from .const import HELMET_SYSTEM_DICT
+from .utils import (
     load_mesh_to_polydata,
     save_transform,
 )

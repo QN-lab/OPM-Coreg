@@ -3,14 +3,14 @@
 import numpy as np
 import vtk
 
-from src.const import (
+from .const import (
     DEFAULT_COLOR,
     FIDUCIAL_COLORS,
     FIELDLINE_LANDMARK_COLORS,
     PAIR_COLORS,
     HelmetSystem,
 )
-from src.utils import (
+from .utils import (
     actor_from_polydata,
     arrow_actor,
     create_text_actor,

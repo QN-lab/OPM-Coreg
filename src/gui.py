@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
 )
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
-from src.compute_helpers import (
+from .compute_helpers import (
     compute_aux_to_device,
     compute_aux_to_scan,
     compute_dev_to_scan,
@@ -31,8 +31,8 @@ from src.compute_helpers import (
     run_icp_head_to_master_scan,
     run_icp_head_to_mri,
 )
-from src.const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem
-from src.display_helpers import (
+from .const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem
+from .display_helpers import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
     display_head_scan_on_source_window,
@@ -51,7 +51,7 @@ from src.display_helpers import (
     preview_roi_on_head_scan,
     preview_roi_on_mri,
 )
-from src.file_io_helpers import (
+from .file_io_helpers import (
     load_all_saved_data,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
@@ -66,15 +66,15 @@ from src.file_io_helpers import (
     save_marked_points_in_cache,
     save_transformed_sensors_csv,
 )
-from src.observer_helpers import (
+from .observer_helpers import (
     add_source_observer,
     add_target_observer,
     clear_source_renderer,
     clear_target_renderer_keep_scan,
     remove_all_observers,
 )
-from src.project_paths import ProjectPaths
-from src.toggle_helpers import (
+from .project_paths import ProjectPaths
+from .toggle_helpers import (
     toggle_aux_dev_overlay,
     toggle_head_overlay,
     toggle_helmet_overlay,
@@ -83,7 +83,7 @@ from src.toggle_helpers import (
     toggle_sensors_overlay,
     toggle_unit_vectors_overlay,
 )
-from src.utils import (
+from .utils import (
     sphere_actor,
 )
 
