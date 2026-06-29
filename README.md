@@ -21,13 +21,13 @@ The goal is to compute accurate **rigid transformations (6 DoF : rotation + tran
 
 ## What do you need?
 
-- 3D master scan (using structured light scanner) of the participant head with all the attachments (sensor helmet and auxiliary devices)
-- 3D head scan (using structured light scanner) of the participant head without any attachments
-- Scalp/skin surface generated from T1 scan (e.g. from freesurfer's recon-all)
-- Fiducial coordinates (LPA, RPA and nasion) estimated from the structural MRI
-- Measurement raw file (.fif) containing sensor locations (or alternatively a CSV containing sensor coordinates and unit vectors)
-- Sensor helmet surface mesh (.ply or .stl) or sensor helmet landmark locations (.csv)
-- Auxiliary device surface mesh (.ply or .stl) or auxiliary device landmark locations (.csv)
+- **3D master scan** (using structured light scanner) of the participant head with all the attachments (sensor helmet and auxiliary devices)
+- **3D head scan** (using structured light scanner) of the participant head without any attachments
+- **Scalp/skin surface** generated from T1 scan (e.g. from freesurfer's recon-all)
+- **Fiducial coordinates** (LPA, RPA and nasion) estimated from the structural MRI
+- **Measurement raw file** (.fif) containing sensor locations (or alternatively a CSV containing sensor coordinates and unit vectors)
+- **Sensor helmet surface mesh** (.ply or .stl) or **sensor helmet landmark locations** (.csv)
+- **Auxiliary device surface mesh** (.ply or .stl) or **auxiliary device landmark locations** (.csv)
 
 ## What do you get?
 
