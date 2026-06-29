@@ -4,7 +4,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from src.opm_coreg_gui import OPMCoregGUI
+from .gui import OPMCoregGUI
 
 
 def main():
