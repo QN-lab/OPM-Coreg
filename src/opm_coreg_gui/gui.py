@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
 )
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
-from .compute_helpers import (
+from .compute import (
     compute_aux_to_device,
     compute_aux_to_scan,
     compute_dev_to_scan,
@@ -32,7 +32,7 @@ from .compute_helpers import (
     run_icp_head_to_mri,
 )
 from .const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem
-from .display_helpers import (
+from .display import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
     display_head_scan_on_source_window,
@@ -51,7 +51,7 @@ from .display_helpers import (
     preview_roi_on_head_scan,
     preview_roi_on_mri,
 )
-from .file_io_helpers import (
+from .file_io import (
     load_all_saved_data,
     load_aux_dev_landmarks,
     load_aux_dev_stl,
@@ -66,7 +66,7 @@ from .file_io_helpers import (
     save_marked_points_in_cache,
     save_transformed_sensors_csv,
 )
-from .observer_helpers import (
+from .observer import (
     add_source_observer,
     add_target_observer,
     clear_source_renderer,
@@ -74,7 +74,7 @@ from .observer_helpers import (
     remove_all_observers,
 )
 from .project_paths import ProjectPaths
-from .toggle_helpers import (
+from .toggle import (
     toggle_aux_dev_overlay,
     toggle_head_overlay,
     toggle_helmet_overlay,
