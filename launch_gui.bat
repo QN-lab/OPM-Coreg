@@ -10,7 +10,7 @@ if not exist "venv" (
 
     echo Installing dependencies...
     pip install --upgrade pip
-    ip install -e .
+    pip install -e .
 ) else (
     echo Virtual environment found.
     echo Activating virtual environment...
