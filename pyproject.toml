@@ -31,10 +31,10 @@ dev = [
 ]
 
 [project.scripts]
-opm-coreg-gui = "src.main:main"
+opm-coreg-gui = "opm_coreg_gui.main:main"
 
-[tool.setuptools]
-packages = ["src"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
-src = ["**/*.py"]
+opm_coreg_gui = ["**/*.py"]
