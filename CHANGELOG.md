@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1] - 2026-06-30
+
+### Fixed
+
+- Correct handling of helmet landmark arrays (NumPy truth-value bug)
+- GUI failure when using commercial helmet landmark CSVs
+- Updated tests with correct helmet landmark arrays
+
 ## [2.0.0] - 2026-06-30
 
 This is going to be the first openly available major version of the OPM-Coreg-GUI.
