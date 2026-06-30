@@ -1,0 +1,74 @@
+
+digraph G {
+    concentrate = true;
+
+    rankdir = TB;
+    node [style=filled,fillcolor="#ffffff",fontcolor="#000000",fontname=Helvetica,fontsize=10];
+
+    mne [fillcolor="#b69d53"];
+    mne_io [fillcolor="#b69d53",label="mne.io"];
+    mne_io_constants [fillcolor="#b69d53",label="mne\.\nio\.\nconstants"];
+    mne_transforms [fillcolor="#a48d46",label="mne.transforms"];
+    numpy [fillcolor="#80f906"];
+    opm_coreg_gui_compute [fillcolor="#33994c",fontcolor="#ffffff",label="opm_coreg_gui\.\ncompute"];
+    opm_coreg_gui_const [fillcolor="#2fdb5a",label="opm_coreg_gui\.\nconst"];
+    opm_coreg_gui_display [fillcolor="#38a854",fontcolor="#ffffff",label="opm_coreg_gui\.\ndisplay"];
+    opm_coreg_gui_file_io [fillcolor="#267339",fontcolor="#ffffff",label="opm_coreg_gui\.\nfile_io"];
+    opm_coreg_gui_gui [fillcolor="#267339",fontcolor="#ffffff",label="opm_coreg_gui\.\ngui"];
+    opm_coreg_gui_main [fillcolor="#46a45e",label="opm_coreg_gui\.\nmain"];
+    opm_coreg_gui_observer [fillcolor="#47c266",label="opm_coreg_gui\.\nobserver"];
+    opm_coreg_gui_project_paths [fillcolor="#47c266",label="opm_coreg_gui\.\nproject_paths"];
+    opm_coreg_gui_toggle [fillcolor="#47c266",label="opm_coreg_gui\.\ntoggle"];
+    opm_coreg_gui_utils [fillcolor="#18dd49",label="opm_coreg_gui\.\nutils"];
+    pandas [fillcolor="#40bfc0"];
+    PyQt5 [fillcolor="#ce3b3b",fontcolor="#ffffff"];
+    PyQt5_QtWidgets [fillcolor="#ce3b3b",fontcolor="#ffffff",label="PyQt5\.\nQtWidgets"];
+    pyvista [fillcolor="#3d5cb8",fontcolor="#ffffff"];
+    scipy [fillcolor="#7a24d0",fontcolor="#ffffff"];
+    scipy_spatial [fillcolor="#7a31c4",fontcolor="#ffffff",label="scipy.spatial"];
+    vtk [fillcolor="#e722b6",fontcolor="#ffffff"];
+    mne -> opm_coreg_gui_file_io [fillcolor="#b69d53",minlen="2"];
+    mne_io -> opm_coreg_gui_file_io [fillcolor="#b69d53",minlen="2"];
+    mne_io_constants -> opm_coreg_gui_file_io [fillcolor="#b69d53",minlen="3"];
+    mne_transforms -> opm_coreg_gui_file_io [fillcolor="#a48d46",minlen="2"];
+    numpy -> mne_transforms [fillcolor="#80f906",minlen="2"];
+    numpy -> opm_coreg_gui_compute [fillcolor="#80f906",minlen="2"];
+    numpy -> opm_coreg_gui_display [fillcolor="#80f906",minlen="2"];
+    numpy -> opm_coreg_gui_file_io [fillcolor="#80f906",minlen="2"];
+    numpy -> opm_coreg_gui_gui [fillcolor="#80f906",minlen="2"];
+    numpy -> opm_coreg_gui_utils [fillcolor="#80f906",minlen="2"];
+    numpy -> pyvista [fillcolor="#80f906"];
+    numpy -> scipy [fillcolor="#80f906"];
+    opm_coreg_gui_compute -> opm_coreg_gui_gui [fillcolor="#33994c"];
+    opm_coreg_gui_const -> opm_coreg_gui_display [fillcolor="#2fdb5a"];
+    opm_coreg_gui_const -> opm_coreg_gui_file_io [fillcolor="#2fdb5a"];
+    opm_coreg_gui_const -> opm_coreg_gui_gui [fillcolor="#2fdb5a"];
+    opm_coreg_gui_display -> opm_coreg_gui_gui [fillcolor="#38a854"];
+    opm_coreg_gui_file_io -> opm_coreg_gui_gui [fillcolor="#267339"];
+    opm_coreg_gui_gui -> opm_coreg_gui_main [fillcolor="#267339"];
+    opm_coreg_gui_observer -> opm_coreg_gui_gui [fillcolor="#47c266"];
+    opm_coreg_gui_project_paths -> opm_coreg_gui_gui [fillcolor="#47c266"];
+    opm_coreg_gui_toggle -> opm_coreg_gui_gui [fillcolor="#47c266"];
+    opm_coreg_gui_utils -> opm_coreg_gui_compute [fillcolor="#18dd49"];
+    opm_coreg_gui_utils -> opm_coreg_gui_display [fillcolor="#18dd49"];
+    opm_coreg_gui_utils -> opm_coreg_gui_file_io [fillcolor="#18dd49"];
+    opm_coreg_gui_utils -> opm_coreg_gui_gui [fillcolor="#18dd49"];
+    pandas -> opm_coreg_gui_file_io [fillcolor="#40bfc0",minlen="2"];
+    PyQt5 -> opm_coreg_gui_file_io [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5 -> opm_coreg_gui_gui [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5 -> opm_coreg_gui_main [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> opm_coreg_gui_file_io [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> opm_coreg_gui_gui [fillcolor="#ce3b3b",minlen="2"];
+    PyQt5_QtWidgets -> opm_coreg_gui_main [fillcolor="#ce3b3b",minlen="2"];
+    pyvista -> opm_coreg_gui_compute [fillcolor="#3d5cb8",minlen="2"];
+    scipy -> mne_transforms [fillcolor="#7a24d0",minlen="2"];
+    scipy -> opm_coreg_gui_compute [fillcolor="#7a24d0",minlen="2"];
+    scipy_spatial -> mne_transforms [fillcolor="#7a31c4",minlen="2"];
+    scipy_spatial -> opm_coreg_gui_compute [fillcolor="#7a31c4",minlen="2"];
+    vtk -> opm_coreg_gui_compute [fillcolor="#e722b6",minlen="2"];
+    vtk -> opm_coreg_gui_display [fillcolor="#e722b6",minlen="2"];
+    vtk -> opm_coreg_gui_file_io [fillcolor="#e722b6",minlen="2"];
+    vtk -> opm_coreg_gui_gui [fillcolor="#e722b6",minlen="2"];
+    vtk -> opm_coreg_gui_utils [fillcolor="#e722b6",minlen="2"];
+}
+

@@ -1,58 +1,93 @@
-# OPM-COREGISTRATION-GUI
+# OPM-COREG-GUI
 
 ## What is it?
 
-This repository contains the code for GUI which is primarily used for co-registering scalp surface generated from structural MRI of the participant brain (in MRI co-ordinate space), digitized 3D scan of a participant head surface (in head co-ordinate space), OPM sensors (in device co-ordinate space) and any auxiliary devices such as Head Positioning Indication (HPI) coils, eye-blink channels etc.
+This repository provides a GUI for co-registering multiple coordinate frames used in OPM-based neuroimaging, including:
+
+- Scalp surface extracted from structural MRI (MRI coordinate frame)
+- Digitised 3D head scan (head coordinate frame)
+- OPM sensors (device coordinate frame)
+- Auxiliary devices (e.g., EOG electrodes)
+
+The goal is to compute accurate **rigid transformations (6 DoF : rotation + translation)** between these coordinate systems.
+
+## Features
+
+- Interactive 3D visualisation (VTK-based)
+- Pairwise landmark selection
+- ICP-based refinement
+- Multi-coordinate frame transformation pipeline
+- Support for auxiliary devices
 
 ## What do you need?
 
-- 3D scan (using LIDAR based head scanner) of the participant head without any attachments
-- Scalp surface generated using FreeSurfer
-- Measurement raw file (.fif) containing sensor locations
-- 3D scan (using LIDAR based head scanner) of the participant head with all the attachments (sensor helmet and auxiliary devices)
-- Fiducial co-ordinate file containing LPA, RPA and nasion co-ordinates estimated from the structural MRI
+- **3D master scan** (using structured light scanner) of the participant head with all the attachments (sensor helmet and auxiliary devices)
+- **3D head scan** (using structured light scanner) of the participant head without any attachments
+- **Scalp/skin surface** generated from T1 scan (e.g. from freesurfer's recon-all)
+- **Fiducial coordinates** (LPA, RPA and nasion) estimated from the structural MRI
+- **Measurement raw file** (.fif) containing sensor locations (or alternatively a CSV containing sensor coordinates and unit vectors)
+- **Sensor helmet surface mesh** (.ply or .stl) or **sensor helmet landmark locations** (.csv)
+- **Auxiliary device surface mesh** (.ply or .stl) or **auxiliary device landmark locations** (.csv)
 
 ## What do you get?
 
-The GUI will output following transforms needed for source localization problem :
+The GUI outputs following rigid body transforms (arrows in the figure below) between different coordinate frames (nodes in the figure below) :
 
+- Head to MRI (in mm) ※
+- Head to MRI (in m) (equivalent to -trans.fif in MNE-Python) ※
+- Device (sensor helmet) to head (in mm) ※
+- Device (sensor helmet) to head (in m) (equivalent to dev_head_t in MNE-Python) ※
 - Auxiliary to device (sensor helmet) transform
-- Device (sensor helmet) to scan (3D scan with attachments) transform
-- Head to scan (3D scan with attachments) transform
-- Head to MRI transform
+- Auxiliary to master scan (in mm)
+- Head to master scan (in mm)
+- Device (sensor helmet) to master scan (in mm)
+
+※ : Directly usable for localizing source activity
 
 ![Transforms summary](/docs/resources/transforms_flowchart.png)
 
-## How to use?
+## How to launch the GUI?
 
-The GUI is entirely developed in Python (3.11) and we suggest creating a dedicated environment for installing required packages and running the GUI. All required packages are enlisted in `requirements.txt`.
+The GUI is entirely developed in Python (3.11) and we suggest creating a dedicated environment for installing the GUI as an editable package. (PyPi-package will be available in future)
 
-On Windows, run the `launch_gui.bat` file to create the virtual environment, install dependencies, and run the GUI.
+Execute `launch_gui.bat` or `launch_gui.sh` depending on your OS to create the virtual environment, install dependencies, and launch the GUI.
 
-On other systems, after manually creating and activating the environment, follow these steps :
+In case of manually running the GUI, create a virtual environment using conda or venv, activate it, change directory to project root, and execute following command:
 
 ```bash
-cd OPM-COREGISTRATION-GUI
-python -m src.main
+python -m src.opm_coreg_gui.main
 ```
-
-The command to launch the GUI will be updated once the package name is established.
 
 ## How to handle different OPM helmets?
 
 The GUI allows two ways of handling OPM helmets from different manufacturers :
 
-1. **When helmet design is available** : Load helmet STL file and mark same points on both helmet view and 3D LIDAR scan with attachments in the pairwise mode. This will fit the helmet design on the 3D LIDAR scan and generate `device to scan` transform.
+1. **When helmet design is available (e.g. custom helmet design)** : Load helmet surface file (.stl or .ply) and mark same points on both source and target windows in the pairwise mode.
 
-1. **When helmet design is not available** : When helmet design is not available, the user is expected to load a csv file containing coordinates of the pre-defined landmark points on the helmet. After loading the csv file, continue to the pairwise mode as usual. When obtaining `device to scan` transform, only points marked on the landmark view will be used, rather than all the landmarks available in the csv, allowing user to dynamically choose important landmarks.
+1. **When helmet design is not available (e.g. commercial systems)** : When helmet design is not available, the user is expected to load a CSV file containing coordinates of the pre-defined landmark points on the helmet. After loading the CSV file, continue to the pairwise mode as usual. When obtaining the rigid transform, only points marked on the source window will be used, rather than all the landmarks available in the CSV, allowing user to dynamically choose important and visible landmarks.
 
 **Note**:
 
-- It is assumed that the helmet landmarks and sensors are in the same coordinate space.
-- The fitting will not work unless the helmet design or landmark csv is loaded.
-- When both helmet design and landmark csv are loaded, landmark coordinates in the csv file will be utilized for fitting purposes rather than the ones marked on the helmet.
-- In either case, marking >=6 points in the paiwise mode will ensure better fit.
+- Among commercial systems, the GUI is tested only on **Fieldline helmet** and OPM data.
+- It is assumed that the helmet landmarks and sensors locations, both are in the device coordinate frame.
+- The fitting will not work unless the helmet design or landmark CSV is loaded.
+- When both helmet design and landmark CSV are loaded, nearest landmark coordinates in the CSV file will be utilized for generating rigid transform rather than the ones marked on the helmet.
+- In either case, marking >=6 points in the pairwise mode will ensure better fit.
+
+## Where is the output stored?
+
+- Set environment variable `OPM_COREG_GUI_ROOT_DIR` which serves as the GUI output directory.
+- If the above environment variable is not set, `~/Documents/opm-coreg-gui` or similar will be created to write output files.
+- A log file (.csv with timestamp) is created under `<GUI_output_directory>/logs` for each instance of the GUI opened.
+- All messages displayed in the display window of the GUI (bottom-most scrollable window) are logged into this file.
+- A sub-directory is created under `<GUI_output_directory>/results` when a 3D master scan is loaded in the GUI. The name is derived from the 3D master scan filename by omitting the file extension.
+- In case where no 3D master scan is loaded, outputs are generated under `<GUI_output_directory>/results/master_scan_missing`.
+- All rigid transforms (4×4 transformation matrices) are saved in .txt and .npy formats under `<GUI_output_directory>/results/<master_scan_filename>`
+- Along with transforms, GUI also automatically saves marked points on different surfaces under `<GUI_output_directory>/results/<master_scan_filename>/cache`.
+- Specify `<GUI_output_directory>/results/<master_scan_filename>` folder when loading saved transforms to continue the co-registration process.
+- We recommend completing co-registration process (all steps in GUI) for a single master scan file first, before moving to the next master scan or participant.
 
 ## Notes
 
 - Currently developing and testing on Python 3.11.14
+- More detailed documentation will be added in future releases.

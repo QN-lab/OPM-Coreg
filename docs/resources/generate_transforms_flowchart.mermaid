@@ -1,0 +1,23 @@
+flowchart TD
+    Dev["**Device Space**<br>(OPM sensors, helmet)"]
+    Aux["**Auxiliary Space**<br>(EOG, Helmet attachments)"]
+    
+    Scan["**Scan Space**<br>(3D Master Scan)"]
+    
+    Head["**Head Space**<br>(3D Head Scan)"]
+    MRI["**MRI Space**<br>(T1 Anatomical Scan)"]
+
+    Aux -- "T_aux_to_scan" --> Scan
+    Dev -- "T_dev_to_scan" --> Scan
+    Head -- "T_head_to_scan" --> Scan
+    Aux -- "T_aux_to_dev" --> Dev
+    Dev -- "T_dev_to_head" --> Head
+    Head -- "T_head_to_mri" --> MRI
+
+    classDef top fill:#e1f5fe,stroke:#333,stroke-width:2px
+    classDef center fill:#fff9c4,stroke:#333,stroke-width:2px
+    classDef bottom fill:#e1f5fe,stroke:#333,stroke-width:2px
+    
+    class Dev,Aux top
+    class Scan center
+    class Head,MRI bottom

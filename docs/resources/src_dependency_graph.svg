@@ -1,0 +1,412 @@
+<?xml version="1.0" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1067pt" height="620pt" viewBox="0.00 0.00 1066.55 620.50">
+<g id="graph0" class="graph" transform="translate(3.445707835207827,546.3002483451249) scale(0.8953601806061028)" data-name="G">
+
+<polygon fill="white" stroke="none" points="-4,4 -4,-616.5 1062.55,-616.5 1062.55,4 -4,4" style=""/>
+<!-- mne -->
+<g id="node1" class="node" pointer-events="visible" data-name="mne">
+
+<ellipse fill="#b69d53" stroke="black" cx="842.55" cy="-347.65" rx="27" ry="18" style=""/>
+<text text-anchor="middle" x="842.55" y="-344.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">mne</text>
+</g>
+<!-- opm_coreg_gui_file_io -->
+<g id="node9" class="node" pointer-events="visible" data-name="opm_coreg_gui_file_io">
+
+<ellipse fill="#267339" stroke="black" cx="941.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="941.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="941.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">file_io</text>
+</g>
+<!-- mne&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge1" class="edge" data-name="mne-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M822.89,-334.84C786.27,-312.83 711.3,-267.71 711.55,-267.39" style=""/>
+</g>
+<!-- mne_io -->
+<g id="node2" class="node" pointer-events="visible" data-name="mne_io">
+
+<ellipse fill="#b69d53" stroke="black" cx="655.55" cy="-347.65" rx="27.84" ry="18" style=""/>
+<text text-anchor="middle" x="655.55" y="-344.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">mne.io</text>
+</g>
+<!-- mne_io&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge2" class="edge" data-name="mne_io-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M665.96,-330.76C676.83,-314.47 694.61,-288.58 711.55,-267.39" style=""/>
+</g>
+<!-- mne_io_constants -->
+<g id="node3" class="node" pointer-events="visible" data-name="mne_io_constants">
+
+<ellipse fill="#b69d53" stroke="black" cx="897.55" cy="-437.39" rx="41.66" ry="31.23" style=""/>
+<text text-anchor="middle" x="897.55" y="-446.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">mne.</text>
+<text text-anchor="middle" x="897.55" y="-434.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">io.</text>
+<text text-anchor="middle" x="897.55" y="-422.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">constants</text>
+</g>
+<!-- mne_io_constants&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge3" class="edge" data-name="mne_io_constants-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M900.28,-405.96C900.79,-381.37 897.46,-347.3 878.55,-325.02 827.74,-265.16 662.53,-328.73 711.55,-267.39" style=""/>
+</g>
+<!-- mne_transforms -->
+<g id="node4" class="node" pointer-events="visible" data-name="mne_transforms">
+
+<ellipse fill="#a48d46" stroke="black" cx="558.55" cy="-347.65" rx="51.28" ry="18" style=""/>
+<text text-anchor="middle" x="558.55" y="-344.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">mne.transforms</text>
+</g>
+<!-- mne_transforms&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge4" class="edge" data-name="mne_transforms-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M591.27,-333.43C631.2,-316.69 695.39,-287.61 711.55,-267.39" style=""/>
+</g>
+<!-- numpy -->
+<g id="node5" class="node" pointer-events="visible" data-name="numpy">
+
+<ellipse fill="#80f906" stroke="black" cx="187.55" cy="-594.5" rx="27.84" ry="18" style=""/>
+<text text-anchor="middle" x="187.55" y="-591.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">numpy</text>
+</g>
+<!-- numpy&#45;&gt;mne_transforms -->
+<g id="edge5" class="edge" data-name="numpy-&gt;mne_transforms">
+
+<path fill="none" stroke="black" d="M711.55,-436.39C703,-413.19 644.39,-384.36 602.25,-366.22" style=""/>
+<polygon fill="#80f906" stroke="black" points="603.63,-363.01 593.06,-362.33 600.9,-369.45 603.63,-363.01" style=""/>
+<path fill="none" stroke="black" d="M215.13,-591.21C328.11,-581.18 747.91,-537.09 711.55,-438.39" style=""/>
+</g>
+<!-- opm_coreg_gui_compute -->
+<g id="node6" class="node" pointer-events="visible" data-name="opm_coreg_gui_compute">
+
+<ellipse fill="#33994c" stroke="black" cx="79.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="79.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="79.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">compute</text>
+</g>
+<!-- numpy&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge6" class="edge" data-name="numpy-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M79.55,-265.39C75.85,-250.69 75.33,-233.97 75.94,-219.69" style=""/>
+<polygon fill="#80f906" stroke="black" points="79.43,-220.08 76.58,-209.87 72.44,-219.62 79.43,-220.08" style=""/>
+</g>
+<!-- opm_coreg_gui_display -->
+<g id="node8" class="node" pointer-events="visible" data-name="opm_coreg_gui_display">
+
+<ellipse fill="#38a854" stroke="black" cx="297.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="297.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="297.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">display</text>
+</g>
+<!-- numpy&#45;&gt;opm_coreg_gui_display -->
+<g id="edge7" class="edge" data-name="numpy-&gt;opm_coreg_gui_display">
+
+<path fill="none" stroke="black" d="M187.55,-521.5C192.1,-511.12 196.73,-510.16 206.55,-504.5 251.11,-478.8 286.36,-510.15 316.55,-468.5 371.16,-393.17 334.58,-274.77 311.84,-218.25" style=""/>
+<polygon fill="#80f906" stroke="black" points="315.15,-217.1 308.08,-209.2 308.68,-219.78 315.15,-217.1" style=""/>
+</g>
+<!-- numpy&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge8" class="edge" data-name="numpy-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M711.55,-436.39C714.99,-398.99 687.85,-296.53 711.55,-267.39" style=""/>
+</g>
+<!-- opm_coreg_gui_gui -->
+<g id="node10" class="node" pointer-events="visible" data-name="opm_coreg_gui_gui">
+
+<ellipse fill="#267339" stroke="black" cx="496.55" cy="-103.88" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="496.55" y="-106.88" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="496.55" y="-94.88" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">gui</text>
+</g>
+<!-- numpy&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge9" class="edge" data-name="numpy-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M79.55,-265.39C69.62,-225.98 26.02,-244.46 8.55,-207.76 -0.1,-189.61 -4.81,-177.54 8.55,-162.51 35.64,-132.03 294.56,-114.93 423.84,-108.23" style=""/>
+<polygon fill="#80f906" stroke="black" points="423.86,-111.73 433.67,-107.73 423.51,-104.74 423.86,-111.73" style=""/>
+<path fill="none" stroke="black" d="M162.19,-586.56C140.2,-579.08 109.6,-564.84 94.55,-540.5 30.61,-437.11 104.89,-386.28 79.55,-267.39" style=""/>
+</g>
+<!-- opm_coreg_gui_utils -->
+<g id="node15" class="node" pointer-events="visible" data-name="opm_coreg_gui_utils">
+
+<ellipse fill="#18dd49" stroke="black" cx="207.55" cy="-266.39" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="207.55" y="-269.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="207.55" y="-257.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">utils</text>
+</g>
+<!-- numpy&#45;&gt;opm_coreg_gui_utils -->
+<g id="edge10" class="edge" data-name="numpy-&gt;opm_coreg_gui_utils">
+
+<path fill="none" stroke="black" d="M187.55,-521.5C219.03,-437.3 255.7,-412.62 235.55,-325.02 233.54,-316.28 230.01,-307.32 226.13,-299.16" style=""/>
+<polygon fill="#80f906" stroke="black" points="229.28,-297.62 221.61,-290.31 223.04,-300.81 229.28,-297.62" style=""/>
+<path fill="none" stroke="black" d="M183.83,-576.31C181.5,-561.64 180.18,-540.3 187.55,-523.5" style=""/>
+</g>
+<!-- pyvista -->
+<g id="node19" class="node" pointer-events="visible" data-name="pyvista">
+
+<ellipse fill="#3d5cb8" stroke="black" cx="131.55" cy="-522.5" rx="28.17" ry="18" style=""/>
+<text text-anchor="middle" x="131.55" y="-519.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">pyvista</text>
+</g>
+<!-- numpy&#45;&gt;pyvista -->
+<g id="edge11" class="edge" data-name="numpy-&gt;pyvista">
+
+<path fill="none" stroke="black" d="M175.12,-577.96C168.02,-569.08 158.95,-557.75 150.93,-547.72" style=""/>
+<polygon fill="#80f906" stroke="black" points="153.87,-545.8 144.89,-540.17 148.4,-550.17 153.87,-545.8" style=""/>
+</g>
+<!-- scipy -->
+<g id="node20" class="node" pointer-events="visible" data-name="scipy">
+
+<ellipse fill="#7a24d0" stroke="black" cx="242.55" cy="-522.5" rx="27" ry="18" style=""/>
+<text text-anchor="middle" x="242.55" y="-519.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">scipy</text>
+</g>
+<!-- numpy&#45;&gt;scipy -->
+<g id="edge12" class="edge" data-name="numpy-&gt;scipy">
+
+<path fill="none" stroke="black" d="M199.76,-577.96C206.66,-569.17 215.46,-557.98 223.27,-548.03" style=""/>
+<polygon fill="#80f906" stroke="black" points="226.02,-550.21 229.44,-540.18 220.51,-545.88 226.02,-550.21" style=""/>
+</g>
+<!-- opm_coreg_gui_compute&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge13" class="edge" data-name="opm_coreg_gui_compute-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M134.06,-173.78C210.39,-159.27 348.93,-132.94 430.85,-117.37" style=""/>
+<polygon fill="#33994c" stroke="black" points="431.36,-120.83 440.53,-115.53 430.06,-113.96 431.36,-120.83" style=""/>
+</g>
+<!-- opm_coreg_gui_const -->
+<g id="node7" class="node" pointer-events="visible" data-name="opm_coreg_gui_const">
+
+<ellipse fill="#2fdb5a" stroke="black" cx="470.55" cy="-266.39" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="470.55" y="-269.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="470.55" y="-257.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">const</text>
+</g>
+<!-- opm_coreg_gui_const&#45;&gt;opm_coreg_gui_display -->
+<g id="edge14" class="edge" data-name="opm_coreg_gui_const-&gt;opm_coreg_gui_display">
+
+<path fill="none" stroke="black" d="M432.58,-248C407.01,-236.28 373.06,-220.73 345.6,-208.15" style=""/>
+<polygon fill="#2fdb5a" stroke="black" points="347.35,-205.1 336.8,-204.12 344.44,-211.47 347.35,-205.1" style=""/>
+</g>
+<!-- opm_coreg_gui_const&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge15" class="edge" data-name="opm_coreg_gui_const-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M516.87,-250.88C526.6,-248.21 536.86,-245.67 546.55,-243.76 688.72,-215.84 728.64,-237 870.55,-207.76 875.51,-206.74 880.62,-205.52 885.72,-204.19" style=""/>
+<polygon fill="#2fdb5a" stroke="black" points="886.63,-207.57 895.34,-201.54 884.77,-200.83 886.63,-207.57" style=""/>
+</g>
+<!-- opm_coreg_gui_const&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge16" class="edge" data-name="opm_coreg_gui_const-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M451.5,-244.29C439.81,-229.26 426.84,-207.93 425.55,-186.14" style=""/>
+<path fill="none" stroke="black" d="M425.55,-184.14C424.27,-162.47 439.12,-143.99 455.57,-130.34" style=""/>
+<polygon fill="#2fdb5a" stroke="black" points="457.26,-133.46 463.04,-124.58 452.99,-127.92 457.26,-133.46" style=""/>
+</g>
+<!-- opm_coreg_gui_display&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge17" class="edge" data-name="opm_coreg_gui_display-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M338.78,-167.72C369.6,-155.44 411.93,-138.58 444.99,-125.42" style=""/>
+<polygon fill="#38a854" stroke="black" points="445.97,-128.79 453.96,-121.84 443.38,-122.29 445.97,-128.79" style=""/>
+</g>
+<!-- opm_coreg_gui_file_io&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge18" class="edge" data-name="opm_coreg_gui_file_io-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M896.36,-169.32C887.84,-166.83 878.97,-164.43 870.55,-162.51 765.91,-138.64 642.52,-121.77 566.92,-112.68" style=""/>
+<polygon fill="#267339" stroke="black" points="567.51,-109.23 557.17,-111.52 566.68,-116.18 567.51,-109.23" style=""/>
+</g>
+<!-- opm_coreg_gui_main -->
+<g id="node11" class="node" pointer-events="visible" data-name="opm_coreg_gui_main">
+
+<ellipse fill="#46a45e" stroke="black" cx="496.55" cy="-22.63" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="496.55" y="-25.63" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="496.55" y="-13.63" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">main</text>
+</g>
+<!-- opm_coreg_gui_gui&#45;&gt;opm_coreg_gui_main -->
+<g id="edge19" class="edge" data-name="opm_coreg_gui_gui-&gt;opm_coreg_gui_main">
+
+<path fill="none" stroke="black" d="M496.55,-80.81C496.55,-73.48 496.55,-65.15 496.55,-57.17" style=""/>
+<polygon fill="#267339" stroke="black" points="500.05,-57.37 496.55,-47.37 493.05,-57.37 500.05,-57.37" style=""/>
+</g>
+<!-- opm_coreg_gui_observer -->
+<g id="node12" class="node" pointer-events="visible" data-name="opm_coreg_gui_observer">
+
+<ellipse fill="#47c266" stroke="black" cx="515.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="515.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="515.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">observer</text>
+</g>
+<!-- opm_coreg_gui_observer&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge20" class="edge" data-name="opm_coreg_gui_observer-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M510.26,-162.06C508.46,-154.59 506.42,-146.07 504.47,-137.94" style=""/>
+<polygon fill="#47c266" stroke="black" points="507.9,-137.22 502.17,-128.31 501.09,-138.85 507.9,-137.22" style=""/>
+</g>
+<!-- opm_coreg_gui_project_paths -->
+<g id="node13" class="node" pointer-events="visible" data-name="opm_coreg_gui_project_paths">
+
+<ellipse fill="#47c266" stroke="black" cx="657.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="657.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="657.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">project_paths</text>
+</g>
+<!-- opm_coreg_gui_project_paths&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge21" class="edge" data-name="opm_coreg_gui_project_paths-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M621.42,-166.35C598.3,-154.97 568.08,-140.09 543.16,-127.83" style=""/>
+<polygon fill="#47c266" stroke="black" points="544.71,-124.69 534.2,-123.41 541.62,-130.97 544.71,-124.69" style=""/>
+</g>
+<!-- opm_coreg_gui_toggle -->
+<g id="node14" class="node" pointer-events="visible" data-name="opm_coreg_gui_toggle">
+
+<ellipse fill="#47c266" stroke="black" cx="799.55" cy="-185.14" rx="62.05" ry="22.76" style=""/>
+<text text-anchor="middle" x="799.55" y="-188.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">opm_coreg_gui.</text>
+<text text-anchor="middle" x="799.55" y="-176.14" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">toggle</text>
+</g>
+<!-- opm_coreg_gui_toggle&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge22" class="edge" data-name="opm_coreg_gui_toggle-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M753.06,-169.6C744.91,-167.16 736.5,-164.71 728.55,-162.51 671.45,-146.73 605.9,-130.64 559.08,-119.48" style=""/>
+<polygon fill="#47c266" stroke="black" points="559.9,-116.08 549.37,-117.17 558.29,-122.89 559.9,-116.08" style=""/>
+</g>
+<!-- opm_coreg_gui_utils&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge23" class="edge" data-name="opm_coreg_gui_utils-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M176.56,-246.21C159.5,-235.64 138.14,-222.41 119.8,-211.06" style=""/>
+<polygon fill="#18dd49" stroke="black" points="121.88,-208.23 111.54,-205.94 118.2,-214.18 121.88,-208.23" style=""/>
+</g>
+<!-- opm_coreg_gui_utils&#45;&gt;opm_coreg_gui_display -->
+<g id="edge24" class="edge" data-name="opm_coreg_gui_utils-&gt;opm_coreg_gui_display">
+
+<path fill="none" stroke="black" d="M230.73,-244.98C241.43,-235.55 254.32,-224.21 265.9,-214.01" style=""/>
+<polygon fill="#18dd49" stroke="black" points="268.12,-216.71 273.31,-207.48 263.5,-211.46 268.12,-216.71" style=""/>
+</g>
+<!-- opm_coreg_gui_utils&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge25" class="edge" data-name="opm_coreg_gui_utils-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M253.4,-250.62C263.26,-247.93 273.68,-245.45 283.55,-243.76 541.19,-199.74 613.32,-254.16 870.55,-207.76 875.74,-206.83 881.09,-205.64 886.42,-204.3" style=""/>
+<polygon fill="#18dd49" stroke="black" points="887.05,-207.75 895.79,-201.77 885.22,-200.99 887.05,-207.75" style=""/>
+</g>
+<!-- opm_coreg_gui_utils&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge26" class="edge" data-name="opm_coreg_gui_utils-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M207.55,-184.14C212.48,-172.33 215.51,-168.98 226.55,-162.51 286.9,-127.14 366.19,-113.37 423.21,-108.06" style=""/>
+<polygon fill="#18dd49" stroke="black" points="423.5,-111.55 433.16,-107.21 422.9,-104.58 423.5,-111.55" style=""/>
+<path fill="none" stroke="black" d="M203.12,-243.31C200.86,-226.9 199.97,-204.29 207.55,-186.14" style=""/>
+</g>
+<!-- pandas -->
+<g id="node16" class="node" pointer-events="visible" data-name="pandas">
+
+<ellipse fill="#40bfc0" stroke="black" cx="768.55" cy="-347.65" rx="29.2" ry="18" style=""/>
+<text text-anchor="middle" x="768.55" y="-344.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#000000" style="">pandas</text>
+</g>
+<!-- pandas&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge27" class="edge" data-name="pandas-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M748.69,-334.28C725.71,-318.44 693.24,-290.3 711.55,-267.39" style=""/>
+</g>
+<!-- PyQt5 -->
+<g id="node17" class="node" pointer-events="visible" data-name="PyQt5">
+
+<ellipse fill="#ce3b3b" stroke="black" cx="1031.55" cy="-347.65" rx="27" ry="18" style=""/>
+<text text-anchor="middle" x="1031.55" y="-344.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">PyQt5</text>
+</g>
+<!-- PyQt5&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge28" class="edge" data-name="PyQt5-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M1031.55,-265.39C1025.49,-241.94 1006.35,-223.43 987.27,-210.22" style=""/>
+<polygon fill="#ce3b3b" stroke="black" points="989.23,-207.32 978.93,-204.81 985.41,-213.19 989.23,-207.32" style=""/>
+<path fill="none" stroke="black" d="M1034.01,-329.33C1035.74,-313.06 1036.92,-288.17 1031.55,-267.39" style=""/>
+</g>
+<!-- PyQt5&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge29" class="edge" data-name="PyQt5-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M1031.55,-265.39C1022.74,-231.29 1052.53,-214.43 1031.55,-186.14" style=""/>
+<path fill="none" stroke="black" d="M1031.55,-184.14C1023.93,-173.86 1023.89,-168.42 1012.55,-162.51 937.27,-123.26 693.4,-110.57 569.8,-106.61" style=""/>
+<polygon fill="#ce3b3b" stroke="black" points="570.2,-103.12 560.09,-106.31 569.98,-110.11 570.2,-103.12" style=""/>
+</g>
+<!-- PyQt5&#45;&gt;opm_coreg_gui_main -->
+<g id="edge30" class="edge" data-name="PyQt5-&gt;opm_coreg_gui_main">
+
+<path fill="none" stroke="black" d="M1031.55,-184.14C1023.93,-173.86 1023.41,-169.27 1012.55,-162.51 870.56,-74.19 672.72,-41.39 568.06,-29.71" style=""/>
+<polygon fill="#ce3b3b" stroke="black" points="568.52,-26.24 558.2,-28.65 567.77,-33.2 568.52,-26.24" style=""/>
+</g>
+<!-- PyQt5_QtWidgets -->
+<g id="node18" class="node" pointer-events="visible" data-name="PyQt5_QtWidgets">
+
+<ellipse fill="#ce3b3b" stroke="black" cx="407.55" cy="-347.65" rx="44.14" ry="22.76" style=""/>
+<text text-anchor="middle" x="407.55" y="-350.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">PyQt5.</text>
+<text text-anchor="middle" x="407.55" y="-338.65" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">QtWidgets</text>
+</g>
+<!-- PyQt5_QtWidgets&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge31" class="edge" data-name="PyQt5_QtWidgets-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M560.55,-265.39C681.03,-193.82 734.42,-241.04 870.55,-207.76 875.32,-206.6 880.25,-205.3 885.19,-203.93" style=""/>
+<polygon fill="#ce3b3b" stroke="black" points="885.82,-207.39 894.47,-201.27 883.89,-200.66 885.82,-207.39" style=""/>
+</g>
+<!-- PyQt5_QtWidgets&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge32" class="edge" data-name="PyQt5_QtWidgets-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M442.71,-333.56C476.61,-320.58 525.1,-300.96 541.55,-289.02 551.9,-281.5 549.55,-273.93 560.55,-267.39" style=""/>
+<path fill="none" stroke="black" d="M560.55,-265.39C620.37,-229.86 429.66,-255.59 425.55,-186.14" style=""/>
+</g>
+<!-- PyQt5_QtWidgets&#45;&gt;opm_coreg_gui_main -->
+<g id="edge33" class="edge" data-name="PyQt5_QtWidgets-&gt;opm_coreg_gui_main">
+
+<path fill="none" stroke="black" d="M402.92,-324.83C393.99,-276.94 379.11,-160.56 425.55,-81.25 432.83,-68.82 443.87,-57.97 455.09,-49.13" style=""/>
+<polygon fill="#ce3b3b" stroke="black" points="456.89,-52.15 462.84,-43.38 452.72,-46.52 456.89,-52.15" style=""/>
+</g>
+<!-- pyvista&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge34" class="edge" data-name="pyvista-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M221.55,-346.65C202.23,-305.3 167.34,-322.71 136.55,-289.02 117.58,-268.26 102.52,-240.06 92.66,-218.43" style=""/>
+<polygon fill="#3d5cb8" stroke="black" points="95.95,-217.23 88.72,-209.49 89.54,-220.05 95.95,-217.23" style=""/>
+<path fill="none" stroke="black" d="M141.7,-505.53C166.7,-465.78 228.74,-364.43 221.55,-348.65" style=""/>
+</g>
+<!-- scipy&#45;&gt;mne_transforms -->
+<g id="edge35" class="edge" data-name="scipy-&gt;mne_transforms">
+
+<path fill="none" stroke="black" d="M373.55,-436.39C417.58,-405.51 474.17,-380.49 513.11,-365.18" style=""/>
+<polygon fill="#7a24d0" stroke="black" points="514.12,-368.54 522.18,-361.67 511.59,-362.01 514.12,-368.54" style=""/>
+<path fill="none" stroke="black" d="M263.78,-511.28C293.92,-496.72 345.9,-471.44 349.55,-468.5 362.87,-457.75 359.54,-448.21 373.55,-438.39" style=""/>
+</g>
+<!-- scipy&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge36" class="edge" data-name="scipy-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M225.55,-436.39C212.85,-399.47 239.87,-383.11 221.55,-348.65" style=""/>
+<path fill="none" stroke="black" d="M240.36,-504.28C237.88,-487.23 233.16,-460.53 225.55,-438.39" style=""/>
+</g>
+<!-- scipy_spatial -->
+<g id="node21" class="node" pointer-events="visible" data-name="scipy_spatial">
+
+<ellipse fill="#7a31c4" stroke="black" cx="329.55" cy="-522.5" rx="42.25" ry="18" style=""/>
+<text text-anchor="middle" x="329.55" y="-519.5" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">scipy.spatial</text>
+</g>
+<!-- scipy_spatial&#45;&gt;mne_transforms -->
+<g id="edge37" class="edge" data-name="scipy_spatial-&gt;mne_transforms">
+
+<path fill="none" stroke="black" d="M336.46,-504.27C345.59,-482.42 361.85,-446.59 373.55,-438.39" style=""/>
+</g>
+<!-- scipy_spatial&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge38" class="edge" data-name="scipy_spatial-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M300.21,-509.22C273.79,-496.19 237.35,-472.7 225.55,-438.39" style=""/>
+</g>
+<!-- vtk -->
+<g id="node22" class="node" pointer-events="visible" data-name="vtk">
+
+<ellipse fill="#e722b6" stroke="black" cx="280.55" cy="-437.39" rx="27" ry="18" style=""/>
+<text text-anchor="middle" x="280.55" y="-434.39" font-family="Helvetica,sans-Serif" font-size="10.00" fill="#ffffff" style="">vtk</text>
+</g>
+<!-- vtk&#45;&gt;opm_coreg_gui_compute -->
+<g id="edge39" class="edge" data-name="vtk-&gt;opm_coreg_gui_compute">
+
+<path fill="none" stroke="black" d="M268.1,-421.1C254.92,-404.26 234.29,-375.92 221.55,-348.65" style=""/>
+</g>
+<!-- vtk&#45;&gt;opm_coreg_gui_display -->
+<g id="edge40" class="edge" data-name="vtk-&gt;opm_coreg_gui_display">
+
+<path fill="none" stroke="black" d="M297.55,-265.39C293.73,-250.61 293.22,-233.76 293.87,-219.4" style=""/>
+<polygon fill="#e722b6" stroke="black" points="297.35,-219.76 294.54,-209.55 290.37,-219.29 297.35,-219.76" style=""/>
+</g>
+<!-- vtk&#45;&gt;opm_coreg_gui_file_io -->
+<g id="edge41" class="edge" data-name="vtk-&gt;opm_coreg_gui_file_io">
+
+<path fill="none" stroke="black" d="M303.66,-427.43C319.38,-421.37 340.68,-413.23 359.55,-406.27 404.26,-389.79 421.42,-397.47 460.55,-370.27 482.12,-355.29 476.41,-339.15 498.55,-325.02 581.21,-272.24 649.66,-343.47 711.55,-267.39" style=""/>
+<path fill="none" stroke="black" d="M711.55,-265.39C717.25,-258.38 818.21,-225.29 884.46,-204.15" style=""/>
+<polygon fill="#e722b6" stroke="black" points="885.27,-207.57 893.73,-201.2 883.14,-200.9 885.27,-207.57" style=""/>
+</g>
+<!-- vtk&#45;&gt;opm_coreg_gui_gui -->
+<g id="edge42" class="edge" data-name="vtk-&gt;opm_coreg_gui_gui">
+
+<path fill="none" stroke="black" d="M297.55,-265.39C284.21,-213.79 187.02,-235.32 207.55,-186.14" style=""/>
+<path fill="none" stroke="black" d="M297.55,-346.65C291.96,-311.87 306.36,-301.5 297.55,-267.39" style=""/>
+</g>
+<!-- vtk&#45;&gt;opm_coreg_gui_utils -->
+<g id="edge43" class="edge" data-name="vtk-&gt;opm_coreg_gui_utils">
+
+<path fill="none" stroke="black" d="M297.55,-346.65C293.69,-322.62 274.6,-304.01 254.98,-290.89" style=""/>
+<polygon fill="#e722b6" stroke="black" points="256.99,-288.02 246.66,-285.68 253.28,-293.95 256.99,-288.02" style=""/>
+<path fill="none" stroke="black" d="M287.35,-419.62C293.67,-402.01 301.54,-373.46 297.55,-348.65" style=""/>
+</g>
+</g>
+</svg>

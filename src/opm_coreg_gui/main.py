@@ -1,14 +1,14 @@
-"""Entry point for the OPM-MEG coregistration GUI."""
+"""Entry point for the OPM-coregistration-GUI."""
 
 import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from src.opm_coreg_gui import OPMCoregGUI
+from .gui import OPMCoregGUI
 
 
 def main():
-    """Launch the coregistration GUI application."""
+    """Launch the OPM-coregistration-GUI application."""
     app = QApplication(sys.argv)
 
     # Create and show the main window

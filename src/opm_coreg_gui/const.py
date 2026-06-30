@@ -1,5 +1,7 @@
 """Define constants used across the application."""
 
+from enum import Enum
+
 PAIR_COLORS = [
     (1.0, 0.0, 0.0),  # Red
     (0.0, 0.0, 1.0),  # Blue
@@ -22,3 +24,23 @@ FIDUCIAL_COLORS = {
 }
 
 DEEPPINK = (1.0, 0.08, 0.58)
+
+
+class HelmetSystem(Enum):
+    CUSTOM = 0
+    FIELDLINE = 1
+    CERCA = 2
+
+
+HELMET_SYSTEM_DICT = {
+    "fieldline": HelmetSystem.FIELDLINE,
+    "cerca": HelmetSystem.CERCA,
+}
+
+FIELDLINE_LANDMARK_COLORS = {
+    "A": (1.0, 0.753, 0.796),  # Pink
+    "B": (0.0, 1.0, 1.0),  # Cyan
+    "C": (0.2, 0.4, 0.9),
+}
+
+DEFAULT_COLOR = (0.2, 0.4, 0.9)

@@ -56,13 +56,13 @@ def clear_source_renderer(gui):
 
 
 def clear_target_renderer_keep_scan(gui):
-    """Clear all actors from the target renderer except the helmet (master scan) and reset the camera.
+    """Clear all actors from the target renderer except the master scan and reset the camera.
 
     Args:
-        gui: The GUI object containing the target renderer, helmet actor, and VTK window.
+        gui: The GUI object containing the target renderer, master scan actor, and VTK window.
     """
     gui.ren_target.RemoveAllViewProps()
-    if gui.helmet_actor is not None:
-        gui.ren_target.AddActor(gui.helmet_actor)
+    if gui.master_scan_actor is not None:
+        gui.ren_target.AddActor(gui.master_scan_actor)
     gui.ren_target.ResetCameraClippingRange()
     gui.vtk_target.GetRenderWindow().Render()
