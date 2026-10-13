@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+
+title: OPM-Coreg
+
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+
+type: software
+
+authors:
+  - given-names: Kiran
+    family-names: Phalke
+    orcid: https://orcid.org/0009-0007-6088-3908
+
+  - given-names: Harry
+    family-names: Cook
+    orcid: https://orcid.org/0000-0002-4794-4119
+
+  - given-names: Giovanni
+    family-names: Barontini
+    orcid: https://orcid.org/0000-0003-1464-562X
+
+  - given-names: Andrew
+    family-names: Quinn
+    orcid: https://orcid.org/0000-0003-2267-9897
+
+  - given-names: Anna
+    family-names: Kowalczyk
+    orcid: https://orcid.org/0000-0002-8228-4267
+
+abstract: >-
+  OPM-Coreg is an open-source graphical user interface for
+  co-registering optically pumped magnetometer (OPM) sensors,
+  helmets, and auxiliary attachments with structural MRI data.
+
+keywords:
+  - Optically Pumped Magnetometer
+  - OPM
+  - Co-registration
+
+license: BSD-3-Clause
