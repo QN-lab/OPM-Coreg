@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "opm-coreg-gui"
-version = "2.0.0"
+name = "opm-coreg"
+version = "2.0.1"
 description = "OPM Coregistration GUI - A GUI application for co-registering OPM sensors and auxiliary devices to anatomical MRI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [project.scripts]
-opm-coreg-gui = "opm_coreg_gui.main:main"
+opm-coreg = "opm_coreg_gui.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

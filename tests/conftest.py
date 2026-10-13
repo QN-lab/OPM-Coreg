@@ -190,11 +190,14 @@ def gui_with_aux_landmarks(gui_with_valid_aux_points):
 
 @pytest.fixture
 def gui_with_helmet_landmarks(gui_with_valid_sensor_points):
-    gui_with_valid_sensor_points.helmet_landmark_positions = [
-        np.array([0, 0, 0]),
-        np.array([1, 0, 0]),
-        np.array([0, 1, 0]),
-    ]
+    gui_with_valid_sensor_points.helmet_landmark_positions = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [0, 1, 0],
+        ],
+        dtype=float,
+    )
     return gui_with_valid_sensor_points
 
 

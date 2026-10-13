@@ -11,6 +11,10 @@ This repository provides a GUI for co-registering multiple coordinate frames use
 
 The goal is to compute accurate **rigid transformations (6 DoF : rotation + translation)** between these coordinate systems.
 
+The GUI is primarily designed for co-registering OPM sensors with anatomical MRI, but it also serves as a general tool for computing rigid body transformations between arbitrary 3D surfaces.
+
+Future updates will expand support to conventional MEG, EEG, and other neuroimaging modalities.
+
 ## Features
 
 - Interactive 3D visualisation (VTK-based)
@@ -91,3 +95,7 @@ The GUI allows two ways of handling OPM helmets from different manufacturers :
 
 - Currently developing and testing on Python 3.11.14
 - More detailed documentation will be added in future releases.
+
+## Known issues
+
+- Windows: A `wglMakeCurrent failed` error may appear when closing the GUI. This is a harmless VTK cleanup issue not affecting the accuracy of the generated transforms, and can be ignored. This will be fixed in subsequent versions of the GUI.

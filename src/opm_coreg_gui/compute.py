@@ -89,7 +89,8 @@ def compute_dev_to_scan(gui):
     dst = np.vstack(gui.sensor_alignment_points_from_target)
 
     # If helmet landmark points exist, obtain a list of true landmark positions based on the marked points on helmet STL window
-    if getattr(gui, "helmet_landmark_positions", None):
+    arr = getattr(gui, "helmet_landmark_positions", None)
+    if arr is not None and arr.shape[0] > 0:
         try:
             true_landmark_coords = obtain_true_landmarks_from_marked_points(
                 gui.helmet_landmark_positions, gui.sensor_alignment_points_from_source
