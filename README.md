@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1252579754.svg)](https://doi.org/10.5281/zenodo.23370235)
+
 # OPM-COREG-GUI
 
 ## What is it?
