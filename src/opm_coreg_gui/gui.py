@@ -1484,3 +1484,30 @@ class OPMCoregGUI(QWidget):
         # Log the info in the log file with timestamp
         if hasattr(self, "logger"):
             self.logger.info(txt)
+    
+    def closeEvent(self, event):
+        """Cleanly shut down VTK before Qt destroys the widgets."""
+
+        try:
+            # Remove any VTK observers
+            remove_all_observers(self)
+
+            for vtk_widget in [self.vtk_source, self.vtk_target]:
+                if vtk_widget is None:
+                    continue
+
+                rw = vtk_widget.GetRenderWindow()
+
+                # Remove all renderers
+                rw.GetRenderers().RemoveAllItems()
+
+                # Finalize VTK/OpenGL resources
+                rw.Finalize()
+
+            self.iren_source = None
+            self.iren_target = None
+
+        except Exception as e:
+            print(f"VTK cleanup warning: {e}")
+
+        event.accept()
