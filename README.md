@@ -100,4 +100,4 @@ The GUI allows two ways of handling OPM helmets from different manufacturers :
 
 ## Known issues
 
-- Windows: A `wglMakeCurrent failed` error may appear when closing the GUI. This is a harmless VTK cleanup issue not affecting the accuracy of the generated transforms, and can be ignored. This will be fixed in subsequent versions of the GUI.
+- None
