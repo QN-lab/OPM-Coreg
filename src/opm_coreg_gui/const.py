@@ -44,3 +44,8 @@ FIELDLINE_LANDMARK_COLORS = {
 }
 
 DEFAULT_COLOR = (0.2, 0.4, 0.9)
+
+CITATION_TEXT = (
+    "Phalke, K., Cook, H., Barontini, G., Quinn, A., & Kowalczyk, A. (2026). "
+    "OPM-Coreg [Computer software]. https://doi.org/10.5281/zenodo.23370235"
+)

@@ -1,6 +1,4 @@
-# TODO : remove magic numbers, compile constants.
-# TODO : make display messages consistent.
-
+import importlib.metadata
 import logging
 from datetime import datetime
 
@@ -17,6 +15,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
 try:
     from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 except ImportError:
@@ -34,7 +33,7 @@ from .compute import (
     run_icp_head_to_master_scan,
     run_icp_head_to_mri,
 )
-from .const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem
+from .const import FIDUCIAL_COLORS, PAIR_COLORS, HelmetSystem, CITATION_TEXT
 from .display import (
     display_aux_dev_stl_on_source_window,
     display_aux_landmarks_on_source_window,
@@ -95,7 +94,7 @@ class OPMCoregGUI(QWidget):
     def __init__(self):
         """Initialize the main GUI window, VTK renderers, and shared state variables for the multi-step registration process."""
         super().__init__()
-        self.setWindowTitle("OPM Coregistration GUI")
+        self.setWindowTitle("OPM-Coreg GUI")
         self.resize(1800, 1000)
         self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
@@ -207,8 +206,16 @@ class OPMCoregGUI(QWidget):
         self.log_filepath = None
         self.logger = self._setup_logger()
 
+        # Obtain app details for logging
+        try:
+            self.version = importlib.metadata.version("opm-coreg")
+        except Exception:
+            self.version = "v0.0.0 (unknown)"
+
         # Build UI
         self._build_ui()
+        self._display_startup_message()
+
         # initialize
         self.iren_source.Initialize()
         self.iren_target.Initialize()
@@ -331,11 +338,22 @@ class OPMCoregGUI(QWidget):
         terminal_container.addWidget(self.terminal_output)
         main_layout.addLayout(terminal_container, stretch=1)
 
-        # Log GUI start message
+    def _display_startup_message(self):
+        """Display the startup message in the terminal output."""
         self.update_info(
-            "OPM Coregistration GUI started. Please select a step to begin."
+            "******************************************************************"
+        )
+        self.update_info(f"OPM-Coreg GUI v{self.version} started.")
+        self.update_info("If you use OPM-Coreg GUI in published work, please cite:")
+        self.update_info(CITATION_TEXT)
+        self.update_info(
+            "******************************************************************"
         )
         self.update_info(f"Log file for this session placed at: {self.log_filepath}")
+        self.update_info("Select a step to begin the coregistration process.")
+        self.update_info(
+            "******************************************************************"
+        )
 
     # ---------- mode switching ----------
     def set_mode(self, selected_mode):
@@ -1487,7 +1505,7 @@ class OPMCoregGUI(QWidget):
         # Log the info in the log file with timestamp
         if hasattr(self, "logger"):
             self.logger.info(txt)
-    
+
     def closeEvent(self, event):
         """Cleanly shut down VTK before Qt destroys the widgets."""
 
