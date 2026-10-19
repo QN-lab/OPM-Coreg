@@ -17,7 +17,10 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+try:
+    from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+except ImportError:
+    from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from .compute import (
     compute_aux_to_device,
