@@ -11,23 +11,27 @@ type: software
 authors:
   - given-names: Kiran
     family-names: Phalke
-    orcid: https://orcid.org/0009-0007-6088-3908
+    orcid: 'https://orcid.org/0009-0007-6088-3908'
 
   - given-names: Harry
     family-names: Cook
-    orcid: https://orcid.org/0000-0002-4794-4119
+    orcid: 'https://orcid.org/0000-0002-4794-4119'
 
   - given-names: Giovanni
     family-names: Barontini
-    orcid: https://orcid.org/0000-0003-1464-562X
+    orcid: 'https://orcid.org/0000-0003-1464-562X'
 
   - given-names: Andrew
     family-names: Quinn
-    orcid: https://orcid.org/0000-0003-2267-9897
+    orcid: 'https://orcid.org/0000-0003-2267-9897'
 
   - given-names: Anna
     family-names: Kowalczyk
-    orcid: https://orcid.org/0000-0002-8228-4267
+    orcid: 'https://orcid.org/0000-0002-8228-4267'
+
+repository-code: 'https://github.com/QN-lab/OPM-Coreg'
+
+url: 'https://github.com/QN-lab/OPM-Coreg'
 
 abstract: >-
   OPM-Coreg is an open-source graphical user interface for
@@ -40,3 +44,7 @@ keywords:
   - Co-registration
 
 license: BSD-3-Clause
+
+date-released: '2026-10-14'
+
+doi: 10.5281/zenodo.23370235
