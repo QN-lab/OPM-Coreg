@@ -54,14 +54,26 @@ The GUI outputs following rigid body transforms (arrows in the figure below) bet
 
 ## How to launch the GUI?
 
-The GUI is entirely developed in Python (3.11) and we suggest creating a dedicated environment for installing the GUI as an editable package. (PyPi-package will be available in future)
+1. **On Windows** : Use a dedicated .exe file for Windows, which is available through GitHub releases. The .exe file is built using PyInstaller and includes all dependencies, so no additional installation is required.
 
-Execute `launch_gui.bat` or `launch_gui.sh` depending on your OS to create the virtual environment, install dependencies, and launch the GUI.
+1. **On MacOS/Linux** : Create a dedicated virtual environment and install the GUI as an editable package.
 
-In case of manually running the GUI, create a virtual environment using conda or venv, activate it, change directory to project root, and execute following command:
+Install the GUI package in editable mode using pip in your desired virtual environment:
 
 ```bash
-python -m src.opm_coreg_gui.main
+pip install -e .
+```
+
+Launch the GUI using either of the following commands:
+
+```bash
+opm-coreg
+```
+
+Or,
+
+```bash
+python -m opm_coreg
 ```
 
 ## How to handle different OPM helmets?
@@ -80,7 +92,7 @@ The GUI allows two ways of handling OPM helmets from different manufacturers :
 - When both helmet design and landmark CSV are loaded, nearest landmark coordinates in the CSV file will be utilized for generating rigid transform rather than the ones marked on the helmet.
 - In either case, marking >=6 points in the pairwise mode will ensure better fit.
 
-## Where is the output stored?
+## Practical tips
 
 - Set environment variable `OPM_COREG_GUI_ROOT_DIR` which serves as the GUI output directory.
 - If the above environment variable is not set, `~/Documents/opm-coreg-gui` or similar will be created to write output files.
