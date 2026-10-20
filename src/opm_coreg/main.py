@@ -1,4 +1,4 @@
-"""Entry point for the OPM-coregistration-GUI."""
+"""Entry point for the OPM-Coreg GUI application."""
 
 import sys
 
@@ -8,7 +8,7 @@ from .gui import OPMCoregGUI
 
 
 def main():
-    """Launch the OPM-coregistration-GUI application."""
+    """Launch the OPM-Coreg GUI application."""
     app = QApplication(sys.argv)
 
     # Create and show the main window

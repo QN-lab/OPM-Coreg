@@ -104,7 +104,7 @@ def mock_compute_transform_success(monkeypatch, valid_transform):
         n = len(src)
         return valid_transform.copy(), 0.0, np.zeros(n)
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.compute_rigid_transform", _mock)
+    monkeypatch.setattr("opm_coreg.compute.compute_rigid_transform", _mock)
     return _mock
 
 
@@ -113,7 +113,7 @@ def mock_compute_transform_failure(monkeypatch):
     def _mock(src, dst):
         raise ValueError("Mocked transform failure")
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.compute_rigid_transform", _mock)
+    monkeypatch.setattr("opm_coreg.compute.compute_rigid_transform", _mock)
     return _mock
 
 
@@ -122,7 +122,7 @@ def mock_validate_success(monkeypatch):
     def _mock(T):
         return True, "OK"
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.validate_transform", _mock)
+    monkeypatch.setattr("opm_coreg.compute.validate_transform", _mock)
     return _mock
 
 
@@ -131,7 +131,7 @@ def mock_validate_failure(monkeypatch):
     def _mock(T):
         return False, "Invalid transform"
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.validate_transform", _mock)
+    monkeypatch.setattr("opm_coreg.compute.validate_transform", _mock)
     return _mock
 
 
@@ -141,7 +141,7 @@ def mock_landmarks_success(monkeypatch):
         return np.asarray(marked_points)  # passthrough
 
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.obtain_true_landmarks_from_marked_points", _mock
+        "opm_coreg.compute.obtain_true_landmarks_from_marked_points", _mock
     )
     return _mock
 
@@ -152,7 +152,7 @@ def mock_landmarks_failure(monkeypatch):
         raise ValueError("Landmark extraction failed")
 
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.obtain_true_landmarks_from_marked_points", _mock
+        "opm_coreg.compute.obtain_true_landmarks_from_marked_points", _mock
     )
     return _mock
 
@@ -261,7 +261,7 @@ def mock_pyvista(monkeypatch):
     fake_pv.wrap = fake_wrap
     fake_pv.Sphere = fake_sphere
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.pv", fake_pv)
+    monkeypatch.setattr("opm_coreg.compute.pv", fake_pv)
 
 
 @pytest.fixture
@@ -279,7 +279,7 @@ def mock_pyvista_zero_cells(monkeypatch):
     fake_pv.wrap = fake_wrap
     fake_pv.Sphere = fake_sphere
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.pv", fake_pv)
+    monkeypatch.setattr("opm_coreg.compute.pv", fake_pv)
 
 
 @pytest.fixture
@@ -297,7 +297,7 @@ def mock_pyvista_small_cells(monkeypatch):
     fake_pv.wrap = fake_wrap
     fake_pv.Sphere = fake_sphere
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.pv", fake_pv)
+    monkeypatch.setattr("opm_coreg.compute.pv", fake_pv)
 
 
 class FakeDelaunay:
@@ -313,12 +313,12 @@ def mock_delaunay_failure(monkeypatch):
     def _fail(*args, **kwargs):
         raise Exception("Delaunay failed")
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.Delaunay", _fail)
+    monkeypatch.setattr("opm_coreg.compute.Delaunay", _fail)
 
 
 @pytest.fixture
 def mock_delaunay_success(monkeypatch):
-    monkeypatch.setattr("src.opm_coreg_gui.compute.Delaunay", FakeDelaunay)
+    monkeypatch.setattr("opm_coreg.compute.Delaunay", FakeDelaunay)
 
 
 @pytest.fixture
@@ -349,7 +349,7 @@ def mock_vtk_minimal(monkeypatch):
         GetOutput=lambda: None,
     )
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.vtk", vtk_mock)
+    monkeypatch.setattr("opm_coreg.compute.vtk", vtk_mock)
 
 
 @pytest.fixture
@@ -388,7 +388,7 @@ def mock_extract_face_roi_success(monkeypatch):
     def _mock(*args, **kwargs):
         return object()  # dummy ROI
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.extract_face_roi", _mock)
+    monkeypatch.setattr("opm_coreg.compute.extract_face_roi", _mock)
 
 
 @pytest.fixture
@@ -396,20 +396,20 @@ def mock_extract_face_roi_failure(monkeypatch):
     def _mock(*args, **kwargs):
         return None
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.extract_face_roi", _mock)
+    monkeypatch.setattr("opm_coreg.compute.extract_face_roi", _mock)
 
 
 @pytest.fixture
 def mock_extract_convex_success(monkeypatch):
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.extract_convex_hull_roi", lambda *a, **k: object()
+        "opm_coreg.compute.extract_convex_hull_roi", lambda *a, **k: object()
     )
 
 
 @pytest.fixture
 def mock_extract_convex_failure(monkeypatch):
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.extract_convex_hull_roi", lambda *a, **k: None
+        "opm_coreg.compute.extract_convex_hull_roi", lambda *a, **k: None
     )
 
 
@@ -533,13 +533,13 @@ def mock_vtk_safe(monkeypatch):
         ),
     )
 
-    monkeypatch.setattr("src.opm_coreg_gui.compute.vtk", vtk_mock)
+    monkeypatch.setattr("opm_coreg.compute.vtk", vtk_mock)
 
 
 @pytest.fixture
 def mock_surface_rms(monkeypatch):
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.compute_surface_rms",
+        "opm_coreg.compute.compute_surface_rms",
         lambda *a, **k: 1.0,
     )
 
@@ -547,6 +547,6 @@ def mock_surface_rms(monkeypatch):
 @pytest.fixture
 def mock_vtk_matrix(monkeypatch):
     monkeypatch.setattr(
-        "src.opm_coreg_gui.compute.vtk_matrix_from_numpy",
+        "opm_coreg.compute.vtk_matrix_from_numpy",
         lambda x: None,
     )

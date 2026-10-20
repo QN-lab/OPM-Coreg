@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.opm_coreg_gui.compute import (
+from opm_coreg.compute import (
     extract_convex_hull_roi,
     extract_face_roi,
     extract_face_roi_from_head_scan,

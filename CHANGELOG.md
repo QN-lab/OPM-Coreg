@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.2] - 2026-10-19
+
+### Fixed
+
+- Fixed `wglMakeCurrent failed` error on Windows when using PyVista with VTK 10.3.0 and above.
+
+### Added
+
+- Python package name changed to `opm_coreg` and command name changed to `opm-coreg` for consistency with PyPI naming conventions.
+- Added `packaging` folder with instructions for building Windows executables using PyInstaller.
+- Added startup message to GUI terminal with current version number and citation information.
+
 ## [2.0.1] - 2026-06-30
 
 ### Fixed
