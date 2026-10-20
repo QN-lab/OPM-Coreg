@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.opm_coreg.utils import compute_rigid_transform, validate_transform, vtk_matrix_from_numpy
+from opm_coreg.utils import compute_rigid_transform, validate_transform, vtk_matrix_from_numpy
 
 # ----------------------------
 # Tests for compute_rigid_transform

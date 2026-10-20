@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from src.opm_coreg.compute import (
+from opm_coreg.compute import (
     compute_aux_to_device,
     compute_aux_to_scan,
     compute_dev_to_scan,
