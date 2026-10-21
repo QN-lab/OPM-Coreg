@@ -1,0 +1,92 @@
+[
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Phalke",
+      "given_name": "Kiran",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0009-0007-6088-3908"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "University of Birmingham"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Cook",
+      "given_name": "Harry",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0002-4794-4119"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "University of Birmingham"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Barontini",
+      "given_name": "Giovanni",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0003-1464-562X"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "University of Birmingham"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Quinn",
+      "given_name": "Andrew",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0003-2267-9897"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "University of Birmingham"
+      }
+    ]
+  },
+  {
+    "person_or_org": {
+      "type": "personal",
+      "family_name": "Kowalczyk",
+      "given_name": "Anna",
+      "identifiers": [
+        {
+          "scheme": "orcid",
+          "identifier": "0000-0002-8228-4267"
+        }
+      ]
+    },
+    "affiliations": [
+      {
+        "name": "University of Birmingham"
+      }
+    ]
+  }
+]
