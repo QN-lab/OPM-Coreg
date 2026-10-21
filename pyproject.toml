@@ -9,10 +9,28 @@ description = "OPM-Coreg - A GUI application for co-registering OPM sensors and 
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
-    {name = "Anna Kowalczyk"},
     {name = "Kiran Phalke"},
+    {name = "Harry Cook"},
+    {name = "Andrew Quinn"},
+    {name = "Giovanni Barontini"},
+    {name = "Anna Kowalczyk"},
 ]
-keywords = ["opm", "coregistration", "gui", "neuroimaging"]
+keywords = [
+    "opm",
+    "meg",
+    "neuroimaging",
+    "coregistration",
+    "mri",
+]
+license = {file = "LICENSE"}
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+]
 
 dependencies = [
     "numpy",
