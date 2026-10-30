@@ -36,9 +36,11 @@ https://doi.org/10.5281/zenodo.23370235
 
 ---
 
-## Tutorials
+## Tutorials and Datasets
 
-Video tutorials and walkthroughs will be added here as they become available.
+- [Tutorial 1 : Introduction and Overview](https://youtu.be/R4KlEnG1vWw?si=KVwxuCuargE3uRyF)
+- [Tutorial 2 : Co-registration Workflow](https://youtu.be/WsxPJTaDlk0?si=it3139iHXrxds9Zb)
+- [OPM-Coreg GUI Tutorial Dataset 01](https://doi.org/10.5281/zenodo.23806985)
 
 ---
 
